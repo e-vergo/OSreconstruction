@@ -1,0 +1,11 @@
+name = "OSReconstruction"
+version = "0.1.0"
+defaultTargets = ["OSReconstruction"]
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+rev = "master"
+
+[[lean_lib]]
+name = "OSReconstruction"
