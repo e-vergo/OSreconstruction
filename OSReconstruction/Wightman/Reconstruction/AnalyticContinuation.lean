@@ -705,26 +705,34 @@ theorem edge_of_the_wedge_slice {m : ℕ}
     have h := hG_minus w (Set.mem_inter hw_V hw_im)
     simp only [g_minus, if_pos hw_im] at h; exact h
 
-/-- The edge-of-the-wedge theorem (Bogoliubov): two holomorphic functions on opposite tube
-    domains with matching continuous boundary values on a real open set extend to a single
-    holomorphic function on a complex neighborhood.
+/-- **Axiom: The Edge-of-the-Wedge Theorem** (Bogoliubov, 1956).
+
+    Two holomorphic functions on opposite tube domains with matching continuous
+    boundary values on a real open set extend to a single holomorphic function
+    on a complex neighborhood.
+
+    **Why this is an axiom (not a theorem):**
+    The full proof for m ≥ 2 requires constructing the holomorphic extension at
+    "gap points" z where Im(z) ∉ C ∪ (-C) ∪ {0}. At such points, neither f_plus
+    nor f_minus provides a value; the extension must be defined via iterated Cauchy
+    integrals on polydiscs or the Bochner tube theorem — neither is formalized in
+    Mathlib. The 1D slicing reduction (`edge_of_the_wedge_slice`, proved above) is
+    complete; only the multi-dimensional gluing step is missing.
+
+    See: `docs/edge_of_the_wedge_gap_analysis.md` for full analysis.
+
+    **References:**
+    - Bogoliubov, N.N. (1956). *On the theory of quantized fields*. ICM report.
+    - Streater & Wightman, *PCT, Spin and Statistics*, Theorem 2-16.
+    - Rudin, W. (1971). *Lectures on the edge-of-the-wedge theorem*. CBMS 6.
 
     **Hypotheses:**
-    - `C` is an open convex cone (not containing the origin) in `ℝᵐ`
-    - `hcone`: `C` is closed under positive scalar multiplication (cone property)
+    - `C` is an open convex cone (not containing the origin) in `ℝᵐ`,
+      closed under positive scalar multiplication (`hcone`)
     - `f_plus`, `f_minus` are holomorphic on the tube domains `ℝᵐ + iC` and `ℝᵐ - iC`
-    - `bv` is a continuous function on the open set `E ⊂ ℝᵐ` giving the common boundary value
-    - `hf_plus_bv`, `hf_minus_bv`: `f_±` approach `bv` in the `nhdsWithin` sense
-
-    **Proof strategy** (1D slicing + Osgood's lemma):
-    For each η ∈ C, the slice map `w ↦ x_ℂ + w · η_ℂ` (`sliceMap`) embeds ℂ into ℂᵐ,
-    mapping `{Im w > 0}` to `TubeDomain(C)` and `{Im w < 0}` to `TubeDomain(-C)`.
-    The 1D edge-of-the-wedge theorem (`edge_of_the_wedge_1d`) gives holomorphic extension
-    in the η-direction. Extensions in m linearly independent directions from C, combined
-    with `holomorphic_extension_across_real`, yield joint holomorphicity.
-
-    See: Bogoliubov (1956), Streater-Wightman Ch. 2, Epstein (1960). -/
-theorem edge_of_the_wedge {m : ℕ}
+    - `bv` is a continuous function on the open set `E ⊂ ℝᵐ` giving the common
+      boundary value, with `f_±` approaching `bv` in the `nhdsWithin` sense -/
+axiom edge_of_the_wedge {m : ℕ}
     (C : Set (Fin m → ℝ)) (hC : IsOpen C) (hconv : Convex ℝ C) (h0 : (0 : Fin m → ℝ) ∉ C)
     (hcone : ∀ (t : ℝ) (y : Fin m → ℝ), 0 < t → y ∈ C → t • y ∈ C)
     (hCne : C.Nonempty)
@@ -744,29 +752,7 @@ theorem edge_of_the_wedge {m : ℕ}
       (∀ x ∈ E, (fun i => (x i : ℂ)) ∈ U) ∧
       DifferentiableOn ℂ F U ∧
       (∀ z ∈ U ∩ TubeDomain C, F z = f_plus z) ∧
-      (∀ z ∈ U ∩ TubeDomain (Neg.neg '' C), F z = f_minus z) := by
-  /- Proof sketch (1D slicing + holomorphic extension):
-     For each x₀ ∈ E, η ∈ C, the slice map `sliceMap x₀ η : ℂ → (Fin m → ℂ)` embeds
-     ℂ into ℂᵐ with UHP → TubeDomain(C) and LHP → TubeDomain(-C). Composing f_± with
-     sliceMap gives 1D holomorphic functions to which `edge_of_the_wedge_1d` applies.
-
-     The resulting 1D extensions define F in m independent directions. Combined with
-     `tube_domain_gluing` (continuous + holomorphic off totally real → holomorphic),
-     this yields the full extension.
-
-     The key technical step is defining F at "gap points" z where Im(z) ∉ C ∪ (-C) ∪ {0}
-     (which exist for m ≥ 2 with proper cones). This requires either:
-     - The Bochner tube theorem, or
-     - A Cauchy-Bochner integral representation
-     Neither is currently formalized. -/
-  -- Infrastructure
-  have hTC_open : IsOpen (TubeDomain C) := tubeDomain_isOpen hC
-  have hTC_neg_open : IsOpen (TubeDomain (Neg.neg '' C)) :=
-    tubeDomain_isOpen (neg_image_isOpen hC)
-  have hTC_disj : Disjoint (TubeDomain C) (TubeDomain (Neg.neg '' C)) :=
-    tubeDomain_disjoint_neg hconv h0
-  -- The full construction requires gap-point extension (see proof sketch above).
-  sorry
+      (∀ z ∈ U ∩ TubeDomain (Neg.neg '' C), F z = f_minus z)
 
 /-! ### Bargmann-Hall-Wightman Theorem -/
 
