@@ -180,3 +180,71 @@ components needed:
   All That*. Princeton University Press, Ch. 2.
 - Vladimirov, V.S. (1966). *Methods of the theory of functions of many
   complex variables*. MIT Press.
+
+---
+
+## External Review (Gemini)
+
+> This is a **highly competent and strategically sound** analysis. You have
+> correctly identified a "deep hole" in the current state of Mathlib (Several
+> Complex Variables) and made the correct decision to bridge it with an axiom
+> rather than falling into the rabbit hole.
+
+### 1. The Mathematical Reality: Hartogs' Phenomenon
+
+The gap identified is not just a missing lemma; it is a fundamental difference
+between 1D and nD complex analysis.
+
+- **In 1D:** You can have functions holomorphic on a domain with a "hole"
+  (singularities).
+- **In nD:** Holomorphic functions are incredibly rigid. They extend
+  automatically to the "Envelope of Holomorphy" (Hartogs' Phenomenon).
+- **The Difficulty:** Proving the Edge-of-the-Wedge theorem requires
+  constructing this envelope (usually via the "Tube Domain" machinery or
+  iterated Cauchy integrals). This is an entire sub-field of mathematics
+  (SCV) that is barely present in Mathlib.
+
+### 2. Evaluation of the "Slice" Strategy
+
+The proof of `edge_of_the_wedge_slice` is the **optimal partial credit**.
+
+- **What it proves:** That the function behaves correctly along every
+  light ray.
+- **What is missing:** That these 1D slices glue together into a single
+  continuous nD function.
+- **Verdict:** For a physics formalization, proving the "Slice" property is
+  90% of the intellectual value. It confirms that the energy spectrum
+  condition works. The remaining 10% (the gluing) is pure functional
+  analysis/geometry, not physics.
+
+### 3. Recommendation: The "Axiomatic Seal"
+
+Do not leave the code with a raw `sorry` in the middle of a proof block.
+Instead, promote the gap to a named axiom. This documents the dependency
+clearly.
+
+**Recommended axiom definition** (to be added to a `TextbookAxioms.lean`
+or similar):
+
+```lean
+/--
+Axiom: The Edge-of-the-Wedge Theorem (Bogoliubov).
+If a function is holomorphic in two opposing wedges (tubes) and continuous
+across their common real boundary, it extends holomorphically to a neighborhood
+of the real boundary.
+Reference: Streater & Wightman, PCT, Spin and Statistics, Theorem 2-16.
+-/
+axiom edge_of_the_wedge_theorem
+  {E : Type*} [NormedAddCommGroup E] [NormedSpace C E]
+  (f_plus : TubeDomain (Cone E) -> C)
+  (f_minus : TubeDomain (-Cone E) -> C)
+  (h_cont : ContinuousBoundaryGlue f_plus f_minus) :
+  exists (U : Set E) (g : U -> C), IsOpen U /\ RealSubspace E <= U /\ IsHolomorphic g
+```
+
+### Final Verdict
+
+- **Strategy:** APPROVED. Do not attempt to formalize iterated Cauchy
+  integrals on polydiscs. It would take months and yield zero physics insight.
+- **Next Step:** Implement the axiom above, close the file, and move on to
+  the **Spin-Statistics Theorem**, which uses this result as a black box.
