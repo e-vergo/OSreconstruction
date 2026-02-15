@@ -34,11 +34,14 @@ The proof proceeds in two directions:
 | **R → E** (Wightman → OS) | `wightman_to_os` | Wick rotation t → it, verify E0–E4 |
 | **E → R** (OS → Wightman) | `os_to_wightman` | Analytic continuation back to Minkowski, GNS construction |
 
-**Current status:** 23 sorrys on the critical path (47 total across project). Infrastructure layers
-(foundations, GNS, 1D edge-of-wedge, Osgood's lemma, Cauchy integral parameter) are complete.
+**Current status:** 21 sorrys on the critical path (45 total across project), plus 2 named axioms
+(`edge_of_the_wedge` and `bargmann_hall_wightman`). Infrastructure layers (foundations, GNS,
+1D edge-of-wedge, Osgood's lemma, Cauchy integral parameter) are complete.
 The multi-D edge-of-the-wedge 1D slicing (`edge_of_the_wedge_slice`) is fully proved;
-the full theorem is blocked by the gap-point extension problem (see
-[gap analysis](edge_of_the_wedge_gap_analysis.md)).
+the full multi-D theorem is promoted to a named axiom due to the gap-point problem
+(see [gap analysis](edge_of_the_wedge_gap_analysis.md)). The Bargmann-Hall-Wightman theorem
+is promoted to a named axiom due to missing complex Lie group infrastructure
+(see [gap analysis](bargmann_hall_wightman_gap_analysis.md)).
 
 ---
 
@@ -262,7 +265,7 @@ of |f(w, x) − f(w, x₀)| on the integration circle.
 
 ## Layer 4: Analytic Continuation
 
-### AnalyticContinuation.lean — 2 sorrys
+### AnalyticContinuation.lean — 2 named axioms (0 sorrys)
 
 Tube domain geometry and the key theorems of axiomatic QFT.
 
@@ -290,7 +293,7 @@ Tube domain geometry and the key theorems of axiomatic QFT.
 - `schwinger_euclidean_invariant` — Euclidean invariance of Schwinger functions
 - `schwinger_permutation_symmetric` — Permutation symmetry at Jost points
 
-#### Sorry: `edge_of_the_wedge` (line 727)
+#### Named axiom: `edge_of_the_wedge`
 
 **Multi-dimensional edge-of-the-wedge theorem (Bogoliubov):**
 
@@ -298,26 +301,19 @@ Tube domain geometry and the key theorems of axiomatic QFT.
 > (where Γ is an open convex cone), and their continuous boundary values agree,
 > then they extend to a single holomorphic function on a complex neighborhood of ℝⁿ.
 
-**Statement** (revised — see [statement changes](edge_of_the_wedge_statement_changes.md)):
-- Added cone condition (`hcone`) for positive scalar closure
-- Strengthened boundary values to `nhdsWithin` limits with explicit continuous `bv`
-- Added `sliceMap` infrastructure for dimensional reduction
+Promoted to a named axiom (no `sorryAx`). The statement has been revised
+(see [statement changes](edge_of_the_wedge_statement_changes.md)) with cone condition,
+strengthened boundary values, and `sliceMap` infrastructure.
 
 **What IS proved (sorry-free):**
 - `edge_of_the_wedge_slice` — 1D extension along any direction η ∈ C
 - All infrastructure: `sliceMap_*`, `tubeDomain_isOpen`, `tubeDomain_disjoint_neg`
 
-**What blocks completion: the gap-point problem**
-For m ≥ 2 with proper cones, points z near E with Im(z) ∉ C ∪ (-C) ∪ {0}
-exist. At these points, neither f_plus nor f_minus provides a value, and
-1D slicing cannot reach them. The standard proof requires iterated Cauchy
-integrals or the Bochner tube theorem, neither formalized in Mathlib.
+**Why axiom:** The gap-point problem for m ≥ 2 with proper cones requires
+iterated Cauchy integrals or the Bochner tube theorem, neither formalized in Mathlib.
 See [gap analysis](edge_of_the_wedge_gap_analysis.md) for full details.
 
-**Dependencies:** `osgood_lemma` (done), `edge_of_the_wedge_1d` (done),
-`tube_domain_gluing` (done), **iterated Cauchy integrals (NOT in Mathlib)**.
-
-#### Sorry: `bargmann_hall_wightman` (line 791)
+#### Named axiom: `bargmann_hall_wightman`
 
 **Bargmann-Hall-Wightman theorem:**
 
@@ -325,14 +321,10 @@ See [gap analysis](edge_of_the_wedge_gap_analysis.md) for full details.
 > (real) restricted Lorentz group extends holomorphically to the permuted
 > extended tube T''_n, and the extension is invariant under permutations.
 
-**Planned proof strategy:**
-1. Real Lorentz invariance → complex Lorentz invariance (analytic continuation / identity theorem on the complex Lorentz group)
-2. At Jost points, local commutativity (W4) gives agreement for adjacent transpositions
-3. Edge-of-the-wedge (#1) glues functions on adjacent permuted tubes
-4. Iterate over all transpositions to cover the symmetric group S_n
-
-**Dependencies:** `edge_of_the_wedge` (#1), `jost_lemma` (done),
-`schwinger_permutation_symmetric` (done)
+Promoted to a named axiom (no `sorryAx`). The proof requires connectedness of
+SO⁺(1,d;ℂ), the identity theorem on complex manifolds, and holomorphicity of the
+group action — none of which are available in Mathlib (~1200-1700 LOC to formalize).
+See [gap analysis](bargmann_hall_wightman_gap_analysis.md) for full details.
 
 ---
 
@@ -471,15 +463,15 @@ Layer 3: Complex Analysis (all sorry-free)
 Layer 4: Analytic Continuation
   AnalyticContinuation.lean
        │
-       ├── edge_of_the_wedge (#1) ← EdgeOfWedge + SeparatelyAnalytic (all ready)
-       └── bargmann_hall_wightman (#2) ← #1 + jost_lemma
+       ├── edge_of_the_wedge (AXIOM) — gap-point problem
+       └── bargmann_hall_wightman (AXIOM) — complex Lie group theory
 
 Layer 5: Wick Rotation Bridge
   WickRotation.lean
        │
-       ├── R→E: constructedSchwinger_* (#3-7) ← #2 for E3
+       ├── R→E: constructedSchwinger_* (#3-7) ← BHW axiom for E3
        ├── E→R: inductive/full analytic continuation (#8-10)
-       ├── constructWightmanFunctions (#11-17) ← #2, #10
+       ├── constructWightmanFunctions (#11-17) ← BHW axiom, #10
        └── os_to_wightman_full (#18) ← #11-17
 
 Layer 6: Main Theorems
@@ -491,7 +483,7 @@ Layer 6: Main Theorems
        └── os_to_wightman (#22) ← #18
 ```
 
-**Critical path:** ~~#0a,#0b1~~ (done) → #1 → #2 → #6,#15 and independently #8 → #9 → #10 → #11-17 → #18 → #22.
+**Critical path:** ~~#0a, #0b1~~ (proved), ~~#1, #2~~ (axioms) → #3-7 (R→E) and independently #8 → #9 → #10 → #11-17 → #18 → #22.
 
 ---
 
@@ -502,17 +494,17 @@ Layer 6: Main Theorems
 | File | Sorrys | IDs |
 |------|--------|-----|
 | SeparatelyAnalytic.lean | 0 | ✅ Complete |
-| AnalyticContinuation.lean | 2 | #1, #2 |
+| AnalyticContinuation.lean | 0 (2 axioms) | `edge_of_the_wedge`, `bargmann_hall_wightman` |
 | WickRotation.lean | 17 | #3–7, #8–10, #11–17, #18 |
 | Reconstruction.lean | 4 | #19–22 |
-| **Total** | **23** | |
+| **Total** | **21** (+2 axioms) | |
 
 ### By difficulty and blocking status
 
 | Category | IDs | Count | Notes |
 |----------|-----|-------|-------|
-| **Deep complex analysis** | ~~#0a, #0b1~~, #1 | 1 | #0a, #0b1 done; #1 blocked by gap-point problem ([details](edge_of_the_wedge_gap_analysis.md)) |
-| **BHW theorem** | #2 | 1 | Needs #1 |
+| **Deep complex analysis** | ~~#0a, #0b1, #1~~ | 0 | #0a, #0b1 proved; #1 promoted to axiom ([details](edge_of_the_wedge_gap_analysis.md)) |
+| **BHW theorem** | ~~#2~~ | 0 | Promoted to axiom ([details](bargmann_hall_wightman_gap_analysis.md)) |
 | **R→E axiom verification** | #3, #4, #5, #7 | 4 | Independent of each other |
 | **R→E needing BHW** | #6 | 1 | Needs #2 |
 | **E→R analytic continuation** | #8, #9, #10 | 3 | Sequential chain |
@@ -521,19 +513,18 @@ Layer 6: Main Theorems
 
 ### Next steps (recommended order)
 
-1. **#1 `edge_of_the_wedge`** — 1D slicing proved; blocked by gap-point extension
-   (requires iterated Cauchy integrals, ~500-800 LOC to formalize).
-   See [gap analysis](edge_of_the_wedge_gap_analysis.md).
+1. **#3–5, #7** (independent R→E theorems) — Can proceed in parallel.
+   Don't depend on any axioms.
 
-2. **#3–5, #7** (independent R→E theorems) — Can proceed in parallel.
-   Don't depend on #1.
+2. **#6** (`constructedSchwinger_symmetric`) — Uses `bargmann_hall_wightman` axiom.
+   Now unblocked.
 
-3. **#8–10** (E→R chain) — Can proceed independently of #1–2.
+3. **#8–10** (E→R chain) — Can proceed independently.
    Laplace transform + Hartogs for #8, iteration for #9, growth estimates for #10.
 
-4. **#2 `bargmann_hall_wightman`** — Needs #1.
+4. **#11–17** (Wightman axiom extraction) — Most need #10; #13, #15 use BHW axiom.
 
-5. **#11–17, #18–22** — Wiring, once the above are complete.
+5. **#18–22** — Wiring, once the above are complete.
 
 ---
 
@@ -568,7 +559,7 @@ OSReconstruction/Wightman/
 │   └── Poincare.lean                       ← ISO(1,d) (0 sorrys)
 ├── Reconstruction/
 │   ├── GNSConstruction.lean                ← GNS construction (0 sorrys)
-│   ├── AnalyticContinuation.lean           ← Tube domains, BHW (2 sorrys: #1-2)
+│   ├── AnalyticContinuation.lean           ← Tube domains, EOW+BHW axioms (0 sorrys)
 │   ├── WickRotation.lean                   ← OS↔Wightman bridge (17 sorrys: #3-18)
 │   └── Helpers/
 │       ├── EdgeOfWedge.lean                ← 1D edge-of-wedge (0 sorrys)

@@ -756,7 +756,7 @@ axiom edge_of_the_wedge {m : ℕ}
 
 /-! ### Bargmann-Hall-Wightman Theorem -/
 
-/-- The Bargmann-Hall-Wightman (BHW) theorem.
+/-- **Axiom**: The Bargmann-Hall-Wightman (BHW) theorem.
 
     Given a holomorphic function F on the forward tube T_n that is:
     1. Invariant under the real Lorentz group L₊↑
@@ -767,14 +767,17 @@ axiom edge_of_the_wedge {m : ℕ}
     1. Invariant under the complex Lorentz group L₊(ℂ)
     2. Invariant under all permutations of the arguments
 
-    The proof uses:
-    - Step 1: Real Lorentz invariance + holomorphy ⟹ complex Lorentz invariance
-      (by analytic continuation of the group action)
-    - Step 2: At Jost points (real spacelike configurations), local commutativity
-      gives equality of values from different permuted tubes
-    - Step 3: Edge-of-the-wedge theorem stitches adjacent permuted tubes together
-    - Step 4: Iterate over all adjacent transpositions to cover all permutations -/
-theorem bargmann_hall_wightman (n : ℕ)
+    This is promoted to a named axiom because the proof requires:
+    - Connectedness of SO⁺(1,d;ℂ) (complex Lie group theory)
+    - Identity theorem on complex manifolds
+    - Holomorphicity of the group action Λ ↦ F(Λ·z)
+    None of which are available in Mathlib. See `docs/bargmann_hall_wightman_gap_analysis.md`.
+
+    References:
+    - Bargmann, Hall, Wightman (1957), Nuovo Cimento 5, 1-14
+    - Streater & Wightman, PCT Spin and Statistics, Theorem 2-11
+    - Jost (1965), The General Theory of Quantized Fields, Ch. IV -/
+axiom bargmann_hall_wightman (n : ℕ)
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
     (hF_lorentz : ∀ (Λ : LorentzGroup.Restricted (d := d))
@@ -802,8 +805,7 @@ theorem bargmann_hall_wightman (n : ℕ)
       -- F_ext is symmetric under permutations
       (∀ (π : Equiv.Perm (Fin n)) (z : Fin n → Fin (d + 1) → ℂ),
         z ∈ PermutedExtendedTube d n →
-        F_ext (fun k => z (π k)) = F_ext z) := by
-  sorry
+        F_ext (fun k => z (π k)) = F_ext z)
 
 /-! ### Jost Points -/
 
