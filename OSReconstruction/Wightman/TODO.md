@@ -21,9 +21,9 @@ Wightman QFTs — OS reconstruction is strictly more general than the NuclearSpa
 7. ~~**R→E top-level wiring**~~ ✅ DONE (wightman_to_os_full proven)
 8. **edge_of_the_wedge** (multi-D, Bogoliubov's theorem) ← NEXT
 9. **bargmann_hall_wightman** (BHW, depends on 8)
-10. **constructedSchwinger_* theorems** (5 OS axioms, depend on 9)
-11. **E→R analytic continuation chain** (OS II §IV-V)
-12. **constructWightmanFunctions** (7 fields, depend on 11)
+10. **constructedSchwinger_* theorems** (E0,E1,E2,E4 independent; E3 depends on 9)
+11. **E→R analytic continuation chain** (OS II §IV-V, independent of 8-10)
+12. **constructWightmanFunctions** (7 fields, depend on 9 + 11)
 13. **Main reconstruction theorems** (Reconstruction.lean, wiring)
 
 ### What Does NOT Block Reconstruction
@@ -108,6 +108,142 @@ but not for the OS reconstruction theorems themselves.
 ### GNSConstruction.lean — 0 sorrys ✅
 
 (Previously listed as having sorrys — verified sorry-free on 2026-02-13)
+
+## Dependency Graph
+
+```
+SeparatelyAnalytic.lean (3 sorrys — leaf nodes, no dependencies)
+│
+│  continuousAt_deriv_of_continuousOn ──┐
+│  taylor_remainder_bound ──────────────┼──▶ osgood_lemma_prod (PROVEN)
+│  differentiableOn_cauchyIntegral_param│        │
+│                                               │
+│                                               ▼
+│                              osgood_lemma (PROVEN, by induction)
+│                                               │
+├───────────────────────────────────────────────┘
+│
+▼
+AnalyticContinuation.lean (2 sorrys)
+│
+│  edge_of_the_wedge ◀── osgood_lemma (for multi-D gluing)
+│        │
+│        ▼
+│  bargmann_hall_wightman ◀── edge_of_the_wedge + jost_lemma (PROVEN)
+│        │
+├────────┤
+│        │
+▼        ▼
+WickRotation.lean (17 sorrys)
+│
+│  ┌─── R→E DIRECTION (5 sorrys) ────────────────────────────────┐
+│  │                                                               │
+│  │  constructedSchwinger_tempered (E0)         ← independent     │
+│  │  constructedSchwinger_euclidean_covariant (E1) ← independent  │
+│  │  constructedSchwinger_reflection_positive (E2) ← independent  │
+│  │  constructedSchwinger_symmetric (E3)  ◀── bargmann_hall_wightman
+│  │  constructedSchwinger_cluster (E4)          ← independent     │
+│  │         │                                                     │
+│  │         ▼                                                     │
+│  │  wightman_to_os_full (PROVEN, wires E0-E4)                   │
+│  └───────────────────────────────────────────────────────────────┘
+│
+│  ┌─── E→R DIRECTION (12 sorrys) ───────────────────────────────┐
+│  │                                                               │
+│  │  inductive_analytic_continuation ◀── E0' (linear growth)     │
+│  │         │                                                     │
+│  │         ▼                                                     │
+│  │  full_analytic_continuation ◀── iterate inductive step        │
+│  │         │                                                     │
+│  │         ▼                                                     │
+│  │  boundary_values_tempered ◀── E0' controls distribution order │
+│  │         │                                                     │
+│  │         ▼                                                     │
+│  │  constructWightmanFunctions (7 field sorrys):                 │
+│  │    .normalized           ← boundary_values_tempered           │
+│  │    .translation_invariant ← E1                                │
+│  │    .lorentz_covariant    ← E1 + bargmann_hall_wightman        │
+│  │    .spectrum_condition   ← full_analytic_continuation         │
+│  │    .locally_commutative  ← E3 + edge_of_the_wedge            │
+│  │    .positive_definite    ← E2                                 │
+│  │    .hermitian            ← reality + analytic continuation    │
+│  │         │                                                     │
+│  │         ▼                                                     │
+│  │  os_to_wightman_full (wires everything)                      │
+│  └───────────────────────────────────────────────────────────────┘
+│
+▼
+Reconstruction.lean (4 sorrys — wiring layer)
+│
+│  wightman_reconstruction  ◀── GNSConstruction (PROVEN infrastructure)
+│  wightman_uniqueness      ◀── standard GNS uniqueness argument
+│  wightman_to_os           ◀── wightman_to_os_full (PROVEN)
+│  os_to_wightman           ◀── os_to_wightman_full
+```
+
+## Dependency Tiers (leaves first)
+
+### Tier 0: Leaf sorrys (no sorry dependencies, can be attacked now)
+
+| # | File | Line | Theorem | Proof strategy |
+|---|------|------|---------|----------------|
+| 0a | SeparatelyAnalytic | 72 | `differentiableOn_cauchyIntegral_param` | Cauchy integral formula for parametric holomorphicity |
+| 0b1 | SeparatelyAnalytic | 95 | `continuousAt_deriv_of_continuousOn` | Cauchy integral + continuous_of_dominated |
+| 0b2 | SeparatelyAnalytic | 117 | `taylor_remainder_bound` | Power series + Cauchy estimates + geometric series |
+| 3 | WickRotation | 112 | `constructedSchwinger_tempered` (E0) | R0 + Schwartz integrability |
+| 4 | WickRotation | 126 | `constructedSchwinger_euclidean_covariant` (E1) | Change of variables + translation invariance |
+| 5 | WickRotation | 142 | `constructedSchwinger_reflection_positive` (E2) | Borchers involution + R2 |
+| 7 | WickRotation | 171 | `constructedSchwinger_cluster` (E4) | R4 via analytic continuation |
+| 8 | WickRotation | 249 | `inductive_analytic_continuation` | OS II Thm 4.1: Laplace transform + E0' |
+| 19 | Reconstruction | 1043 | `wightman_reconstruction` | Wire GNS (all infrastructure proven) |
+| 20 | Reconstruction | 1058 | `wightman_uniqueness` | Standard GNS uniqueness |
+
+### Tier 1: Depend on Tier 0
+
+| # | Theorem | Depends on |
+|---|---------|------------|
+| 1 | `edge_of_the_wedge` | #0a–0b2 (via osgood_lemma) |
+| 9 | `full_analytic_continuation` | #8 (iterate) |
+| 21 | `wightman_to_os` | Wire to wightman_to_os_full (proven), needs #3–7 |
+
+### Tier 2: Depend on Tier 1
+
+| # | Theorem | Depends on |
+|---|---------|------------|
+| 2 | `bargmann_hall_wightman` | #1 (edge_of_the_wedge) |
+| 10 | `boundary_values_tempered` | #9 (full_analytic_continuation) + E0' |
+| 6 | `constructedSchwinger_symmetric` (E3) | #2 (BHW) |
+
+### Tier 3: Depend on Tier 2
+
+| # | Theorem | Depends on |
+|---|---------|------------|
+| 11–17 | `constructWightmanFunctions` fields | #10, and some need #1 or #2 |
+
+### Tier 4: Final wiring
+
+| # | Theorem | Depends on |
+|---|---------|------------|
+| 18 | `os_to_wightman_full` | #11–17 |
+| 22 | `os_to_wightman` | #18 |
+
+### Two Critical Bottlenecks
+
+1. **`edge_of_the_wedge` (#1)** — blocks BHW, which blocks E3 (R→E) and
+   local commutativity + Lorentz covariance (E→R). Deepest mathematical blocker.
+2. **`boundary_values_tempered` (#10)** — blocks all 7 constructWightmanFunctions
+   fields. Depends on the analytic continuation chain + E0'.
+
+## Parallel Work Streams (for collaboration)
+
+These groups are **independent** and can be worked on simultaneously:
+
+- **Group A** (complex analysis): SeparatelyAnalytic #0a–0b2 → edge_of_the_wedge → BHW
+- **Group B** (analytic continuation): inductive_analytic_continuation → full → boundary_values_tempered
+- **Group C** (R→E properties): E0, E1, E2, E4 (mutually independent, no sorry dependencies)
+- **Group D** (GNS wiring): wightman_reconstruction + wightman_uniqueness
+
+Groups A and B converge at Tier 3 (constructWightmanFunctions fields need both BHW and boundary values).
 
 ## Execution Plan
 
