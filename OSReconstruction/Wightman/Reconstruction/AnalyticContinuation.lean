@@ -708,7 +708,7 @@ theorem edge_of_the_wedge_slice {m : ℕ}
 /-- **Axiom: The Edge-of-the-Wedge Theorem** (Bogoliubov, 1956).
 
     Two holomorphic functions on opposite tube domains with matching continuous
-    boundary values on a real open set extend to a single holomorphic function
+    boundary values on a real open set extend to a unique holomorphic function
     on a complex neighborhood.
 
     **Why this is an axiom (not a theorem):**
@@ -752,7 +752,12 @@ axiom edge_of_the_wedge {m : ℕ}
       (∀ x ∈ E, (fun i => (x i : ℂ)) ∈ U) ∧
       DifferentiableOn ℂ F U ∧
       (∀ z ∈ U ∩ TubeDomain C, F z = f_plus z) ∧
-      (∀ z ∈ U ∩ TubeDomain (Neg.neg '' C), F z = f_minus z)
+      (∀ z ∈ U ∩ TubeDomain (Neg.neg '' C), F z = f_minus z) ∧
+      -- Uniqueness: any holomorphic function on U agreeing with f_plus on the
+      -- positive tube must agree with F everywhere on U (by the identity theorem,
+      -- since U ∩ TubeDomain C is open and nonempty).
+      (∀ (G : (Fin m → ℂ) → ℂ), DifferentiableOn ℂ G U →
+        (∀ z ∈ U ∩ TubeDomain C, G z = f_plus z) → ∀ z ∈ U, G z = F z)
 
 /-! ### Bargmann-Hall-Wightman Theorem -/
 
@@ -760,12 +765,20 @@ axiom edge_of_the_wedge {m : ℕ}
 
     Given a holomorphic function F on the forward tube T_n that is:
     1. Invariant under the real Lorentz group L₊↑
-    2. Has distributional boundary values satisfying local commutativity
+    2. Continuously extends to the real boundary (`hF_bv`)
+    3. Has boundary values satisfying local commutativity at spacelike pairs (`hF_local`)
 
-    Then F extends uniquely to a holomorphic function on the permuted extended tube
-    T''_n (more precisely, on its envelope of holomorphy), and the extension is:
+    Then F extends uniquely to a holomorphic function F_ext on the permuted extended
+    tube T''_n, and the extension is:
     1. Invariant under the complex Lorentz group L₊(ℂ)
     2. Invariant under all permutations of the arguments
+    3. Unique (any other holomorphic extension agreeing with F on the forward tube
+       must equal F_ext on the permuted extended tube)
+
+    **Note on `hF_bv`:** Real points lie outside the forward tube (Im = 0 ∉ V₊),
+    so F is not a priori meaningful at real points. The `hF_bv` hypothesis ensures
+    that F(x_ℂ) equals the distributional boundary value lim_{ε→0⁺} F(x + iεη),
+    making `hF_local` well-defined. See `docs/bargmann_hall_wightman_gap_analysis.md`.
 
     This is promoted to a named axiom because the proof requires:
     - Connectedness of SO⁺(1,d;ℂ) (complex Lie group theory)
@@ -783,11 +796,16 @@ axiom bargmann_hall_wightman (n : ℕ)
     (hF_lorentz : ∀ (Λ : LorentzGroup.Restricted (d := d))
       (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
       F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
+    -- F extends continuously to the real boundary of the forward tube.
+    -- This constrains F(x_ℂ) to equal the distributional boundary value
+    -- lim_{ε→0⁺} F(x + iεη). Without this, F(x_ℂ) is arbitrary since
+    -- real points lie outside ForwardTube (Im = 0 ∉ V₊).
+    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
+      ContinuousWithinAt F (ForwardTube d n) (fun k μ => (x k μ : ℂ)))
+    -- Local commutativity: at spacelike-separated pairs, the boundary values
+    -- of F and F∘swap agree. Both sides are meaningful by hF_bv:
+    -- F(x_ℂ) is constrained by hF_bv at x, and F(swap(x)_ℂ) by hF_bv at swap(x).
     (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
-      -- At Jost points (spacelike real configurations), the boundary values from
-      -- adjacent permuted tubes agree (this is local commutativity).
-      -- When the difference x_{i+1} - x_i is spacelike, swapping positions i and i+1
-      -- does not change the function value at real points.
       ∀ (x : Fin n → Fin (d + 1) → ℝ),
         MinkowskiSpace.minkowskiNormSq d
           (fun μ => x ⟨i.val + 1, hi⟩ μ - x i μ) > 0 →
@@ -805,7 +823,14 @@ axiom bargmann_hall_wightman (n : ℕ)
       -- F_ext is symmetric under permutations
       (∀ (π : Equiv.Perm (Fin n)) (z : Fin n → Fin (d + 1) → ℂ),
         z ∈ PermutedExtendedTube d n →
-        F_ext (fun k => z (π k)) = F_ext z)
+        F_ext (fun k => z (π k)) = F_ext z) ∧
+      -- Uniqueness: any holomorphic function on PermutedExtendedTube agreeing with F
+      -- on ForwardTube must equal F_ext (by the identity theorem on the connected
+      -- permuted extended tube).
+      (∀ (G : (Fin n → Fin (d + 1) → ℂ) → ℂ),
+        DifferentiableOn ℂ G (PermutedExtendedTube d n) →
+        (∀ z ∈ ForwardTube d n, G z = F z) →
+        ∀ z ∈ PermutedExtendedTube d n, G z = F_ext z)
 
 /-! ### Jost Points -/
 

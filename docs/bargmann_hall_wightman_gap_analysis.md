@@ -10,12 +10,14 @@ infrastructure. It is promoted to a named axiom.
 
 Given a holomorphic function F on the forward tube T_n that is:
 1. Invariant under the real restricted Lorentz group L+^up
-2. Satisfies local commutativity at spacelike-separated points
+2. Continuously extends to the real boundary (boundary values exist)
+3. Boundary values satisfy local commutativity at spacelike-separated pairs
 
-Then F extends to a holomorphic function F_ext on the permuted extended tube
-T''_n, and the extension is:
+Then F extends to a unique holomorphic function F_ext on the permuted extended
+tube T''_n, and the extension is:
 1. Invariant under the full complex Lorentz group L+(C)
 2. Symmetric under all permutations of the arguments
+3. Unique (any holomorphic extension agreeing with F on T_n agrees with F_ext)
 
 ## Proof Structure
 
@@ -75,6 +77,68 @@ The following components ARE available:
 - `jost_lemma` — spacelike separation at Jost points (proved)
 - `edge_of_the_wedge` — axiom (available for Step 3)
 
+## Statement Refinements
+
+### The boundary value problem (`hF_bv`)
+
+The original formulation evaluated `F` directly at real points in `hF_local`:
+
+```lean
+F (fun k μ => (x k μ : ℂ)) -- F evaluated at a real point
+```
+
+**Problem:** Real points lie *outside* the forward tube. The forward tube
+requires each successive imaginary difference Im(z_k - z_{k-1}) to lie in the
+open forward light cone V₊. For real points, all imaginary parts are zero, and
+0 ∉ V₊. So `F` is only holomorphic (and only physically meaningful) on the
+forward tube, not at real boundary points.
+
+Since `F` is formalized as a total function `(Fin n → Fin (d+1) → ℂ) → ℂ`
+(with holomorphicity constrained to the forward tube via `DifferentiableOn`),
+evaluating `F(x_ℂ)` returns an arbitrary "junk" value — whatever the total
+function happens to assign outside the tube.
+
+**Fix:** Add a `ContinuousWithinAt` hypothesis:
+
+```lean
+(hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
+  ContinuousWithinAt F (ForwardTube d n) (fun k μ => (x k μ : ℂ)))
+```
+
+This constrains `F(x_ℂ)` to equal the distributional boundary value
+`lim_{ε→0⁺} F(x + iεη)` (the limit as we approach the real point from within
+the forward tube). With `hF_bv` in place:
+- `F(x_ℂ)` is the boundary value of F at x (right side of `hF_local`)
+- `F(swap(x)_ℂ)` is the boundary value at swap(x) — also constrained by
+  `hF_bv` applied to `x ∘ swap` (left side of `hF_local`)
+- `hF_local` then states that these two boundary values agree at spacelike
+  separation, which is the standard locality condition
+
+This matches the physics: Wightman functions W_n(x_1,...,x_n) are
+distributional boundary values of holomorphic functions on the forward tube,
+and locality is a condition on these boundary values.
+
+### Uniqueness of F_ext
+
+The standard BHW theorem guarantees uniqueness of the holomorphic extension,
+which follows from the identity theorem: any two holomorphic functions on the
+connected permuted extended tube that agree on the forward tube (an open
+subset) must agree everywhere. We include this as an explicit conclusion:
+
+```lean
+∀ (G : ...), DifferentiableOn ℂ G (PermutedExtendedTube d n) →
+  (∀ z ∈ ForwardTube d n, G z = F z) →
+  ∀ z ∈ PermutedExtendedTube d n, G z = F_ext z
+```
+
+### Adjacent transpositions generate S_n
+
+The locality hypothesis uses adjacent transpositions `swap i (i+1)` rather
+than arbitrary permutations or full Jost point conditions. This is sufficient
+because adjacent transpositions generate the symmetric group S_n, and the
+full permutation symmetry in the conclusion is derived by iterating over
+a decomposition into adjacent transpositions.
+
 ## Mathematical Correctness of the Axiom
 
 The BHW theorem is a well-established result in axiomatic QFT:
@@ -86,9 +150,10 @@ The BHW theorem is a well-established result in axiomatic QFT:
 
 The axiom statement matches the standard formulation:
 - **Hypotheses**: holomorphicity on forward tube, real Lorentz invariance,
-  local commutativity at adjacent transpositions
-- **Conclusion**: extension to permuted extended tube with complex Lorentz
-  invariance and full permutation symmetry
+  continuous boundary extension (`hF_bv`), local commutativity at adjacent
+  transpositions (`hF_local`)
+- **Conclusion**: unique extension to permuted extended tube with complex
+  Lorentz invariance and full permutation symmetry
 
 The axiom is a true mathematical theorem whose proof requires infrastructure
 (complex Lie group theory) not available in Mathlib.
