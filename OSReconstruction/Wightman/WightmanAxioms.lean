@@ -326,6 +326,13 @@ def ExtendedForwardTube (d n : ℕ) [NeZero d] : Set (Fin n → Fin (d + 1) → 
   ⋃ Λ : LorentzGroup.Restricted (d := d),
     { z | ∃ w ∈ ForwardTube d n, z = fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * w k ν }
 
+/-- Convert a Euclidean spacetime point to a complex point via Wick rotation:
+    (τ, x⃗) ↦ (iτ, x⃗).
+
+    This is the fundamental map relating Euclidean and Minkowski spacetime. -/
+def wickRotatePoint {d : ℕ} (x : Fin (d + 1) → ℝ) : Fin (d + 1) → ℂ :=
+  fun μ => if μ = 0 then Complex.I * (x 0 : ℂ) else (x μ : ℂ)
+
 /-- The Wightman functions have analytic continuation to the forward tube.
 
     The n-point Wightman function W_n(x₁,...,xₙ), initially defined as a

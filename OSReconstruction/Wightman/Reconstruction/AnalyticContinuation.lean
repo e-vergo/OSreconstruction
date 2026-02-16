@@ -297,11 +297,6 @@ def IsEuclidean (z : Fin n → Fin (d + 1) → ℂ) : Prop :=
   (∀ k : Fin n, (z k 0).re = 0) ∧  -- time component is purely imaginary
   (∀ k : Fin n, ∀ μ : Fin (d + 1), μ ≠ 0 → (z k μ).im = 0)  -- spatial components are real
 
-/-- Convert a Euclidean spacetime point to a complex point via Wick rotation:
-    (τ, x⃗) ↦ (iτ, x⃗) -/
-def wickRotatePoint (x : Fin (d + 1) → ℝ) : Fin (d + 1) → ℂ :=
-  fun μ => if μ = 0 then I * (x 0 : ℂ) else (x μ : ℂ)
-
 /-- Wick-rotated points are Euclidean. -/
 theorem wickRotatePoint_isEuclidean (xs : Fin n → Fin (d + 1) → ℝ) :
     IsEuclidean (fun k => wickRotatePoint (xs k)) := by

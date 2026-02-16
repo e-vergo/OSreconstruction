@@ -1054,7 +1054,12 @@ theorem wightman_uniqueness (qft₁ qft₂ : WightmanQFT d)
     (h : ∀ n : ℕ, ∀ fs : Fin n → SchwartzSpacetime d,
       qft₁.wightmanFunction n fs = qft₂.wightmanFunction n fs) :
     ∃ U : qft₁.HilbertSpace →ₗᵢ[ℂ] qft₂.HilbertSpace,
-      U qft₁.vacuum = qft₂.vacuum := by
+      -- U maps vacuum to vacuum
+      U qft₁.vacuum = qft₂.vacuum ∧
+      -- U intertwines the field operators: U φ₁(f) = φ₂(f) U on the domain
+      (∀ (f : SchwartzSpacetime d) (ψ : qft₁.HilbertSpace),
+        ψ ∈ qft₁.field.domain →
+        U (qft₁.field.operator f ψ) = qft₂.field.operator f (U ψ)) := by
   sorry
 
 /-! ### Connection to Euclidean Field Theory
@@ -1200,8 +1205,43 @@ structure OSLinearGrowthCondition (d : ℕ) [NeZero d] (OS : OsterwalderSchrader
     ‖OS.S n f‖ ≤ alpha * beta ^ n * (n.factorial : ℝ) ^ gamma *
       SchwartzMap.seminorm ℝ sobolev_index sobolev_index f
 
+/-- The relationship between Wightman and Schwinger functions:
+    the two sets of correlation functions are analytic continuations of each other.
+
+    Formally: there exists a holomorphic function on the forward tube
+    (the "analytic continuation") that:
+    1. Has distributional boundary values equal to the Wightman functions W_n
+    2. When restricted to Euclidean points (via Wick rotation) and paired with
+       test functions, reproduces the Schwinger functions S_n
+
+    This is the mathematical content of the Wick rotation.
+
+    Ref: OS I (1973), Section 5; Streater-Wightman, Chapter 3 -/
+def IsWickRotationPair {d : ℕ} [NeZero d] (S : SchwingerFunctions d) (W : (n : ℕ) → SchwartzNPoint d n → ℂ) : Prop :=
+  ∀ (n : ℕ), ∃ (F_analytic : (Fin n → Fin (d + 1) → ℂ) → ℂ),
+    -- F_analytic is holomorphic on the forward tube
+    DifferentiableOn ℂ F_analytic (ForwardTube d n) ∧
+    -- Boundary values of F_analytic = W_n (as distributions):
+    -- For each test function f and approach direction η ∈ V₊,
+    -- lim_{ε→0⁺} ∫ F_analytic(x - iεη) f(x) dx = W_n(f)
+    (∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      (∀ k, InOpenForwardCone d (η k)) →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          F_analytic (fun k μ => ↑(x k μ) - ε * ↑(η k μ) * Complex.I) * (f x))
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W n f))) ∧
+    -- Euclidean restriction gives S_n: integrating F_analytic ∘ Wick against f gives S_n(f)
+    (∀ (f : SchwartzNPoint d n),
+      S n f = ∫ x : NPointDomain d n,
+        F_analytic (fun k => wickRotatePoint (x k)) * (f x))
+
 /-- Theorem R→E (Wightman → OS): A Wightman QFT yields Schwinger functions
     satisfying OS axioms E0-E4.
+
+    The Schwinger functions are related to the Wightman functions by Wick rotation
+    (analytic continuation): the Schwinger functions are Euclidean restrictions of the
+    analytic continuation whose boundary values are the Wightman functions.
 
     The construction (OS I, Section 5) uses the Bargmann-Hall-Wightman theorem:
     - The spectrum condition R3 implies W_n is analytic in the forward tube T_n
@@ -1219,28 +1259,16 @@ structure OSLinearGrowthCondition (d : ℕ) [NeZero d] (OS : OsterwalderSchrader
     Cluster (E4) follows from R4. -/
 theorem wightman_to_os (Wfn : WightmanFunctions d) :
     ∃ (OS : OsterwalderSchraderAxioms d),
-      -- The Schwinger functions are connected to the Wightman functions by
-      -- analytic continuation through the forward tube (Wick rotation).
-      -- For each n, there exists a holomorphic function on the forward tube
-      -- whose boundary values are W_n and whose Euclidean restriction gives S_n.
-      ∀ (n : ℕ), ∃ (W_analytic : (Fin n → Fin (d + 1) → ℂ) → ℂ),
-        DifferentiableOn ℂ W_analytic (ForwardTube d n) := by
-  -- The construction requires:
-  -- 1. Analytic continuation of W_n to the permuted extended tube (BHW theorem)
-  --    See Reconstruction/AnalyticContinuation.lean
-  -- 2. Restriction to Euclidean points to define S_n
-  -- 3. Verification of E0-E4 from R0-R5:
-  --    E0: temperedness from R0 + geometric estimates (OS I, Prop 5.1)
-  --    E1: Euclidean covariance from complex Lorentz invariance (SO(d+1) ⊂ L₊(ℂ))
-  --    E2: reflection positivity from Wightman positivity (R2)
-  --    E3: permutation symmetry from BHW permutation invariance
-  --    E4: cluster from R4
-  -- See Reconstruction/WickRotation.lean for the detailed proof.
+      IsWickRotationPair OS.S Wfn.W := by
+  -- See Reconstruction/WickRotation.lean for the detailed proof (wightman_to_os_full).
   sorry
 
 /-- Theorem E'→R' (OS II): Schwinger functions satisfying the linear growth
     condition E0' together with E1-E4 can be analytically continued to
     Wightman distributions satisfying R0-R5.
+
+    The Wightman functions are the boundary values of the analytic continuation
+    of the Schwinger functions to the forward tube.
 
     **Critical**: Without the linear growth condition, this theorem may be FALSE.
     The issue is that analytic continuation involves infinitely many Sₖ, and
@@ -1251,21 +1279,8 @@ theorem wightman_to_os (Wfn : WightmanFunctions d) :
 theorem os_to_wightman (OS : OsterwalderSchraderAxioms d)
     (linear_growth : OSLinearGrowthCondition d OS) :
     ∃ (Wfn : WightmanFunctions d),
-      -- The boundary values of the analytic continuation of the Schwinger functions
-      -- define Wightman functions. For each n, the analytic continuation on the
-      -- forward tube connects S_n (Euclidean restriction) to W_n (boundary values).
-      -- The growth control from E0' ensures temperedness at each step.
-      ∀ (n : ℕ), ∃ (W_analytic : (Fin n → Fin (d + 1) → ℂ) → ℂ),
-        DifferentiableOn ℂ W_analytic (ForwardTube d n) := by
-  -- The analytic continuation of Schwinger functions yields Wightman functions.
-  -- The proof follows OS II (1975):
-  -- Phase 1: Hilbert space from E2 (reflection positivity) via GNS
-  -- Phase 2: Contraction semigroup from Euclidean time translation (E0' + E1)
-  -- Phase 3: Inductive analytic continuation C_k^(0) → C_k^(1) → ... → C_k^(d+1) = T_k
-  --   (OS II, Theorem 4.1-4.2 — E0' is essential at each step)
-  -- Phase 4: Boundary values are tempered distributions (E0' gives growth control)
-  -- Phase 5: Verify R0-R5 from E0'-E4
-  -- See Reconstruction/WickRotation.lean
+      IsWickRotationPair OS.S Wfn.W := by
+  -- See Reconstruction/WickRotation.lean for the detailed proof (os_to_wightman_full).
   sorry
 
 end

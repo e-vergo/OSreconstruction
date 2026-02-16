@@ -37,7 +37,7 @@ Wightman QFTs — OS reconstruction is strictly more general than the NuclearSpa
 These are needed for *constructive QFT* (building concrete examples of Schwinger functions)
 but not for the OS reconstruction theorems themselves.
 
-## Sorry Census (23 on critical path)
+## Sorry Census (22 on critical path)
 
 ### ~~SeparatelyAnalytic.lean — 0 sorrys~~ ✅ DONE (2026-02-15)
 
@@ -57,7 +57,7 @@ All theorems proven and verified `sorryAx`-free:
 | 1 | 479 | `edge_of_the_wedge` | Multi-D edge-of-wedge (Bogoliubov) | #0b (Osgood) |
 | 2 | 530 | `bargmann_hall_wightman` | BHW: extend to permuted extended tube | #1 |
 
-### WickRotation.lean — 17 sorrys
+### WickRotation.lean — 16 sorrys
 
 **R→E direction (constructedSchwinger_*):**
 
@@ -74,35 +74,35 @@ All theorems proven and verified `sorryAx`-free:
 | # | Line | Theorem | Description | Blocked by |
 |---|------|---------|-------------|------------|
 | 8 | 249 | `inductive_analytic_continuation` | OS II Thm 4.1: C_k^(r) → C_k^(r+1) | — |
-| 9 | 262 | `full_analytic_continuation` | Iterate to reach forward tube | #8 |
-| 10 | 287 | `boundary_values_tempered` | E0' ⟹ tempered boundary values | #9 |
+| 9 | 271 | `full_analytic_continuation` | Iterate to reach forward tube + Euclidean restriction | #8 |
+| 10 | 296 | `boundary_values_tempered` | E0' ⟹ tempered boundary values + Wick rotation connection | #9 |
 
 **constructWightmanFunctions fields:**
 
 | # | Line | Field | Description | Blocked by |
 |---|------|-------|-------------|------------|
-| 11 | 301 | `normalized` | W₀ from S₀ = 1 | #10 |
-| 12 | 305 | `translation_invariant` | From E1 | #10 |
-| 13 | 310 | `lorentz_covariant` | From E1 via BHW | #2, #10 |
-| 14 | 318 | `spectrum_condition` | Distributional boundary limit | #10 |
-| 15 | 321 | `locally_commutative` | From E3 + edge-of-wedge | #1, #10 |
-| 16 | 324 | `positive_definite` | From E2 | #10 |
-| 17 | 327 | `hermitian` | Reality of Schwinger functions | #10 |
+| 11 | 336 | `normalized` | W₀ from S₀ = 1 | #10 |
+| 12 | 339 | `translation_invariant` | From E1 | #10 |
+| 13 | 343 | `lorentz_covariant` | From E1 via BHW | #2, #10 |
+| 14 | — | `spectrum_condition` | ✅ Now wired from boundary_values_tempered | #10 |
+| 15 | 355 | `locally_commutative` | From E3 + edge-of-wedge | #1, #10 |
+| 16 | 358 | `positive_definite` | From E2 | #10 |
+| 17 | 361 | `hermitian` | Reality of Schwinger functions | #10 |
 
 **E→R bridge:**
 
 | # | Line | Theorem | Description | Blocked by |
 |---|------|---------|-------------|------------|
-| 18 | 415 | `os_to_wightman_full` | Wire IsWickRotationPair | #11-17 |
+| 18 | 416 | `os_to_wightman_full` | Wire IsWickRotationPair | #11-13, #15-17 |
 
 ### Reconstruction.lean — 4 sorrys
 
 | # | Line | Theorem | Description | Blocked by |
 |---|------|---------|-------------|------------|
-| 19 | 1043 | `wightman_reconstruction` | GNS → WightmanQFT | GNS infra (done) |
-| 20 | 1058 | `wightman_uniqueness` | Uniqueness up to unitary equivalence | #19 |
-| 21 | 1239 | `wightman_to_os` | Wire to wightman_to_os_full | wightman_to_os_full (done) |
-| 22 | 1269 | `os_to_wightman` | Wire to os_to_wightman_full | #18 |
+| 19 | 1028 | `wightman_reconstruction` | GNS → WightmanQFT | GNS infra (done) |
+| 20 | 1053 | `wightman_uniqueness` | Uniqueness up to unitary equivalence | #19 |
+| 21 | 1260 | `wightman_to_os` | IsWickRotationPair (= wightman_to_os_full) | wightman_to_os_full (done) |
+| 22 | 1279 | `os_to_wightman` | IsWickRotationPair (= os_to_wightman_full) | #18 |
 
 ### GNSConstruction.lean — 0 sorrys ✅
 
@@ -133,7 +133,7 @@ AnalyticContinuation.lean (2 sorrys)
 ├────────┤
 │        │
 ▼        ▼
-WickRotation.lean (17 sorrys)
+WickRotation.lean (16 sorrys)
 │
 │  ┌─── R→E DIRECTION (5 sorrys) ────────────────────────────────┐
 │  │                                                               │
@@ -147,7 +147,7 @@ WickRotation.lean (17 sorrys)
 │  │  wightman_to_os_full (PROVEN, wires E0-E4)                   │
 │  └───────────────────────────────────────────────────────────────┘
 │
-│  ┌─── E→R DIRECTION (12 sorrys) ───────────────────────────────┐
+│  ┌─── E→R DIRECTION (11 sorrys) ───────────────────────────────┐
 │  │                                                               │
 │  │  inductive_analytic_continuation ◀── E0' (linear growth)     │
 │  │         │                                                     │
@@ -158,11 +158,11 @@ WickRotation.lean (17 sorrys)
 │  │  boundary_values_tempered ◀── E0' controls distribution order │
 │  │         │                                                     │
 │  │         ▼                                                     │
-│  │  constructWightmanFunctions (7 field sorrys):                 │
+│  │  constructWightmanFunctions (6 field sorrys):                 │
 │  │    .normalized           ← boundary_values_tempered           │
 │  │    .translation_invariant ← E1                                │
 │  │    .lorentz_covariant    ← E1 + bargmann_hall_wightman        │
-│  │    .spectrum_condition   ← full_analytic_continuation         │
+│  │    .spectrum_condition   ← boundary_values_tempered (WIRED)   │
 │  │    .locally_commutative  ← E3 + edge_of_the_wedge            │
 │  │    .positive_definite    ← E2                                 │
 │  │    .hermitian            ← reality + analytic continuation    │
@@ -176,8 +176,8 @@ Reconstruction.lean (4 sorrys — wiring layer)
 │
 │  wightman_reconstruction  ◀── GNSConstruction (PROVEN infrastructure)
 │  wightman_uniqueness      ◀── standard GNS uniqueness argument
-│  wightman_to_os           ◀── wightman_to_os_full (PROVEN)
-│  os_to_wightman           ◀── os_to_wightman_full
+│  wightman_to_os           ◀── wightman_to_os_full (PROVEN, same IsWickRotationPair sig)
+│  os_to_wightman           ◀── os_to_wightman_full (same IsWickRotationPair sig)
 ```
 
 ## Dependency Tiers (leaves first)
@@ -304,14 +304,14 @@ Groups A and B converge at Tier 3 (constructWightmanFunctions fields need both B
 | Reconstruction/Helpers/EdgeOfWedge.lean | 0 | ✅ Complete (1D edge-of-wedge) |
 | Reconstruction/Helpers/SeparatelyAnalytic.lean | 0 | ✅ Complete |
 | **Reconstruction/AnalyticContinuation.lean** | **2** | edge_of_wedge + BHW |
-| **Reconstruction/WickRotation.lean** | **17** | OS↔Wightman bridge |
-| **Reconstruction.lean** | **4** | Core theorems + wiring |
+| **Reconstruction/WickRotation.lean** | **16** | OS↔Wightman bridge |
+| **Reconstruction.lean** | **4** | Core theorems (IsWickRotationPair) |
 | NuclearSpaces/NuclearOperator.lean | 0 | ✅ Complete (deferred, not blocking) |
 | NuclearSpaces/NuclearSpace.lean | 2 | Deferred |
 | NuclearSpaces/BochnerMinlos.lean | 3 | Deferred |
 | NuclearSpaces/SchwartzNuclear.lean | 4 | Deferred |
 | NuclearSpaces/EuclideanMeasure.lean | 1 | Deferred |
-| **Critical path total** | **23** | |
+| **Critical path total** | **22** | |
 
 ## Proven Infrastructure (sorry-free)
 
@@ -337,8 +337,18 @@ Groups A and B converge at Tier 3 (constructWightmanFunctions fields need both B
 - `identity_theorem_connected` — analytic identity theorem
 - `holomorphic_translation_invariant`
 
+### Reconstruction.lean
+- `IsWickRotationPair` — Wick rotation pair predicate (moved here from WickRotation.lean)
+  - Connects Schwinger functions S and Wightman functions W through holomorphic F_analytic
+  - `wightman_to_os` and `os_to_wightman` now use `IsWickRotationPair OS.S Wfn.W`
+    (no longer trivially satisfiable — fixed 2026-02-16)
+
+### WightmanAxioms.lean
+- `wickRotatePoint` — Wick rotation map (τ,x⃗) ↦ (iτ,x⃗) (moved here from AnalyticContinuation.lean)
+
 ### WickRotation.lean
 - `wightman_to_os_full` — R→E top-level wiring (proven)
+- `constructWightmanFunctions.spectrum_condition` — wired from `boundary_values_tempered` (no longer sorry)
 
 ## Architecture
 

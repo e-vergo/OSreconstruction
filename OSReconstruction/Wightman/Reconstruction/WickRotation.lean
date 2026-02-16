@@ -212,38 +212,50 @@ structure EuclideanSemigroup (OS : OsterwalderSchraderAxioms d) where
     condition E0' provides the bounds needed for the continuation. -/
 
 /-- The region C_k^(r) from OS II: the domain after r steps of analytic continuation.
-    C_k^(0) = {ξ ∈ ℝ^k : ξⱼ > 0} (positive real half-space)
-    C_k^(r) extends r of the variables to complex with Im > 0
-    C_k^(d+1) = forward tube T_k -/
+    C_k^(0) = {ξ ∈ ℝ^k : ξⱼ > 0} (positive real half-space, all coordinates real)
+    C_k^(r+1) extends the first r+1 spacetime coordinates to complex (Im diff > 0),
+    while the remaining d-r coordinates stay real (Im = 0).
+    C_k^(d+1) = forward tube T_k (all coordinates complex with positive Im diffs).
+
+    **Important**: The regions EXPAND as r increases: C_k^(r) ⊂ C_k^(r+1), because
+    each step frees one more coordinate from the "must be real" constraint.
+    This matches the OS II inductive construction where each Laplace transform
+    step analytically continues one more spatial direction. -/
 def AnalyticContinuationRegion (d k r : ℕ) [NeZero d] :
     Set (Fin k → Fin (d + 1) → ℂ) :=
   match r with
   | 0 => -- All real, positive Euclidean times
     { z | (∀ i : Fin k, ∀ μ : Fin (d + 1), (z i μ).im = 0) ∧
           (∀ i : Fin k, (z i 0).re > 0) }
-  | r + 1 => -- Extend one more coordinate to complex
-    -- At step r+1, the first r+1 coordinates of each difference variable
-    -- can take complex values with positive imaginary part
-    { z | ∀ i : Fin k,
+  | r + 1 => -- First r+1 coordinates complex with positive imaginary part,
+    -- remaining coordinates must be real
+    { z | (∀ i : Fin k,
         ∀ μ : Fin (d + 1), μ.val ≤ r →
           let prev := if h : i.val = 0 then 0 else z ⟨i.val - 1, by omega⟩
-          (z i μ - prev μ).im > 0 }
+          (z i μ - prev μ).im > 0) ∧
+       (∀ i : Fin k,
+        ∀ μ : Fin (d + 1), μ.val > r →
+          (z i μ).im = 0) }
 
 /-- The inductive analytic continuation theorem (OS II, Theorem 4.1).
 
-    Under E0' (linear growth condition), the Schwinger functions extend analytically
-    from C_k^(r) to C_k^(r+1) at each step.
+    Given a holomorphic function on C_k^(r) (where r spacetime coordinates are complex),
+    extend it analytically to C_k^(r+1) (one more coordinate becomes complex).
 
     The proof at each step uses:
     1. Laplace transform representation of S_k on C_k^(r)
     2. E0' bounds to control the growth of the Laplace transform
-    3. Analytic continuation in one more variable -/
+    3. Analytic continuation in the (r+1)-th coordinate direction
+
+    The boundary-value connection: as the (r+1)-th coordinate's imaginary part → 0⁺,
+    S_ext approaches S_prev. This is encoded by requiring both functions to agree
+    when paired with test functions (distributional boundary values). -/
 theorem inductive_analytic_continuation
     (OS : OsterwalderSchraderAxioms d)
     (lgc : OSLinearGrowthCondition d OS)
-    (k : ℕ) (r : ℕ) (hr : r < d + 1) :
-    -- If S_k extends analytically to C_k^(r), then it extends to C_k^(r+1)
-    -- with temperedness estimates controlled by E0'
+    (k : ℕ) (r : ℕ) (hr : r < d + 1)
+    (S_prev : (Fin k → Fin (d + 1) → ℂ) → ℂ)
+    (hS_prev : DifferentiableOn ℂ S_prev (AnalyticContinuationRegion d k r)) :
     ∃ (S_ext : (Fin k → Fin (d + 1) → ℂ) → ℂ),
       DifferentiableOn ℂ S_ext (AnalyticContinuationRegion d k (r + 1)) := by
   sorry
@@ -252,13 +264,20 @@ theorem inductive_analytic_continuation
 
     C_k^(d+1) ⊇ ForwardTube d k (up to the difference variable transformation)
 
-    This is the culmination of the inductive analytic continuation. -/
+    This is the culmination of the inductive analytic continuation.
+
+    The analytic function W_analytic is connected to the Schwinger functions:
+    its Euclidean restriction (via Wick rotation) reproduces S_k. -/
 theorem full_analytic_continuation
     (OS : OsterwalderSchraderAxioms d)
     (lgc : OSLinearGrowthCondition d OS)
     (k : ℕ) :
     ∃ (W_analytic : (Fin k → Fin (d + 1) → ℂ) → ℂ),
-      DifferentiableOn ℂ W_analytic (ForwardTube d k) := by
+      DifferentiableOn ℂ W_analytic (ForwardTube d k) ∧
+      -- Euclidean restriction recovers S_k
+      (∀ (f : SchwartzNPoint d k),
+        OS.S k f = ∫ x : NPointDomain d k,
+          W_analytic (fun j => wickRotatePoint (x j)) * (f x)) := by
   sorry
 
 /-- Phase 4: The boundary values of the analytic continuation are tempered distributions.
@@ -269,16 +288,34 @@ theorem full_analytic_continuation
 
     The estimate (OS II, Section VI): the boundary values satisfy
     |W_n(f)| ≤ C_n · ‖f‖_{s,n} where C_n has at most factorial growth in n.
-    This factorial growth comes from E0'. -/
+    This factorial growth comes from E0'.
+
+    The connection to OS data: W_n is the distributional boundary value of
+    the analytic continuation F_analytic of S_n. The Euclidean restriction
+    of F_analytic recovers S_n, and its boundary values give W_n. -/
 theorem boundary_values_tempered
     (OS : OsterwalderSchraderAxioms d)
     (lgc : OSLinearGrowthCondition d OS)
     (n : ℕ) :
-    ∃ (W_n : SchwartzNPoint d n → ℂ),
+    ∃ (W_n : SchwartzNPoint d n → ℂ) (F_analytic : (Fin n → Fin (d + 1) → ℂ) → ℂ),
       -- W_n is continuous (tempered distribution)
       Continuous W_n ∧
       -- W_n is linear
       IsLinearMap ℂ W_n ∧
+      -- F_analytic is holomorphic on the forward tube
+      DifferentiableOn ℂ F_analytic (ForwardTube d n) ∧
+      -- Boundary values of F_analytic give W_n
+      (∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+        (∀ k, InOpenForwardCone d (η k)) →
+        Filter.Tendsto
+          (fun ε : ℝ => ∫ x : NPointDomain d n,
+            F_analytic (fun k μ => ↑(x k μ) - ε * ↑(η k μ) * Complex.I) * (f x))
+          (nhdsWithin 0 (Set.Ioi 0))
+          (nhds (W_n f))) ∧
+      -- Euclidean restriction of F_analytic gives S_n
+      (∀ (f : SchwartzNPoint d n),
+        OS.S n f = ∫ x : NPointDomain d n,
+          F_analytic (fun k => wickRotatePoint (x k)) * (f x)) ∧
       -- Growth estimate (linear growth condition on Wightman side, R0')
       ∃ (C : ℝ) (s : ℕ), C > 0 ∧
         ∀ f : SchwartzNPoint d n,
@@ -294,8 +331,8 @@ def constructWightmanFunctions (OS : OsterwalderSchraderAxioms d)
     (lgc : OSLinearGrowthCondition d OS) :
     WightmanFunctions d where
   W := fun n => (boundary_values_tempered OS lgc n).choose
-  linear := fun n => ((boundary_values_tempered OS lgc n).choose_spec.2.1)
-  tempered := fun n => ((boundary_values_tempered OS lgc n).choose_spec.1)
+  linear := fun n => (boundary_values_tempered OS lgc n).choose_spec.choose_spec.2.1
+  tempered := fun n => (boundary_values_tempered OS lgc n).choose_spec.choose_spec.1
   normalized := by
     -- The boundary value of S_0 = 1 gives W_0 = evaluation at the unique point
     sorry
@@ -309,13 +346,11 @@ def constructWightmanFunctions (OS : OsterwalderSchraderAxioms d)
     -- inherits Lorentz covariance from Euclidean covariance
     sorry
   spectrum_condition := by
-    -- The analytic continuation to the forward tube is the spectrum condition
+    -- Use the F_analytic witness from boundary_values_tempered
     intro n
-    obtain ⟨W_analytic, hW⟩ := full_analytic_continuation OS lgc n
-    exact ⟨W_analytic, hW, by
-      -- The boundary values of the analytic continuation give W_n
-      -- This requires showing the distributional limit holds
-      sorry⟩
+    have h := (boundary_values_tempered OS lgc n).choose_spec.choose_spec
+    exact ⟨(boundary_values_tempered OS lgc n).choose_spec.choose,
+      h.2.2.1, h.2.2.2.1⟩
   locally_commutative := by
     -- From E3 (permutation symmetry) + edge-of-the-wedge
     sorry
@@ -347,36 +382,7 @@ def osPreHilbertSpace (OS : OsterwalderSchraderAxioms d)
 
 /-! ### The Bridge Theorems -/
 
-/-- The relationship between Wightman and Schwinger functions:
-    the two sets of correlation functions are analytic continuations of each other.
-
-    Formally: there exists a holomorphic function on the forward tube
-    (the "analytic continuation") that:
-    1. Has distributional boundary values equal to the Wightman functions W_n
-    2. When restricted to Euclidean points (via Wick rotation) and paired with
-       test functions, reproduces the Schwinger functions S_n
-
-    This is the mathematical content of the Wick rotation.
-
-    Ref: OS I (1973), Section 5; Streater-Wightman, Chapter 3 -/
-def IsWickRotationPair (S : SchwingerFunctions d) (W : (n : ℕ) → SchwartzNPoint d n → ℂ) : Prop :=
-  ∀ (n : ℕ), ∃ (F_analytic : (Fin n → Fin (d + 1) → ℂ) → ℂ),
-    -- F_analytic is holomorphic on the forward tube
-    DifferentiableOn ℂ F_analytic (ForwardTube d n) ∧
-    -- Boundary values of F_analytic = W_n (as distributions):
-    -- For each test function f and approach direction η ∈ V₊,
-    -- lim_{ε→0⁺} ∫ F_analytic(x - iεη) f(x) dx = W_n(f)
-    (∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-      (∀ k, InOpenForwardCone d (η k)) →
-      Filter.Tendsto
-        (fun ε : ℝ => ∫ x : NPointDomain d n,
-          F_analytic (fun k μ => ↑(x k μ) - ε * ↑(η k μ) * Complex.I) * (f x))
-        (nhdsWithin 0 (Set.Ioi 0))
-        (nhds (W n f))) ∧
-    -- Euclidean restriction gives S_n: integrating F_analytic ∘ Wick against f gives S_n(f)
-    (∀ (f : SchwartzNPoint d n),
-      S n f = ∫ x : NPointDomain d n,
-        F_analytic (fun k => wickRotatePoint (x k)) * (f x))
+-- `IsWickRotationPair` is defined in Reconstruction.lean (available via import).
 
 /-- **Theorem R→E**: Wightman functions produce Schwinger functions satisfying E0-E4.
 
@@ -416,33 +422,10 @@ theorem os_to_wightman_full (OS : OsterwalderSchraderAxioms d)
 
 /-! ### Wired Corollaries
 
-These provide the theorems `wightman_to_os` and `os_to_wightman` as stated in
-`Reconstruction.lean`, extracted from the stronger `wightman_to_os_full` and
-`os_to_wightman_full` results.
-
-Note: The theorems in `Reconstruction.lean` are sorry'd because WickRotation.lean
+The theorems `wightman_to_os` and `os_to_wightman` in `Reconstruction.lean` have
+identical signatures to `wightman_to_os_full` and `os_to_wightman_full` above
+(both use `IsWickRotationPair`). They are sorry'd because WickRotation.lean
 imports Reconstruction.lean (circular import prevents wiring from there).
-These corollaries serve as the actual proofs. -/
-
-/-- Extract of `wightman_to_os_full`: Wightman functions yield OS axioms and analytic witnesses. -/
-theorem wightman_to_os_corollary (Wfn : WightmanFunctions d) :
-    ∃ (OS : OsterwalderSchraderAxioms d),
-      ∀ (n : ℕ), ∃ (W_analytic : (Fin n → Fin (d + 1) → ℂ) → ℂ),
-        DifferentiableOn ℂ W_analytic (ForwardTube d n) := by
-  obtain ⟨OS, hpair⟩ := wightman_to_os_full Wfn
-  exact ⟨OS, fun n => by
-    obtain ⟨F, hF_holo, _, _⟩ := hpair n
-    exact ⟨F, hF_holo⟩⟩
-
-/-- Extract of `os_to_wightman_full`: OS axioms + linear growth yield Wightman functions. -/
-theorem os_to_wightman_corollary (OS : OsterwalderSchraderAxioms d)
-    (lgc : OSLinearGrowthCondition d OS) :
-    ∃ (Wfn : WightmanFunctions d),
-      ∀ (n : ℕ), ∃ (W_analytic : (Fin n → Fin (d + 1) → ℂ) → ℂ),
-        DifferentiableOn ℂ W_analytic (ForwardTube d n) := by
-  obtain ⟨Wfn, hpair⟩ := os_to_wightman_full OS lgc
-  exact ⟨Wfn, fun n => by
-    obtain ⟨F, hF_holo, _, _⟩ := hpair n
-    exact ⟨F, hF_holo⟩⟩
+The `_full` versions here serve as the actual proofs. -/
 
 end
