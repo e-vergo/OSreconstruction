@@ -4,6 +4,7 @@ Released under Apache 2.0 license.
 Authors: ModularPhysics Contributors
 -/
 import OSReconstruction.SCV.Polydisc
+import OSReconstruction.SCV.Osgood
 import OSReconstruction.SCV.IteratedCauchyIntegral
 import OSReconstruction.SCV.TubeDomainExtension
 

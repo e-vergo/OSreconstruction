@@ -111,34 +111,41 @@ theorem constructedSchwinger_tempered (Wfn : WightmanFunctions d) (n : ℕ) :
   -- This follows from the temperedness of W_analytic and the integrability of Schwartz functions.
   sorry
 
-/-- The Schwinger functions satisfy Euclidean covariance (E1).
+/-- The Schwinger functions satisfy translation invariance (E1a).
 
-    Proof: Complex Lorentz invariance of W_analytic on the permuted extended tube,
-    together with the fact that SO(d+1) ⊂ L₊(ℂ) preserves Euclidean points.
-    The translation invariance follows from changing variables in the integral
-    and using translation invariance of W_analytic on the forward tube. -/
-theorem constructedSchwinger_euclidean_covariant (Wfn : WightmanFunctions d)
+    Proof: Change of variables x ↦ x + a in the integral, using Lebesgue
+    measure invariance and translation invariance of W_analytic on the forward tube. -/
+theorem constructedSchwinger_translation_invariant (Wfn : WightmanFunctions d)
     (n : ℕ) (a : SpacetimeDim d) (f g : SchwartzNPoint d n)
     (hfg : ∀ x, g.toFun x = f.toFun (fun i => x i + a)) :
     constructSchwingerFunctions Wfn n f = constructSchwingerFunctions Wfn n g := by
-  -- Change of variables x ↦ x + a in the integral, using Lebesgue measure invariance
-  -- and translation invariance of the analytic continuation
+  sorry
+
+/-- The Schwinger functions satisfy rotation invariance (E1b).
+
+    Proof: Complex Lorentz invariance of W_analytic on the permuted extended tube,
+    together with the fact that SO(d+1) ⊂ L₊(ℂ) preserves Euclidean points.
+    The rotation R ∈ O(d+1) acts on the forward tube via its embedding in L₊(ℂ). -/
+theorem constructedSchwinger_rotation_invariant (Wfn : WightmanFunctions d)
+    (n : ℕ) (R : Matrix (Fin (d + 1)) (Fin (d + 1)) ℝ)
+    (hR : R.transpose * R = 1)
+    (f g : SchwartzNPoint d n)
+    (hfg : ∀ x, g.toFun x = f.toFun (fun i => R.mulVec (x i))) :
+    constructSchwingerFunctions Wfn n f = constructSchwingerFunctions Wfn n g := by
   sorry
 
 /-- The Schwinger functions satisfy reflection positivity (E2).
 
     Proof: For test functions supported in τ > 0, the Wick-rotated quadratic form
     reduces to the Wightman positivity condition.
-    Specifically, if F is supported in {τ > 0}, then the Borchers involution
-    θF* composed with Wick rotation gives the conjugated-reversed sequence,
-    and Σ W_{n+m}(θf*_n ⊗ f_m) ≥ 0 follows from R2 (Wightman positivity). -/
+    Specifically, if F is supported in {τ > 0}, then the OS inner product
+    Σ S_{n+m}((θf̄)_n ⊗ f_m) reduces to Σ W_{n+m}(f*_n ⊗ f_m)
+    after Wick rotation, and the latter is ≥ 0 by Wightman positivity (R2). -/
 theorem constructedSchwinger_reflection_positive (Wfn : WightmanFunctions d)
     (F : BorchersSequence d)
     (hsupp : ∀ n, ∀ x : NPointDomain d n, (F.funcs n).toFun x ≠ 0 →
       x ∈ PositiveTimeRegion d n) :
-    (WightmanInnerProduct d (constructSchwingerFunctions Wfn) F F).re ≥ 0 := by
-  -- The key step: the inner product ∑ S_{n+m}(θf*_n ⊗ f_m) equals
-  -- the Wightman positivity form ∑ W_{n+m}(f*_n ⊗ f_m) after Wick rotation
+    (OSInnerProduct d (constructSchwingerFunctions Wfn) F F).re ≥ 0 := by
   sorry
 
 /-- The Schwinger functions satisfy permutation symmetry (E3).
@@ -191,11 +198,11 @@ structure EuclideanSemigroup (OS : OsterwalderSchraderAxioms d) where
   semigroup : ∀ s t : ℝ, s > 0 → t > 0 → T s ∘ T t = T (s + t)
   /-- Contraction: ‖T(t)F‖ ≤ ‖F‖ -/
   contraction : ∀ t : ℝ, t > 0 → ∀ F : BorchersSequence d,
-    (WightmanInnerProduct d OS.S (T t F) (T t F)).re ≤
-    (WightmanInnerProduct d OS.S F F).re
+    (OSInnerProduct d OS.S (T t F) (T t F)).re ≤
+    (OSInnerProduct d OS.S F F).re
   /-- Positivity: T(t) ≥ 0 as an operator -/
   positive : ∀ t : ℝ, t > 0 → ∀ F : BorchersSequence d,
-    (WightmanInnerProduct d OS.S F (T t F)).re ≥ 0
+    (OSInnerProduct d OS.S F (T t F)).re ≥ 0
 
 /- Phase 3: Analytic continuation from Euclidean to Minkowski.
 
@@ -395,7 +402,8 @@ theorem wightman_to_os_full (Wfn : WightmanFunctions d) :
   -- Construct OS axioms from Wightman functions
   refine ⟨⟨constructSchwingerFunctions Wfn,
     constructedSchwinger_tempered Wfn,
-    constructedSchwinger_euclidean_covariant Wfn,
+    constructedSchwinger_translation_invariant Wfn,
+    constructedSchwinger_rotation_invariant Wfn,
     constructedSchwinger_reflection_positive Wfn,
     constructedSchwinger_symmetric Wfn,
     constructedSchwinger_cluster Wfn⟩, ?_⟩

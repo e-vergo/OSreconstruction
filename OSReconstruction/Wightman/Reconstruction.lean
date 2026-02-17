@@ -1118,6 +1118,134 @@ def timeReflection (x : SpacetimeDim d) : SpacetimeDim d :=
 def timeReflectionN (x : NPointDomain d n) : NPointDomain d n :=
   fun i => timeReflection d (x i)
 
+/-- Time reflection is an involution: θ(θx) = x. -/
+theorem timeReflection_timeReflection (x : SpacetimeDim d) :
+    timeReflection d (timeReflection d x) = x := by
+  funext j; simp only [timeReflection]; by_cases hj : j = 0 <;> simp [hj]
+
+/-- Time reflection preserves the NNNorm of spacetime vectors. -/
+private theorem timeReflection_nnnorm_eq (y : SpacetimeDim d) :
+    ‖timeReflection d y‖₊ = ‖y‖₊ := by
+  simp only [Pi.nnnorm_def, timeReflection]
+  apply Finset.sup_congr rfl; intro j _
+  by_cases hj : j = 0
+  · subst hj; simp [nnnorm_neg]
+  · simp [if_neg hj]
+
+/-- Time reflection preserves the norm of n-point configurations. -/
+private theorem timeReflectionN_norm_eq (x : NPointDomain d n) :
+    ‖timeReflectionN d x‖ = ‖x‖ := by
+  simp only [Pi.norm_def, timeReflectionN]
+  congr 1
+  apply Finset.sup_congr rfl; intro i _
+  exact_mod_cast timeReflection_nnnorm_eq d (x i)
+
+/-- Time reflection on n-point domains is smooth (it is linear). -/
+private theorem contDiff_timeReflectionN {m : WithTop ℕ∞} :
+    ContDiff ℝ m (timeReflectionN (n := n) d) := by
+  apply contDiff_pi.mpr; intro i
+  apply contDiff_pi.mpr; intro j
+  show ContDiff ℝ m fun x => timeReflectionN d x i j
+  simp only [timeReflectionN, timeReflection]
+  by_cases hj : j = 0
+  · subst hj; simp only [ite_true]
+    exact (contDiff_apply_apply ℝ ℝ i (0 : Fin (d + 1))).neg
+  · simp only [if_neg hj]
+    exact contDiff_apply_apply ℝ ℝ i j
+
+section TimeReflectSchwartz
+variable {d}
+
+/-- Time reflection on n-point Schwartz functions.
+    (θf)(x₁,...,xₙ) = f(θx₁,...,θxₙ) where θ(τ,x⃗) = (-τ,x⃗).
+
+    This is the correct involution for the Osterwalder-Schrader inner product.
+    The OS reflection positivity uses ⟨F, G⟩_OS = Σ S_{n+m}((θf̄)_n ⊗ g_m),
+    NOT the Borchers involution (which includes argument reversal).
+
+    Reference: Osterwalder-Schrader, Commun. Math. Phys. 31 (1973), Axiom E2 -/
+def SchwartzNPoint.timeReflect {n : ℕ} (f : SchwartzNPoint d n) : SchwartzNPoint d n where
+  toFun := fun x => f (timeReflectionN d x)
+  smooth' := by exact f.smooth'.comp (contDiff_timeReflectionN d)
+  decay' := by
+    intro k l
+    obtain ⟨C, hC⟩ := f.decay' k l
+    refine ⟨C, fun x => ?_⟩
+    let θLE : NPointDomain d n ≃ₗ[ℝ] NPointDomain d n :=
+      { toFun := timeReflectionN d
+        invFun := timeReflectionN d
+        left_inv := fun x => funext fun i => timeReflection_timeReflection d (x i)
+        right_inv := fun x => funext fun i => timeReflection_timeReflection d (x i)
+        map_add' := fun x y => by
+          funext i j; simp only [timeReflectionN, timeReflection, Pi.add_apply]
+          split_ifs <;> ring
+        map_smul' := fun c x => by
+          funext i j
+          simp only [timeReflectionN, timeReflection, Pi.smul_apply, smul_eq_mul,
+            RingHom.id_apply]
+          split_ifs <;> ring }
+    let θLIE : NPointDomain d n ≃ₗᵢ[ℝ] NPointDomain d n :=
+      { θLE with
+        norm_map' := fun x => timeReflectionN_norm_eq d x }
+    have hcomp : (fun x => f (timeReflectionN d x)) = f ∘ θLIE := rfl
+    rw [hcomp, θLIE.norm_iteratedFDeriv_comp_right (𝕜 := ℝ) f x l,
+      show ‖x‖ = ‖θLIE x‖ from (θLIE.norm_map x).symm]
+    exact hC _
+
+@[simp]
+theorem SchwartzNPoint.timeReflect_apply {n : ℕ} (f : SchwartzNPoint d n)
+    (x : NPointDomain d n) :
+    f.timeReflect x = f (timeReflectionN d x) := rfl
+
+/-- Time reflection is an involution on Schwartz functions. -/
+theorem SchwartzNPoint.timeReflect_timeReflect {n : ℕ} (f : SchwartzNPoint d n) :
+    f.timeReflect.timeReflect = f := by
+  ext x; simp only [SchwartzNPoint.timeReflect_apply]
+  congr 1; funext i; exact timeReflection_timeReflection d (x i)
+
+/-- The Osterwalder-Schrader conjugation: time reflection + complex conjugation.
+    (θf̄)(x₁,...,xₙ) = conj(f(θx₁,...,θxₙ))
+
+    This is the correct involution for the OS inner product. Compare with
+    `borchersConj` (argument reversal + conjugation) for Wightman functions.
+
+    Reference: Osterwalder-Schrader, Commun. Math. Phys. 31 (1973), §2 -/
+def SchwartzNPoint.osConj {n : ℕ} (f : SchwartzNPoint d n) : SchwartzNPoint d n :=
+  f.timeReflect.conj
+
+@[simp]
+theorem SchwartzNPoint.osConj_apply {n : ℕ} (f : SchwartzNPoint d n)
+    (x : NPointDomain d n) :
+    f.osConj x = starRingEnd ℂ (f (timeReflectionN d x)) := rfl
+
+/-- The OS conjugated tensor product: (θf̄) ⊗ g.
+    This is the pairing used in the OS inner product for Schwinger functions:
+    ⟨F, G⟩_OS = Σ S_{n+m}((θf̄)_n ⊗ g_m)
+
+    Compare with `conjTensorProduct` (Borchers involution) used in
+    `WightmanInnerProduct`. -/
+def SchwartzNPoint.osConjTensorProduct {m k : ℕ} (f : SchwartzNPoint d m)
+    (g : SchwartzNPoint d k) : SchwartzNPoint d (m + k) :=
+  f.osConj.tensorProduct g
+
+end TimeReflectSchwartz
+
+/-- The Osterwalder-Schrader inner product on Borchers sequences.
+
+    ⟨F, G⟩_OS = Σ_{n,m} S_{n+m}((θf̄)_n ⊗ g_m)
+
+    where θ is time reflection θ(τ,x⃗) = (-τ,x⃗) and f̄ is complex conjugation.
+
+    This is the correct inner product for the Euclidean (OS) framework.
+    Compare with `WightmanInnerProduct` which uses the Borchers involution
+    (argument reversal + conjugation) — correct for Wightman functions.
+
+    Reference: Osterwalder-Schrader, Commun. Math. Phys. 31 (1973), §2 -/
+def OSInnerProduct (S : SchwingerFunctions d) (F G : BorchersSequence d) : ℂ :=
+  ∑ n ∈ Finset.range (F.bound + 1),
+    ∑ m ∈ Finset.range (G.bound + 1),
+      S (n + m) ((F.funcs n).osConjTensorProduct (G.funcs m))
+
 /-- The Osterwalder-Schrader axioms E0-E4 for Euclidean field theory.
 
     From OS I (1973):
@@ -1135,22 +1263,29 @@ structure OsterwalderSchraderAxioms (d : ℕ) [NeZero d] where
   S : SchwingerFunctions d
   /-- E0: Temperedness - each Sₙ is a tempered distribution (continuous on Schwartz space) -/
   E0_tempered : ∀ n, Continuous (S n)
-  /-- E1: Euclidean covariance under E(d) = ℝ^d ⋊ O(d).
-      For translations: S_n(x₁+a,...,xₙ+a) = S_n(x₁,...,xₙ)
-      For rotations R ∈ O(d): S_n(Rx₁,...,Rxₙ) = S_n(x₁,...,xₙ)
-      Expressed: S_n is invariant under simultaneous Euclidean transformations. -/
-  E1_euclidean_covariant : ∀ (n : ℕ) (a : SpacetimeDim d) (f g : SchwartzNPoint d n),
+  /-- E1a: Translation invariance.
+      S_n(x₁+a,...,xₙ+a) = S_n(x₁,...,xₙ) for all a ∈ ℝ^{d+1}. -/
+  E1_translation_invariant : ∀ (n : ℕ) (a : SpacetimeDim d) (f g : SchwartzNPoint d n),
     (∀ x, g.toFun x = f.toFun (fun i => x i + a)) →
     S n f = S n g
+  /-- E1b: Rotation invariance under O(d+1).
+      S_n(Rx₁,...,Rxₙ) = S_n(x₁,...,xₙ) for all R ∈ O(d+1).
+      Together with E1a, this gives full E(d+1) = ℝ^{d+1} ⋊ O(d+1) invariance. -/
+  E1_rotation_invariant : ∀ (n : ℕ) (R : Matrix (Fin (d + 1)) (Fin (d + 1)) ℝ),
+    R.transpose * R = 1 →
+    ∀ (f g : SchwartzNPoint d n),
+    (∀ x, g.toFun x = f.toFun (fun i => R.mulVec (x i))) →
+    S n f = S n g
   /-- E2: Reflection positivity - the crucial axiom for Hilbert space construction.
-      For test functions f supported in the positive time half-space (τ > 0),
+      For test functions F supported in the positive time half-space (τ > 0),
       Σₙ,ₘ S_{n+m}(θf̄ₙ ⊗ fₘ) ≥ 0
-      where θ is time reflection and f̄ is complex conjugation.
+      where θ is time reflection θ(τ,x⃗) = (-τ,x⃗) and f̄ is complex conjugation.
+      This uses `OSInnerProduct` (time reflection + conjugation), the correct
+      inner product for the Euclidean framework.
       This ensures the reconstructed inner product is positive definite. -/
   E2_reflection_positive : ∀ (F : BorchersSequence d),
-    -- For sequences supported in τ > 0, the quadratic form is non-negative
     (∀ n, ∀ x : NPointDomain d n, (F.funcs n).toFun x ≠ 0 → x ∈ PositiveTimeRegion d n) →
-    (WightmanInnerProduct d S F F).re ≥ 0
+    (OSInnerProduct d S F F).re ≥ 0
   /-- E3: Permutation symmetry - Schwinger functions are symmetric under
       permutation of arguments: S_n(x_{σ(1)},...,x_{σ(n)}) = S_n(x₁,...,xₙ)
       for all permutations σ ∈ Sₙ. -/

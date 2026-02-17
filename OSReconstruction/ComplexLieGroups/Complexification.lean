@@ -5,6 +5,7 @@ Authors: ModularPhysics Contributors
 -/
 import Mathlib.Topology.Connected.PathConnected
 import Mathlib.Analysis.Complex.Basic
+import Mathlib.Analysis.Normed.Algebra.MatrixExponential
 import OSReconstruction.ComplexLieGroups.LorentzLieGroup
 
 /-!
@@ -345,5 +346,166 @@ theorem isPathConnected :
 
 /-- The identity is in SO⁺(1,d;ℂ). -/
 theorem one_val : (one (d := d)).val = 1 := rfl
+
+/-! ### Exponential map infrastructure -/
+
+/-- Two elements of `ComplexLorentzGroup` with the same matrix are equal. -/
+@[ext]
+theorem ext {Λ₁ Λ₂ : ComplexLorentzGroup d}
+    (h : Λ₁.val = Λ₂.val) : Λ₁ = Λ₂ := by
+  cases Λ₁; cases Λ₂; cases h; rfl
+
+open NormedSpace in
+/-- ηℂ as a matrix unit (since ηℂ² = 1). -/
+private def ηℂ_unit : (Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ)ˣ where
+  val := ηℂ
+  inv := ηℂ
+  val_inv := ηℂ_sq
+  inv_val := ηℂ_sq
+
+/-- The Lie algebra condition: X^T η + η X = 0. -/
+def IsInLieAlgebra (X : Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ) : Prop :=
+  X.transpose * ηℂ + ηℂ * X = 0
+
+/-- If X is in the Lie algebra, so is t • X for any t : ℂ. -/
+theorem isInLieAlgebra_smul {X : Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ} (t : ℂ)
+    (hX : IsInLieAlgebra X) : IsInLieAlgebra (t • X) := by
+  unfold IsInLieAlgebra at *
+  rw [Matrix.transpose_smul, Matrix.smul_mul, Matrix.mul_smul, ← smul_add]
+  rw [hX, smul_zero]
+
+/-- From the Lie algebra condition, X^T = -(η X η). -/
+private theorem lie_algebra_transpose {X : Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ}
+    (hX : IsInLieAlgebra X) :
+    X.transpose = -(ηℂ (d := d) * X * ηℂ) := by
+  have h := hX
+  unfold IsInLieAlgebra at h
+  have h1 : X.transpose * ηℂ = -(ηℂ * X) := eq_neg_of_add_eq_zero_left h
+  calc X.transpose
+      = X.transpose * 1 := (Matrix.mul_one _).symm
+    _ = X.transpose * (ηℂ * ηℂ) := by rw [ηℂ_sq]
+    _ = X.transpose * ηℂ * ηℂ := (Matrix.mul_assoc _ _ _).symm
+    _ = -(ηℂ * X) * ηℂ := by rw [h1]
+    _ = -(ηℂ * X * ηℂ) := neg_mul _ _
+
+open NormedSpace in
+/-- If X is in the Lie algebra, then exp(X) preserves the Minkowski metric:
+    exp(X)^T η exp(X) = η. -/
+private theorem exp_metric_preserving {X : Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ}
+    (hX : IsInLieAlgebra X) :
+    (exp X).transpose * ηℂ * exp X = ηℂ := by
+  have hηU : IsUnit (ηℂ : Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ) :=
+    IsUnit.of_mul_eq_one _ ηℂ_sq
+  have hηInv : (ηℂ : Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ)⁻¹ = ηℂ :=
+    Matrix.inv_eq_right_inv ηℂ_sq
+  -- (exp X)^T = exp(X^T) = exp(-(ηℂ X ηℂ))
+  rw [← Matrix.exp_transpose, lie_algebra_transpose hX]
+  -- exp(-(ηℂ X ηℂ)) = exp(ηℂ (-X) ηℂ) = exp(ηℂ (-X) ηℂ⁻¹) = ηℂ exp(-X) ηℂ⁻¹ = ηℂ exp(-X) ηℂ
+  rw [show -(ηℂ * X * ηℂ) = ηℂ * (-X) * (ηℂ : Matrix _ _ ℂ)⁻¹ from by
+    rw [hηInv]; simp [mul_neg, neg_mul]]
+  rw [Matrix.exp_conj ηℂ (-X) hηU, hηInv]
+  -- Goal: ηℂ * exp(-X) * ηℂ * ηℂ * exp X = ηℂ
+  calc ηℂ * exp (-X) * ηℂ * ηℂ * exp X
+      = ηℂ * exp (-X) * (ηℂ * ηℂ) * exp X := by simp only [Matrix.mul_assoc]
+    _ = ηℂ * exp (-X) * 1 * exp X := by rw [ηℂ_sq]
+    _ = ηℂ * (exp (-X) * exp X) := by simp only [Matrix.mul_one, Matrix.mul_assoc]
+    _ = ηℂ * 1 := by
+        congr 1
+        open scoped Matrix.Norms.Operator in
+        rw [Matrix.exp_neg]
+        open scoped Matrix.Norms.Operator in
+        exact Matrix.nonsing_inv_mul _
+          ((Matrix.isUnit_iff_isUnit_det _).mp (Matrix.isUnit_exp X))
+    _ = ηℂ := Matrix.mul_one _
+
+open NormedSpace in
+/-- If X is in the Lie algebra, then det(exp(X)) = 1.
+
+    Proof: det(exp(tX))² = 1 for all t (from metric preservation), and
+    det(exp(0)) = 1. Since t ↦ det(exp(tX)) is continuous and {1,-1} is
+    discrete, it must be constant. -/
+private theorem exp_det_one {X : Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ}
+    (hX : IsInLieAlgebra X) :
+    (exp X).det = 1 := by
+  -- det(exp(tX))² = 1 for all t
+  have hdet_sq : ∀ t : ℝ, ((exp ((t : ℂ) • X)).det) ^ 2 = 1 := by
+    intro t
+    have hmet := exp_metric_preserving (isInLieAlgebra_smul (t : ℂ) hX)
+    have h1 := congr_arg Matrix.det hmet
+    rw [Matrix.det_mul, Matrix.det_mul, Matrix.det_transpose] at h1
+    have hη_ne : (ηℂ : Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ).det ≠ 0 := by
+      have := congr_arg Matrix.det (ηℂ_sq (d := d))
+      rw [Matrix.det_mul, Matrix.det_one] at this
+      exact left_ne_zero_of_mul_eq_one this
+    have h2 : (exp ((t : ℂ) • X)).det ^ 2 * (ηℂ (d := d)).det = 1 * (ηℂ (d := d)).det := by
+      rw [one_mul, sq]; linear_combination h1
+    exact mul_right_cancel₀ hη_ne h2
+  -- det(exp(0·X)) = 1
+  have hdet_0 : (exp (((0 : ℝ) : ℂ) • X)).det = 1 := by
+    simp only [Complex.ofReal_zero, zero_smul, NormedSpace.exp_zero, Matrix.det_one]
+  -- t ↦ det(exp(tX)) is continuous
+  have hdet_cont : Continuous (fun t : ℝ => (exp ((t : ℂ) • X)).det) := by
+    open scoped Matrix.Norms.Operator in
+    exact Continuous.matrix_det
+      (NormedSpace.exp_continuous.comp (Complex.continuous_ofReal.smul continuous_const))
+  -- det ∈ {1, -1} for all t
+  have hcover : ∀ t : ℝ, (exp ((t : ℂ) • X)).det = 1 ∨
+      (exp ((t : ℂ) • X)).det = -1 := by
+    intro t
+    have h0 : ((exp ((t : ℂ) • X)).det - 1) * ((exp ((t : ℂ) • X)).det + 1) = 0 := by
+      linear_combination hdet_sq t
+    rcases mul_eq_zero.mp h0 with h1 | h2
+    · left; exact sub_eq_zero.mp h1
+    · right; exact eq_neg_of_add_eq_zero_left h2
+  -- {det = 1} is clopen
+  have h1_closed : IsClosed {t : ℝ | (exp ((t : ℂ) • X)).det = 1} :=
+    (isClosed_singleton (x := (1 : ℂ))).preimage hdet_cont
+  have hm1_closed : IsClosed {t : ℝ | (exp ((t : ℂ) • X)).det = -1} :=
+    (isClosed_singleton (x := (-1 : ℂ))).preimage hdet_cont
+  have h1_open : IsOpen {t : ℝ | (exp ((t : ℂ) • X)).det = 1} := by
+    rw [show {t : ℝ | (exp ((t : ℂ) • X)).det = 1} =
+        {t : ℝ | (exp ((t : ℂ) • X)).det = -1}ᶜ from by
+      ext t; simp only [Set.mem_setOf_eq, Set.mem_compl_iff]
+      exact ⟨fun h1 hm1 => by rw [h1] at hm1; norm_num at hm1,
+             fun hne => (hcover t).resolve_right hne⟩]
+    exact hm1_closed.isOpen_compl
+  -- {det = 1} is clopen, nonempty, in connected ℝ → equals univ
+  have h1_univ := IsClopen.eq_univ ⟨h1_closed, h1_open⟩ ⟨0, hdet_0⟩
+  -- t = 1: det(exp(X)) = 1
+  have h1_mem : (1 : ℝ) ∈ {t : ℝ | (exp ((t : ℂ) • X)).det = 1} :=
+    h1_univ ▸ Set.mem_univ _
+  simp only [Set.mem_setOf_eq, Complex.ofReal_one, one_smul] at h1_mem
+  exact h1_mem
+
+open NormedSpace in
+/-- If X is in the Lie algebra, then exp(X) ∈ ComplexLorentzGroup. -/
+def expLieAlg (X : Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ)
+    (hX : IsInLieAlgebra X) : ComplexLorentzGroup d where
+  val := exp X
+  metric_preserving := of_metric_preserving_matrix (exp_metric_preserving hX)
+  proper := exp_det_one hX
+
+open NormedSpace in
+/-- The path t ↦ exp(tX) connects one to expLieAlg X. -/
+theorem joined_one_expLieAlg (X : Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ)
+    (hX : IsInLieAlgebra X) :
+    Joined (one : ComplexLorentzGroup d) (expLieAlg X hX) := by
+  rw [Joined]
+  refine ⟨{
+    toFun := fun t => expLieAlg ((t : ℂ) • X) (isInLieAlgebra_smul _ hX)
+    continuous_toFun := by
+      have hind : IsInducing (ComplexLorentzGroup.val : ComplexLorentzGroup d → _) := ⟨rfl⟩
+      rw [hind.continuous_iff]
+      show Continuous (fun t : ↥unitInterval => exp ((↑↑t : ℂ) • X))
+      open scoped Matrix.Norms.Operator in
+      exact NormedSpace.exp_continuous.comp
+        ((Complex.continuous_ofReal.comp continuous_subtype_val).smul continuous_const)
+    source' := by
+      show expLieAlg _ _ = one
+      ext; simp [expLieAlg, one, NormedSpace.exp_zero]
+    target' := by
+      show expLieAlg _ _ = expLieAlg X hX
+      ext; simp [expLieAlg]
+  }⟩
 
 end ComplexLorentzGroup

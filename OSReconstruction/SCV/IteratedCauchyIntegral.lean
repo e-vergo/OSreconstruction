@@ -9,6 +9,7 @@ import Mathlib.Analysis.Complex.Liouville
 import Mathlib.Analysis.Calculus.ParametricIntervalIntegral
 import Mathlib.MeasureTheory.Integral.Prod
 import OSReconstruction.SCV.Polydisc
+import OSReconstruction.SCV.Osgood
 
 /-!
 # Iterated Circle Integrals
@@ -543,22 +544,31 @@ private theorem differentiableOn_iteratedCircleIntegral_param {m : ℕ}
         simp_rw [deriv_circleMap]
         exact ((continuous_circleMap 0 rn).mul continuous_const).comp continuous_snd
       · -- F(t, snoc z' (circleMap θ)) is continuous via ContinuousOn.comp_continuous
-        apply hF_cont.comp_continuous
-        · -- The map (p, θ) ↦ (t, snoc z' (circleMap θ)) is continuous
-          exact (continuous_subtype_val.fst.comp continuous_fst).prod_mk
-            (continuous_pi fun j => j.lastCases
-              (show Continuous fun p : ↥(S ×ˢ _) × ℝ =>
-                  Fin.snoc (Subtype.val p.1).2 (circleMap cn rn p.2) (Fin.last n) by
-                simp only [Fin.snoc_last]; exact (continuous_circleMap cn rn).comp continuous_snd)
-              (fun k => show Continuous fun p : ↥(S ×ˢ _) × ℝ =>
-                  Fin.snoc (Subtype.val p.1).2 (circleMap cn rn p.2) (Fin.castSucc k) by
-                simp only [Fin.snoc_castSucc]
-                exact ((continuous_apply k).comp continuous_subtype_val.snd).comp continuous_fst))
-        · -- Range lands in S ×ˢ distinguishedBoundary c r
+        set db' := distinguishedBoundary (c ∘ Fin.castSucc) (r ∘ Fin.castSucc) with hdb'
+        -- Build the auxiliary map g : ↥(S ×ˢ db') × ℝ → ℂ × (Fin (n+1) → ℂ)
+        let g : ↥(S ×ˢ db') × ℝ → ℂ × (Fin (n + 1) → ℂ) := fun x =>
+          (x.1.val.1, Fin.snoc x.1.val.2 (circleMap cn rn x.2))
+        change Continuous (Function.uncurry F ∘ g)
+        have hg_cont : Continuous g := by
+          refine Continuous.prodMk ((continuous_subtype_val.fst).comp continuous_fst) ?_
+          refine continuous_pi fun j => Fin.lastCases ?_ (fun k => ?_) j
+          · -- j = Fin.last n: snoc _ w (last n) = w = circleMap
+            have : (fun x : ↥(S ×ˢ db') × ℝ =>
+                (g x).2 (Fin.last n)) = fun x => circleMap cn rn x.2 := by
+              ext x; simp [g, Fin.snoc_last]
+            rw [this]; exact (continuous_circleMap cn rn).comp continuous_snd
+          · -- j = castSucc k: snoc v _ (castSucc k) = v k
+            have : (fun x : ↥(S ×ˢ db') × ℝ =>
+                (g x).2 (Fin.castSucc k)) = fun x => x.1.val.2 k := by
+              ext x; simp [g, Fin.snoc_castSucc]
+            rw [this]
+            exact ((continuous_apply k).comp continuous_subtype_val.snd).comp continuous_fst
+        have hg_range : ∀ x, g x ∈ S ×ˢ distinguishedBoundary c r := by
           intro ⟨⟨⟨t, z'⟩, ht, hz'⟩, θ⟩
           exact ⟨ht, fun j => j.lastCases
-            (by simp only [Fin.snoc_last]; exact circleMap_mem_sphere cn (hr _) θ)
-            (fun k => by simp only [Fin.snoc_castSucc]; exact hz' k)⟩
+            (by simp only [g, Fin.snoc_last]; exact circleMap_mem_sphere cn (hr _) θ)
+            (fun k => by simp only [g, Fin.snoc_castSucc]; exact hz' k)⟩
+        exact hF_cont.comp_continuous hg_cont hg_range
 
 /-- The Cauchy integral for polydiscs is holomorphic in `z`.
 
@@ -647,20 +657,58 @@ theorem cauchyIntegralPolydisc_differentiableOn {m : ℕ}
 
 /-! ### Analyticity on polydiscs -/
 
+/-- Multi-variable complex `DifferentiableOn` implies `AnalyticAt`.
+
+    This is a classical result in SCV: jointly holomorphic functions on an open set
+    in ℂᵐ are analytic.
+
+    **Proof strategy (Cauchy integral approach):**
+    For z₀ ∈ U, take a polydisc P(z₀, r) ⊂ U. By `cauchyIntegralPolydisc_eq`:
+    `f(z) = (2πi)⁻ᵐ ∮...∮ f(w)/∏(wᵢ-zᵢ) dw`.
+    Expanding each `1/(wᵢ-zᵢ)` as a geometric series in `(zᵢ-z₀ᵢ)/(wᵢ-z₀ᵢ)`
+    and exchanging sum and integral gives a multi-variable power series for f,
+    hence analyticity. The exchange is justified by uniform convergence on
+    compact subsets of the polydisc.
+
+    **Alternative proof strategy (fderiv bootstrap):**
+    Show `DifferentiableOn ℂ f U → DifferentiableOn ℂ (fderiv ℂ f) U` by:
+    1. Each partial `∂f/∂zᵢ` is separately holomorphic (j=i: 1D smoothness;
+       j≠i: Cauchy integral formula for derivatives + Leibniz rule)
+    2. Each partial is continuous (via Cauchy integral representation)
+    3. By Osgood: each partial is DifferentiableOn
+    4. fderiv = ∑ᵢ (projᵢ).smulRight(∂f/∂zᵢ), so DifferentiableOn
+    Then by induction on n using `contDiffOn_succ_iff_fderiv_of_isOpen`,
+    get `ContDiffOn ℂ ⊤ f U`, and `ContDiffAt.analyticAt` gives `AnalyticAt`. -/
+private lemma differentiableOn_complex_analyticAt {m : ℕ}
+    {f : (Fin m → ℂ) → E} {U : Set (Fin m → ℂ)} (hU : IsOpen U)
+    (hf : DifferentiableOn ℂ f U) {z : Fin m → ℂ} (hz : z ∈ U) :
+    AnalyticAt ℂ f z := by
+  sorry
+
 /-- A function that is separately holomorphic and continuous on a polydisc is analytic.
 
-    **Proof:** By the Cauchy integral formula (`cauchyIntegralPolydisc_eq`),
-    `f(z) = (2πi)⁻ᵐ ∮...∮ ∏(wᵢ-zᵢ)⁻¹ • f(w) dw` for `z` in the open polydisc.
-    The Cauchy kernel `∏(wᵢ-zᵢ)⁻¹` expands as a product of geometric series
-    `∑_{α} ∏ᵢ ((zᵢ-cᵢ)/(wᵢ-cᵢ))^{αᵢ} · (wᵢ-cᵢ)⁻¹`, converging uniformly
-    on the distinguished boundary. Integrating term by term gives a convergent
-    multi-variable power series for `f`, establishing analyticity. -/
+    **Proof outline:**
+    1. By Osgood's lemma (`osgood_lemma`), separately holomorphic + continuous implies
+       jointly holomorphic (`DifferentiableOn ℂ`).
+    2. By `differentiableOn_complex_analyticAt`, jointly holomorphic on an open set
+       implies analytic. -/
 theorem analyticOnNhd_of_separatelyDifferentiableOn {m : ℕ}
     (f : (Fin m → ℂ) → E) (c : Fin m → ℂ) (r : Fin m → ℝ)
     (hr : ∀ i, 0 < r i)
     (hf_sep : SeparatelyDifferentiableOn f (closedPolydisc c r))
     (hf_cont : ContinuousOn f (closedPolydisc c r)) :
     ∀ z ∈ Polydisc c r, AnalyticAt ℂ f z := by
-  sorry
+  -- Step 1: Repackage separate holomorphicity for Osgood
+  have hf_sep_open : ∀ z ∈ Polydisc c r, ∀ i : Fin m,
+      DifferentiableAt ℂ (fun w => f (Function.update z i w)) (z i) :=
+    fun z hz i => hf_sep i z (polydisc_subset_closedPolydisc hz)
+  -- Step 2: By Osgood's lemma, f is jointly holomorphic on the open polydisc
+  have hf_diff : DifferentiableOn ℂ f (Polydisc c r) :=
+    osgood_lemma polydisc_isOpen f
+      (hf_cont.mono polydisc_subset_closedPolydisc)
+      hf_sep_open
+  -- Step 3: Jointly holomorphic on open set → analytic
+  intro z hz
+  exact differentiableOn_complex_analyticAt polydisc_isOpen hf_diff hz
 
 end SCV
