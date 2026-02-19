@@ -5,7 +5,13 @@ defaultTargets = ["OSReconstruction"]
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"
-rev = "master"
+rev = "6dc31c12d6ffdc9a63ebddee67264ea348cc06f8"
+
+[[require]]
+name = "GaussianField"
+git = "https://github.com/mrdouglasny/gaussian-field.git"
+rev = "main"
+subDir = "."
 
 [[lean_lib]]
 name = "OSReconstruction"

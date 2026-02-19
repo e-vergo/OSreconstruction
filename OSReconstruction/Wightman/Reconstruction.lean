@@ -3,7 +3,7 @@ Copyright (c) 2025 ModularPhysics Contributors. All rights reserved.
 Released under Apache 2.0 license.
 Authors: ModularPhysics Contributors
 -/
-import Mathlib.Analysis.Distribution.SchwartzSpace
+import Mathlib.Analysis.Distribution.SchwartzSpace.Deriv
 import Mathlib.Analysis.Distribution.TemperedDistribution
 import Mathlib.Analysis.InnerProductSpace.GramSchmidtOrtho
 import Mathlib.Topology.UniformSpace.Completion
