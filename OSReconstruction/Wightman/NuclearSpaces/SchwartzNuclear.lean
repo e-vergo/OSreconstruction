@@ -23,8 +23,8 @@ complementary characterizations:
 
 ## Main Results
 
-* `SchwartzMap.nuclearFrechet` - Schwartz space presented as a nuclear Fréchet space
-* `SchwartzMap.instNuclearSpace` - S(ℝⁿ, ℝ) is nuclear (Pietsch, depends on sorry)
+* `schwartz_nuclearSpace_fin0` - S(ℝ⁰, ℝ) is nuclear (direct proof via evaluation)
+* `SchwartzMap.instNuclearSpace` - S(ℝⁿ, ℝ) is nuclear (combines n=0 and n>0 cases)
 * `GaussianField.NuclearSpace (SchwartzMap D ℝ)` - S(D, ℝ) is nuclear (Dynin-Mityagin,
   sorry-free from gaussian-field, available via GaussianFieldBridge import)
 
@@ -49,7 +49,7 @@ sorry-free versions from gaussian-field. Use the `gf`-prefixed re-exports from
 
 noncomputable section
 
-open scoped SchwartzMap
+open scoped SchwartzMap NNReal
 open MeasureTheory
 
 /-! ### Schwartz Space Seminorms -/
@@ -111,110 +111,155 @@ private theorem le_schwartzCombinedSeminorm (n : ℕ) {k l N : ℕ}
         Finset.single_le_sum
           (fun (kl : ℕ × ℕ) _ => apply_nonneg (SchwartzMap.seminorm ℝ kl.1 kl.2) f) hmem
 
-/-! ### Nuclear Fréchet Presentation -/
+/-! ### Nuclearity for n = 0
 
-/-- The Schwartz space S(ℝⁿ, ℝ) has a nuclear Fréchet presentation.
-    We use combined seminorms q_N = ∑_{k,l ≤ N} p_{k,l} which form a monotone
-    family generating the Schwartz topology. -/
-def SchwartzMap.nuclearFrechet (n : ℕ) : NuclearFrechet where
-  Space := 𝓢(EuclideanSpace ℝ (Fin n), ℝ)
-  instAddCommGroup := inferInstance
-  instModule := inferInstance
-  instTopologicalSpace := inferInstance
-  instIsTopologicalAddGroup := inferInstance
-  seminorms := schwartzCombinedSeminorm n
-  seminorms_mono := by
-    intro N f
-    rw [schwartzCombinedSeminorm_apply, schwartzCombinedSeminorm_apply]
-    apply Finset.sum_le_sum_of_subset_of_nonneg
-    · exact Finset.product_subset_product
-        (Finset.range_mono (by omega)) (Finset.range_mono (by omega))
-    · intro kl _ _; exact apply_nonneg _ _
-  separating := by
-    intro f hf
-    have h00 : SchwartzMap.seminorm ℝ 0 0 f = 0 := by
-      have hN0 := hf 0
-      have hle := le_schwartzCombinedSeminorm n (Nat.le_refl 0) (Nat.le_refl 0) f
-      linarith [apply_nonneg (SchwartzMap.seminorm ℝ 0 0) f]
-    ext x
-    have hbound := SchwartzMap.norm_le_seminorm ℝ f x
-    simp only [SchwartzMap.coe_zero, Pi.zero_apply]
-    exact norm_eq_zero.mp (le_antisymm (by linarith) (norm_nonneg _))
-  continuous_seminorms := by
-    intro N
-    show Continuous (fun x => (schwartzCombinedSeminorm n N) x)
-    have hfun : (fun x => (schwartzCombinedSeminorm n N) x) =
-        (fun x => (schwartzPairs N).sum (fun kl => SchwartzMap.seminorm ℝ kl.1 kl.2 x)) := by
-      ext x; exact schwartzCombinedSeminorm_apply n N x
-    rw [hfun]
-    exact continuous_finset_sum _ fun kl _ =>
-      (schwartz_withSeminorms ℝ (EuclideanSpace ℝ (Fin n)) ℝ).continuous_seminorm kl
-  seminorms_generating := by
+When the domain is `EuclideanSpace ℝ (Fin 0)` (a single point), every Schwartz
+function is determined by its value at `default`. All Schwartz seminorms except
+`seminorm ℝ 0 0` vanish, so the nuclear dominance condition is trivial: use the
+evaluation functional as the single nuclear component. -/
+
+/-- On a zero-dimensional domain, Schwartz seminorms with `a ≥ 1` or `b ≥ 1` vanish.
+    When `a ≥ 1`: the norm `‖x‖^a = 0` since the unique point has norm 0.
+    When `b ≥ 1`: `iteratedFDeriv` is a multilinear map on a zero-dim space, hence 0. -/
+private lemma seminorm_eq_zero_of_fin0 {a b : ℕ} (hab : (a, b) ≠ (0, 0))
+    (f : 𝓢(EuclideanSpace ℝ (Fin 0), ℝ)) :
+    SchwartzMap.seminorm ℝ a b f = 0 := by
+  apply le_antisymm _ (apply_nonneg _ _)
+  apply SchwartzMap.seminorm_le_bound ℝ a b f (le_refl 0)
+  intro x; have hx : x = default := Subsingleton.elim x default; subst hx
+  by_cases ha : a ≠ 0
+  · rw [show ‖(default : EuclideanSpace ℝ (Fin 0))‖ = 0 from by
+      simp [EuclideanSpace.norm_eq, Finset.univ_eq_empty], zero_pow ha, zero_mul]
+  · push_neg at ha; subst ha; simp only [pow_zero, one_mul]
+    have hb : b ≠ 0 := by intro hb; exact hab (by ext <;> simp [*])
+    rw [show iteratedFDeriv ℝ b (⇑f) default = 0 from by
+      ext m; exact (iteratedFDeriv ℝ b (⇑f) default).map_coord_zero ⟨0, by omega⟩
+        (Subsingleton.elim _ _), norm_zero]
+
+/-- On a zero-dimensional domain, any individual Schwartz seminorm is bounded
+    by `seminorm ℝ 0 0` (the sup-norm). -/
+private lemma schwartz_seminorm_le_00 (i : ℕ × ℕ)
+    (f : 𝓢(EuclideanSpace ℝ (Fin 0), ℝ)) :
+    (schwartzSeminormFamily ℝ (EuclideanSpace ℝ (Fin 0)) ℝ i) f ≤
+    (SchwartzMap.seminorm ℝ 0 0) f := by
+  show (SchwartzMap.seminorm ℝ i.1 i.2) f ≤ _
+  by_cases hab : (i.1, i.2) = (0, 0)
+  · simp [Prod.ext_iff] at hab; rw [hab.1, hab.2]
+  · rw [seminorm_eq_zero_of_fin0 hab]; exact apply_nonneg _ _
+
+/-- On a zero-dimensional domain, any finite sup of Schwartz seminorms is bounded
+    by `seminorm ℝ 0 0`. -/
+private lemma sup_schwartz_le_00 (s : Finset (ℕ × ℕ))
+    (f : 𝓢(EuclideanSpace ℝ (Fin 0), ℝ)) :
+    (s.sup (schwartzSeminormFamily ℝ (EuclideanSpace ℝ (Fin 0)) ℝ)) f ≤
+    (SchwartzMap.seminorm ℝ 0 0) f := by
+  induction s using Finset.cons_induction with
+  | empty => simp [Seminorm.bot_eq_zero, Seminorm.zero_apply, apply_nonneg]
+  | cons a s has ih =>
+    rw [Finset.sup_cons, Seminorm.sup_apply]
+    exact max_le (schwartz_seminorm_le_00 a f) ih
+
+/-- Evaluation at the unique point of `EuclideanSpace ℝ (Fin 0)`, as a linear map
+    from the Schwartz space to ℝ. -/
+private def evalLM₀ :
+    (SchwartzMap (EuclideanSpace ℝ (Fin 0)) ℝ) →ₗ[ℝ] ℝ where
+  toFun f := f default
+  map_add' f g := by simp [SchwartzMap.add_apply]
+  map_smul' r f := by simp [SchwartzMap.smul_apply]
+
+/-- The evaluation linear map is continuous in the Schwartz topology: it is
+    bounded by `seminorm ℝ 0 0`, which is continuous. -/
+private lemma evalLM₀_continuous : Continuous evalLM₀ := by
+  apply Seminorm.continuous_from_bounded
+    (schwartz_withSeminorms ℝ (EuclideanSpace ℝ (Fin 0)) ℝ)
+    (norm_withSeminorms ℝ ℝ)
+  intro i; refine ⟨{⟨0, 0⟩}, 1, ?_⟩
+  rw [Seminorm.le_def]; intro f
+  simp only [Seminorm.comp_apply, Seminorm.smul_apply, Finset.sup_singleton,
+    schwartzSeminormFamily, evalLM₀]
+  change ‖f default‖ ≤ 1 • (SchwartzMap.seminorm ℝ 0 0) f
+  rw [one_smul]; exact SchwartzMap.norm_le_seminorm ℝ f default
+
+/-- Evaluation at the unique point, as a continuous linear map. -/
+private def evalCLM₀ :
+    (SchwartzMap (EuclideanSpace ℝ (Fin 0)) ℝ) →L[ℝ] ℝ :=
+  ⟨evalLM₀, evalLM₀_continuous⟩
+
+/-- On a zero-dimensional domain, `seminorm ℝ 0 0 f = ‖f default‖`. -/
+private lemma seminorm_00_eq (f : 𝓢(EuclideanSpace ℝ (Fin 0), ℝ)) :
+    (SchwartzMap.seminorm ℝ 0 0) f = ‖f default‖ := by
+  apply le_antisymm
+  · apply SchwartzMap.seminorm_le_bound ℝ 0 0 f (norm_nonneg _)
+    intro x; have : x = default := Subsingleton.elim x default; rw [this]; simp
+  · exact SchwartzMap.norm_le_seminorm ℝ f default
+
+private lemma evalCLM₀_apply (f : 𝓢(EuclideanSpace ℝ (Fin 0), ℝ)) :
+    evalCLM₀ f = f default := rfl
+
+/-- **The Schwartz space S(ℝ⁰, ℝ) is nuclear.** The domain is a single point, so the
+    space is one-dimensional and nuclear dominance holds with the evaluation functional. -/
+theorem schwartz_nuclearSpace_fin0 :
+    NuclearSpace (𝓢(EuclideanSpace ℝ (Fin 0), ℝ)) where
+  nuclear_dominance := by
     intro p hp
     obtain ⟨s, C, hC, hle⟩ := Seminorm.bound_of_continuous
-      (schwartz_withSeminorms ℝ (EuclideanSpace ℝ (Fin n)) ℝ) p hp
-    by_cases hs : s.Nonempty
-    · let N := s.sup' hs (fun kl => max kl.1 kl.2)
-      refine ⟨N, (C : ℝ), ?_, ?_⟩
-      · exact NNReal.coe_pos.mpr hC.bot_lt
-      · intro x
-        have hCnn := NNReal.coe_nonneg C
-        set q := schwartzSeminormFamily ℝ (EuclideanSpace ℝ (Fin n)) ℝ with hq_def
-        -- Step 1: s.sup q ≤ ∑ i ∈ s, q i (Seminorm level)
-        have hsup_le_sum : s.sup q ≤ ∑ i ∈ s, q i :=
-          Seminorm.finset_sup_le_sum q s
-        -- Step 2: ∑ i ∈ s, q i ≤ schwartzCombinedSeminorm n N (Seminorm level)
-        have hsum_le_combined : (∑ i ∈ s, q i) ≤ schwartzCombinedSeminorm n N := by
-          apply Finset.sum_le_sum_of_subset_of_nonneg
-          · intro ⟨k, l⟩ hkl
-            simp only [schwartzPairs, Finset.mem_product, Finset.mem_range]
-            have hmax := Finset.le_sup' (f := fun kl : ℕ × ℕ => max kl.1 kl.2) hkl
-            constructor <;> omega
-          · intro kl _ _; exact bot_le
-        -- Step 3: Combine pointwise
-        have h23 : (s.sup q) x ≤ schwartzCombinedSeminorm n N x :=
-          le_trans (Seminorm.le_def.mp hsup_le_sum x) (Seminorm.le_def.mp hsum_le_combined x)
-        calc p x ≤ (C • s.sup q) x := hle x
-          _ = C * (s.sup q) x := by simp [NNReal.smul_def]
-          _ ≤ C * schwartzCombinedSeminorm n N x :=
-              mul_le_mul_of_nonneg_left h23 hCnn
-    · refine ⟨0, 1, one_pos, ?_⟩
-      intro x
-      have : p x ≤ (C • s.sup (schwartzSeminormFamily ℝ (EuclideanSpace ℝ (Fin n)) ℝ)) x :=
-        hle x
-      simp [Finset.not_nonempty_iff_eq_empty.mp hs] at this
-      linarith [apply_nonneg (schwartzCombinedSeminorm n 0) x]
-  nuclear_step := by
-    intro k
-    -- The nuclear step uses the Hermite function expansion.
-    -- For any Schwartz function f, f = Σ_m ⟨f, h_m⟩ h_m in L²
-    -- The Hermite coefficients satisfy |⟨f, h_m⟩| ≤ C · p_{k+N,k+N}(f) · m^{-N}
-    -- for any N, where C depends on N and n.
-    -- Choosing N large enough (N > n/2 + 1) makes the nuclear trace converge.
-    --
-    -- NOTE: The sorry-free proof of nuclearity exists in gaussian-field via
-    -- GaussianField.NuclearSpace (the Dynin-Mityagin characterization).
-    -- This Pietsch-style nuclear_step remains sorry'd pending the bridge
-    -- between the two characterizations.
-    sorry
+      (schwartz_withSeminorms ℝ (EuclideanSpace ℝ (Fin 0)) ℝ) p hp
+    set Cv := (C : ℝ) + 1
+    have hCv_pos : 0 < Cv := by positivity
+    have hCv_ge_one : 1 ≤ Cv := by linarith [NNReal.coe_nonneg C]
+    have hCv_ge_C : (C : ℝ) ≤ Cv := by linarith
+    let Cv_nn : ℝ≥0 := ⟨Cv, le_of_lt hCv_pos⟩
+    have hp_bound : ∀ f, p f ≤ (C : ℝ) * ‖f default‖ := fun f => by
+      calc p f ≤ (C • s.sup (schwartzSeminormFamily ℝ (EuclideanSpace ℝ (Fin 0)) ℝ)) f := hle f
+        _ ≤ (C : ℝ) * (SchwartzMap.seminorm ℝ 0 0) f := by
+            simp only [Seminorm.smul_apply, NNReal.smul_def, smul_eq_mul]
+            exact mul_le_mul_of_nonneg_left (sup_schwartz_le_00 s f) (NNReal.coe_nonneg C)
+        _ = (C : ℝ) * ‖f default‖ := by rw [seminorm_00_eq]
+    refine ⟨Cv_nn • SchwartzMap.seminorm ℝ 0 0, ?_, ?_, ?_⟩
+    · show Continuous fun x => (Cv_nn • SchwartzMap.seminorm ℝ 0 0) x
+      simp only [Seminorm.smul_apply, NNReal.smul_def, smul_eq_mul, Cv_nn]
+      exact continuous_const.mul
+        ((schwartz_withSeminorms ℝ (EuclideanSpace ℝ (Fin 0)) ℝ).continuous_seminorm ⟨0, 0⟩)
+    · intro f
+      simp only [Seminorm.smul_apply, NNReal.smul_def, smul_eq_mul, Cv_nn]
+      calc p f ≤ (C : ℝ) * ‖f default‖ := hp_bound f
+        _ ≤ Cv * ‖f default‖ := mul_le_mul_of_nonneg_right hCv_ge_C (norm_nonneg _)
+        _ = Cv * (SchwartzMap.seminorm ℝ 0 0) f := by rw [seminorm_00_eq]
+    · refine ⟨fun i => if i = 0 then evalCLM₀ else 0,
+              fun i => if i = 0 then Cv else 0, ?_, ?_, ?_, ?_⟩
+      · intro i; by_cases hi : i = 0 <;> simp [hi, le_of_lt hCv_pos]
+      · exact summable_of_ne_finset_zero (s := {0}) (fun k hk => by
+          simp [Finset.mem_singleton] at hk; simp [hk])
+      · intro i f; by_cases hi : i = 0
+        · simp only [hi, ↓reduceIte, Seminorm.smul_apply, NNReal.smul_def, smul_eq_mul, Cv_nn]
+          rw [evalCLM₀_apply, seminorm_00_eq]
+          exact le_mul_of_one_le_left (norm_nonneg _) hCv_ge_one
+        · simp [hi]; exact apply_nonneg (Cv_nn • SchwartzMap.seminorm ℝ 0 0) f
+      · intro f
+        rw [show ∑' i, ‖(if i = 0 then evalCLM₀ else 0) f‖ * (if i = 0 then Cv else 0) =
+            ‖evalCLM₀ f‖ * Cv from by
+          rw [tsum_eq_single 0 (fun i hi => by simp [hi])]; simp]
+        rw [evalCLM₀_apply]
+        nlinarith [hp_bound f, norm_nonneg (f default), NNReal.coe_nonneg C]
 
 /-! ### Schwartz Space is Nuclear -/
 
 /-- **The Schwartz space S(ℝⁿ, ℝ) is a nuclear space (Pietsch characterization).**
 
-    This follows from the Dynin-Mityagin characterization: the Hermite function
-    Schauder basis with polynomial growth/decay implies Pietsch nuclear dominance.
-    The bridge `GaussianField.NuclearSpace.toPietschNuclearSpace` converts
-    the gaussian-field `GaussianField.NuclearSpace` instance to the Pietsch one.
+    * For **n > 0**: follows from the Dynin-Mityagin characterization via the
+      Hermite function Schauder basis. The bridge
+      `GaussianField.NuclearSpace.toPietschNuclearSpace` converts the
+      gaussian-field `GaussianField.NuclearSpace` instance to Pietsch form.
 
-    The only sorry in this path is `seminorm_le_nuclear_expansion`, a well-known
-    consequence of the Hahn-Banach theorem and the triangle inequality for
-    seminorms applied to Schauder expansions. -/
+    * For **n = 0**: the domain `EuclideanSpace ℝ (Fin 0)` is a single point, so
+      the Schwartz space is one-dimensional. Nuclear dominance is proved directly
+      using the evaluation functional at the unique point. -/
 theorem SchwartzMap.instNuclearSpace (n : ℕ) :
     NuclearSpace (𝓢(EuclideanSpace ℝ (Fin n), ℝ)) := by
   by_cases hn : n = 0
-  · -- n = 0: Schwartz space over a trivial domain, use NuclearFrechet path
-    exact (SchwartzMap.nuclearFrechet n).toNuclearSpace
+  · -- n = 0: domain is a single point, Schwartz space ≅ ℝ.
+    subst hn
+    exact schwartz_nuclearSpace_fin0
   · -- n > 0: EuclideanSpace ℝ (Fin n) is nontrivial, use the GF bridge
     haveI : Nonempty (Fin n) := ⟨⟨0, by omega⟩⟩
     haveI : Nontrivial (EuclideanSpace ℝ (Fin n)) := inferInstance
