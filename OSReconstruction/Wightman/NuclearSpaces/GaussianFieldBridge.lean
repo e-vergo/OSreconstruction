@@ -49,6 +49,7 @@ for the Gaussian measure construction, so we re-export that interface here.
 noncomputable section
 
 open GaussianField
+open scoped NNReal
 
 /-! ### Schwartz NuclearSpace instance
 
@@ -115,5 +116,207 @@ abbrev gfCrossMomentEqCovariance := @cross_moment_eq_covariance
 
 /-- The pairing ω(f) is Gaussian-distributed (sorry-free). -/
 abbrev gfPairingIsGaussian := @pairing_is_gaussian
+
+/-! ### Bridge: Dynin-Mityagin → Pietsch
+
+We prove that `GaussianField.NuclearSpace E` implies `NuclearSpace E` (Pietsch).
+The only sorry is a Hahn-Banach / triangle inequality lemma for seminorms
+applied to Schauder expansions. -/
+
+/-- **Hahn-Banach + triangle inequality for Schauder expansions.**
+
+For a continuous seminorm `q` and a Schauder basis with expansion
+`f = ∑ₘ cₘ(f) · ψₘ`, the triangle inequality gives
+`q(f) ≤ ∑ₘ |cₘ(f)| · q(ψₘ)`.
+
+This requires:
+1. The expansion converges in the topology (so `q` of partial sums converges)
+2. Lower semicontinuity of `q` (automatic for continuous seminorms)
+3. The triangle inequality for seminorms on series
+
+The proof combines the Hahn-Banach theorem (dual characterization of seminorms)
+with the Schauder expansion. -/
+lemma seminorm_le_nuclear_expansion
+    {E : Type*} [AddCommGroup E] [Module ℝ E]
+    [TopologicalSpace E] [IsTopologicalAddGroup E] [ContinuousSMul ℝ E]
+    [hN : GaussianField.NuclearSpace E]
+    (q : Seminorm ℝ E) (hq : Continuous q) (f : E) :
+    q f ≤ ∑' m, |hN.coeff m f| * q (hN.basis m) := by sorry
+
+/-- Auxiliary: a finset sup of seminorms applied to a sequence with polynomial
+growth in each seminorm has a uniform polynomial bound.
+
+Given `p' : ι → Seminorm ℝ E` and a finite set `s`, if each `p' i` for `i ∈ s`
+satisfies `p' i (x m) ≤ Cᵢ · (1+m)^{tᵢ}`, then `(s.sup p') (x m) ≤ D · (1+m)^S`
+where `S = max tᵢ` and `D = ∑ Cᵢ`. -/
+private lemma finset_sup_poly_bound {E : Type*} [AddCommGroup E] [Module ℝ E]
+    {ι : Type*} [DecidableEq ι]
+    (p' : ι → Seminorm ℝ E) (s : Finset ι) (x : ℕ → E)
+    (hx : ∀ i ∈ s, ∃ C > 0, ∃ t : ℕ, ∀ m, p' i (x m) ≤ C * (1 + (m : ℝ)) ^ t) :
+    ∃ D > 0, ∃ S : ℕ, ∀ m, (s.sup p') (x m) ≤ D * (1 + (m : ℝ)) ^ S := by
+  induction s using Finset.cons_induction with
+  | empty =>
+    exact ⟨1, one_pos, 0, fun m => by simp [Finset.sup_empty, Seminorm.bot_eq_zero]⟩
+  | cons a s has ih =>
+    have ih' := ih (fun i hi => hx i (Finset.mem_cons.mpr (Or.inr hi)))
+    obtain ⟨D₁, hD₁, S₁, hbound₁⟩ := ih'
+    obtain ⟨Ca, hCa, ta, hbounda⟩ := hx a (Finset.mem_cons.mpr (Or.inl rfl))
+    refine ⟨Ca + D₁, by linarith, max ta S₁, fun m => ?_⟩
+    rw [Finset.sup_cons]
+    have h1m : (0 : ℝ) < 1 + (m : ℝ) := by positivity
+    have h1m_le : (1 : ℝ) ≤ 1 + (m : ℝ) := by linarith
+    have hpow_le_left : (1 + (m : ℝ)) ^ ta ≤ (1 + (m : ℝ)) ^ (max ta S₁) :=
+      pow_le_pow_right₀ h1m_le (le_max_left ta S₁)
+    have hpow_le_right : (1 + (m : ℝ)) ^ S₁ ≤ (1 + (m : ℝ)) ^ (max ta S₁) :=
+      pow_le_pow_right₀ h1m_le (le_max_right ta S₁)
+    have hle_sup_left : (p' a) (x m) ≤ (Ca + D₁) * (1 + (m : ℝ)) ^ (max ta S₁) := by
+      calc (p' a) (x m) ≤ Ca * (1 + (m : ℝ)) ^ ta := hbounda m
+        _ ≤ Ca * (1 + (m : ℝ)) ^ (max ta S₁) :=
+            mul_le_mul_of_nonneg_left hpow_le_left (le_of_lt hCa)
+        _ ≤ (Ca + D₁) * (1 + (m : ℝ)) ^ (max ta S₁) :=
+            mul_le_mul_of_nonneg_right (by linarith) (pow_nonneg (le_of_lt h1m) _)
+    have hle_sup_right : (s.sup p') (x m) ≤ (Ca + D₁) * (1 + (m : ℝ)) ^ (max ta S₁) := by
+      calc (s.sup p') (x m) ≤ D₁ * (1 + (m : ℝ)) ^ S₁ := hbound₁ m
+        _ ≤ D₁ * (1 + (m : ℝ)) ^ (max ta S₁) :=
+            mul_le_mul_of_nonneg_left hpow_le_right (le_of_lt hD₁)
+        _ ≤ (Ca + D₁) * (1 + (m : ℝ)) ^ (max ta S₁) :=
+            mul_le_mul_of_nonneg_right (by linarith) (pow_nonneg (le_of_lt h1m) _)
+    exact sup_le hle_sup_left hle_sup_right
+
+/-- **Dynin-Mityagin implies Pietsch nuclearity.**
+
+A `GaussianField.NuclearSpace` (Schauder basis with polynomial growth/decay)
+gives rise to a `NuclearSpace` (Pietsch nuclear dominance).
+
+**Proof sketch.** Given a continuous seminorm `p`:
+
+1. Bound `p` by the defining seminorms: `p ≤ C₁ · (s₁.sup hN.p)`
+2. Get uniform polynomial growth: `(s₁.sup hN.p)(ψₘ) ≤ D · (1+m)^S`
+3. Get coefficient decay with extra room: `|cₘ(f)| · (1+m)^{S+2} ≤ C₂ · (s₂.sup hN.p)(f)`
+4. Define CLFs `fₘ := (1+m)^{S+2} · cₘ` and coefficients
+   `aₘ := C₁ · D · (1+m)^{-(2:ℤ)}` (summable since exponent < -1)
+5. The dominating seminorm is `q := C₁ · s₁.sup(p) + C₂ · s₂.sup(p)` -/
+theorem GaussianField.NuclearSpace.toPietschNuclearSpace (E : Type*)
+    [AddCommGroup E] [Module ℝ E]
+    [TopologicalSpace E] [IsTopologicalAddGroup E] [ContinuousSMul ℝ E]
+    [hN : GaussianField.NuclearSpace E] : _root_.NuclearSpace E where
+  nuclear_dominance := by
+    classical
+    intro p hp
+    -- Step 1: Bound p by the defining seminorms
+    obtain ⟨s₁, C₁nn, hC₁ne, hpbound⟩ :=
+      Seminorm.bound_of_continuous hN.h_with p hp
+    have hC₁_pos : (0 : ℝ) < C₁nn := by positivity
+    -- Step 2: Get polynomial growth bound on basis vectors
+    have hgrowth : ∀ i ∈ s₁, ∃ C > 0, ∃ t : ℕ,
+        ∀ m, hN.p i (hN.basis m) ≤ C * (1 + (m : ℝ)) ^ t :=
+      fun i _ => hN.basis_growth i
+    obtain ⟨D, hD, S, hDbound⟩ := finset_sup_poly_bound hN.p s₁ hN.basis hgrowth
+    -- Step 3: Get coefficient decay with exponent S + 2
+    obtain ⟨C₂, hC₂, s₂, hcoeff_decay⟩ := hN.coeff_decay (S + 2)
+    -- Build the dominating seminorm q
+    -- q = C₁nn • (s₁.sup hN.p) + C₂nn • (s₂.sup hN.p)
+    set C₂nn : ℝ≥0 := ⟨C₂, le_of_lt hC₂⟩ with hC₂nn_def
+    set q := C₁nn • s₁.sup hN.p + C₂nn • s₂.sup hN.p with hq_def
+    -- Continuity of finset sups of seminorms
+    -- Each p i is continuous by WithSeminorms, and finite sup of continuous seminorms is continuous
+    have hsup_cont : ∀ (t : Finset hN.ι), Continuous (⇑(t.sup hN.p) : E → ℝ) := by
+      intro t
+      induction t using Finset.cons_induction with
+      | empty =>
+        show Continuous (⇑(⊥ : Seminorm ℝ E) : E → ℝ)
+        simp [Seminorm.bot_eq_zero]; exact continuous_const
+      | cons a t' _ ih =>
+        rw [Finset.sup_cons]
+        exact (hN.h_with.continuous_seminorm a).sup ih
+    have hsup₁_cont : Continuous (⇑(s₁.sup hN.p) : E → ℝ) := hsup_cont s₁
+    have hsup₂_cont : Continuous (⇑(s₂.sup hN.p) : E → ℝ) := hsup_cont s₂
+    -- q is continuous
+    have hq_cont : Continuous q := by
+      show Continuous (fun x => q x)
+      have : (fun x => q x) = fun x =>
+          (C₁nn : ℝ) * (s₁.sup hN.p) x + (C₂nn : ℝ) * (s₂.sup hN.p) x := by
+        ext x; simp [hq_def, NNReal.smul_def]
+      rw [this]
+      exact (continuous_const.mul hsup₁_cont).add (continuous_const.mul hsup₂_cont)
+    -- q ≥ p
+    have hq_ge : ∀ x, p x ≤ q x := by
+      intro x
+      have h1 : p x ≤ (C₁nn • s₁.sup hN.p) x := hpbound x
+      have h2 : (0 : ℝ) ≤ (C₂nn • s₂.sup hN.p) x := apply_nonneg _ x
+      calc p x ≤ (C₁nn • s₁.sup hN.p) x := h1
+        _ ≤ (C₁nn • s₁.sup hN.p) x + (C₂nn • s₂.sup hN.p) x := le_add_of_nonneg_right h2
+        _ = q x := (Seminorm.add_apply _ _ x).symm
+    -- Define CLFs: f_m = (1+m)^{S+2} • coeff m
+    let f : ℕ → (E →L[ℝ] ℝ) := fun m => ((1 + (m : ℝ)) ^ (S + 2)) • hN.coeff m
+    -- c_m = C₁nn * sup_p(ψ_m) / (1+m)^{S+2}
+    let c : ℕ → ℝ := fun m =>
+      (C₁nn : ℝ) * (s₁.sup hN.p) (hN.basis m) / (1 + (m : ℝ)) ^ (S + 2)
+    -- Common positivity facts
+    have h1m_pos : ∀ m : ℕ, (0 : ℝ) < 1 + (m : ℝ) := fun m => by positivity
+    have h1m_ne : ∀ m : ℕ, (1 + (m : ℝ)) ≠ 0 := fun m => ne_of_gt (h1m_pos m)
+    -- Summability of the shifted p-series ∑ 1/(1+m)^2
+    have hsumm_shift : Summable (fun m : ℕ => (1 : ℝ) / ((m : ℝ) + 1) ^ 2) := by
+      have := (summable_nat_add_iff 1).mpr
+        (Real.summable_one_div_nat_pow.mpr (by norm_num : 1 < 2))
+      exact this.congr (fun m => by push_cast; ring_nf)
+    refine ⟨q, hq_cont, hq_ge, f, c, ?_, ?_, ?_, ?_⟩
+    -- c ≥ 0
+    · intro m
+      apply div_nonneg
+      · exact mul_nonneg (NNReal.coe_nonneg C₁nn) (apply_nonneg _ _)
+      · positivity
+    -- Summable c
+    · -- c m ≤ C₁nn * D / (1+m)^2
+      apply Summable.of_nonneg_of_le
+      · intro m; exact div_nonneg (mul_nonneg (NNReal.coe_nonneg C₁nn) (apply_nonneg _ _))
+          (pow_nonneg (h1m_pos m).le _)
+      · intro m
+        show (C₁nn : ℝ) * (s₁.sup hN.p) (hN.basis m) / (1 + (m : ℝ)) ^ (S + 2) ≤
+          (C₁nn : ℝ) * D / (1 + (m : ℝ)) ^ 2
+        -- sup_p(ψ_m) ≤ D * (1+m)^S, so after dividing by (1+m)^{S+2} we get ≤ D/(1+m)^2
+        have hpow_pos : (0 : ℝ) < (1 + (m : ℝ)) ^ (S + 2) := pow_pos (h1m_pos m) _
+        rw [div_le_div_iff₀ hpow_pos (pow_pos (h1m_pos m) 2)]
+        calc (C₁nn : ℝ) * (s₁.sup hN.p) (hN.basis m) * (1 + (m : ℝ)) ^ 2
+            ≤ (C₁nn : ℝ) * (D * (1 + (m : ℝ)) ^ S) * (1 + (m : ℝ)) ^ 2 := by
+              apply mul_le_mul_of_nonneg_right _ (pow_nonneg (h1m_pos m).le 2)
+              exact mul_le_mul_of_nonneg_left (hDbound m) (NNReal.coe_nonneg C₁nn)
+          _ = (C₁nn : ℝ) * D * ((1 + (m : ℝ)) ^ S * (1 + (m : ℝ)) ^ 2) := by ring
+          _ = (C₁nn : ℝ) * D * (1 + (m : ℝ)) ^ (S + 2) := by rw [pow_add]
+      · have : Summable (fun m : ℕ => (C₁nn : ℝ) * D * ((1 : ℝ) / ((m : ℝ) + 1) ^ 2)) :=
+          hsumm_shift.const_smul ((C₁nn : ℝ) * D)
+        exact this.congr (fun m => by ring_nf)
+    -- ‖f m x‖ ≤ q x
+    · intro m x
+      show ‖((1 + (m : ℝ)) ^ (S + 2)) • hN.coeff m x‖ ≤ q x
+      simp only [smul_eq_mul, Real.norm_eq_abs, abs_mul,
+        abs_of_nonneg (pow_nonneg (h1m_pos m).le _)]
+      rw [mul_comm]
+      calc |hN.coeff m x| * (1 + (m : ℝ)) ^ (S + 2) ≤ C₂ * (s₂.sup hN.p) x :=
+              hcoeff_decay x m
+        _ = (C₂nn : ℝ) * (s₂.sup hN.p) x := by simp [hC₂nn_def]
+        _ = (C₂nn • s₂.sup hN.p) x := by simp [NNReal.smul_def]
+        _ ≤ (C₁nn • s₁.sup hN.p) x + (C₂nn • s₂.sup hN.p) x :=
+            le_add_of_nonneg_left (apply_nonneg _ x)
+        _ = q x := (Seminorm.add_apply _ _ x).symm
+    -- p x ≤ ∑' m, ‖f m x‖ * c m
+    · intro x
+      have hexpand := seminorm_le_nuclear_expansion (s₁.sup hN.p) hsup₁_cont x
+      -- The key equality: ∑' ‖f_m x‖ * c_m = C₁nn * ∑' |coeff_m x| * sup_p(ψ_m)
+      have hsum_eq : (C₁nn : ℝ) * ∑' m, |hN.coeff m x| * (s₁.sup hN.p) (hN.basis m) =
+          ∑' m, ‖f m x‖ * c m := by
+        rw [← tsum_mul_left]
+        congr 1; ext m
+        show (C₁nn : ℝ) * (|hN.coeff m x| * (s₁.sup hN.p) (hN.basis m)) =
+          ‖((1 + (m : ℝ)) ^ (S + 2)) • hN.coeff m x‖ *
+          ((C₁nn : ℝ) * (s₁.sup hN.p) (hN.basis m) / (1 + (m : ℝ)) ^ (S + 2))
+        simp only [smul_eq_mul, Real.norm_eq_abs, abs_mul,
+          abs_of_nonneg (pow_nonneg (h1m_pos m).le _)]
+        field_simp
+      calc p x ≤ (C₁nn • s₁.sup hN.p) x := hpbound x
+        _ = (C₁nn : ℝ) * (s₁.sup hN.p) x := by simp [NNReal.smul_def]
+        _ ≤ (C₁nn : ℝ) * ∑' m, |hN.coeff m x| * (s₁.sup hN.p) (hN.basis m) :=
+            mul_le_mul_of_nonneg_left hexpand (NNReal.coe_nonneg C₁nn)
+        _ = ∑' m, ‖f m x‖ * c m := hsum_eq
 
 end

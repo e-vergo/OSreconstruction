@@ -202,15 +202,23 @@ def SchwartzMap.nuclearFrechet (n : ℕ) : NuclearFrechet where
 
 /-- **The Schwartz space S(ℝⁿ, ℝ) is a nuclear space (Pietsch characterization).**
 
-    This follows from the nuclear Fréchet presentation: the Hermite function
-    expansion provides the nuclear factorization at each level.
+    This follows from the Dynin-Mityagin characterization: the Hermite function
+    Schauder basis with polynomial growth/decay implies Pietsch nuclear dominance.
+    The bridge `GaussianField.NuclearSpace.toPietschNuclearSpace` converts
+    the gaussian-field `GaussianField.NuclearSpace` instance to the Pietsch one.
 
-    **Note:** A sorry-free `GaussianField.NuclearSpace` instance for `SchwartzMap D ℝ`
-    is available from the gaussian-field library (Dynin-Mityagin characterization).
-    Import `GaussianFieldBridge` to use it. -/
+    The only sorry in this path is `seminorm_le_nuclear_expansion`, a well-known
+    consequence of the Hahn-Banach theorem and the triangle inequality for
+    seminorms applied to Schauder expansions. -/
 theorem SchwartzMap.instNuclearSpace (n : ℕ) :
-    NuclearSpace (𝓢(EuclideanSpace ℝ (Fin n), ℝ)) :=
-  (SchwartzMap.nuclearFrechet n).toNuclearSpace
+    NuclearSpace (𝓢(EuclideanSpace ℝ (Fin n), ℝ)) := by
+  by_cases hn : n = 0
+  · -- n = 0: Schwartz space over a trivial domain, use NuclearFrechet path
+    exact (SchwartzMap.nuclearFrechet n).toNuclearSpace
+  · -- n > 0: EuclideanSpace ℝ (Fin n) is nontrivial, use the GF bridge
+    haveI : Nonempty (Fin n) := ⟨⟨0, by omega⟩⟩
+    haveI : Nontrivial (EuclideanSpace ℝ (Fin n)) := inferInstance
+    exact GaussianField.NuclearSpace.toPietschNuclearSpace _
 
 /-! ### Hermite Function Infrastructure
 
@@ -223,13 +231,14 @@ The definitions below use Mathlib's physicists' Hermite polynomials, while
 gaussian-field uses probabilist Hermite polynomials. The two are related by
 a √2 rescaling. -/
 
-/-- The normalized Hermite functions form an orthonormal basis of L²(ℝ).
-    h_m(x) = (2^m m! √π)^{-1/2} · H_m(x) · exp(-x²/2)
-    where H_m is the m-th Hermite polynomial.
+end -- close noncomputable section
 
-    Mathlib has `Polynomial.hermite m` (the physicists' Hermite polynomial).
-    The Hermite *function* multiplies by the Gaussian weight.
+noncomputable section
+open scoped SchwartzMap
+open MeasureTheory
+namespace SchwartzHermiteLegacy
 
+/-- The normalized Hermite functions (physicists' convention).
     **Superseded** by `gfHermiteFunction` from gaussian-field. -/
 def hermiteFunction (m : ℕ) : ℝ → ℝ :=
   fun x => ((Polynomial.hermite m).map (Int.castRingHom ℝ)).eval x *
@@ -257,4 +266,5 @@ theorem hermiteFunction_seminorm_decay (k l N : ℕ) :
         (Classical.choose (hermiteFunction_schwartz m)) ≤ C * (m : ℝ) ^ (-(N : ℤ)) := by
   sorry
 
+end SchwartzHermiteLegacy
 end
