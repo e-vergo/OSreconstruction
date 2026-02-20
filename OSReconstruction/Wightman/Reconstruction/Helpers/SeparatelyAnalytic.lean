@@ -253,7 +253,8 @@ private lemma taylor_remainder_eq_tsum (z₀ : ℂ) (ρ : ℝ) (hρ : 0 < ρ)
   have hR : (0 : NNReal) < R := by exact_mod_cast hρ
   have hps := hg.hasFPowerSeriesOnBall hR
   have hh_mem : h ∈ EMetric.ball (0 : ℂ) R := by
-    simp only [EMetric.mem_ball, edist_eq_enorm_sub, sub_zero]
+    show edist h 0 < ↑R
+    rw [edist_eq_enorm_sub, sub_zero]
     exact_mod_cast hh
   -- Full series sums to g(z₀ + h)
   have h_hassum : HasSum (fun n => (cauchyPowerSeries g z₀ ρ n) (fun _ => h))
@@ -286,7 +287,8 @@ private lemma taylor_tail_summable (z₀ : ℂ) (ρ : ℝ) (hρ : 0 < ρ)
   have hR : (0 : NNReal) < R := by exact_mod_cast hρ
   have hps := hg.hasFPowerSeriesOnBall hR
   have hh_mem : z₀ + h ∈ EMetric.ball z₀ R := by
-    simp only [EMetric.mem_ball, edist_eq_enorm_sub, add_sub_cancel_left]
+    show edist (z₀ + h) z₀ < ↑R
+    rw [edist_eq_enorm_sub, add_sub_cancel_left]
     exact_mod_cast hh
   -- The full series is summable (HasSum implies Summable)
   have h_sum := (hps.hasSum_sub hh_mem).summable
@@ -1121,11 +1123,11 @@ theorem differentiableOn_cauchyIntegral_param [CompleteSpace E] [FiniteDimension
     -- Convert DifferentiableOn from EMetric.ball to Metric.ball
     intro z hz
     have hz_emem : (z : ℂ) ∈ EMetric.ball z₀ (↑R) := by
-      rw [EMetric.mem_ball, edist_dist]
-      have : ENNReal.ofReal r = (↑R : ENNReal) := by
-        simp [R, ENNReal.ofReal_eq_coe_nnreal hr.le]
-      rw [← this]
-      exact (ENNReal.ofReal_lt_ofReal_iff_of_nonneg dist_nonneg).mpr (Metric.mem_ball.mp hz)
+      show edist z z₀ < ↑R
+      rw [edist_eq_enorm_sub]
+      have : dist z z₀ < r := Metric.mem_ball.mp hz
+      rw [dist_eq_norm] at this
+      exact_mod_cast this
     exact (hps.analyticAt_of_mem hz_emem).differentiableAt.differentiableWithinAt
   have hG_x : ∀ z ∈ Metric.ball z₀ r, DifferentiableOn ℂ (fun x => G (z, x)) V :=
     cauchyIntegral_param_x_holo hr hV f hf_cont hf_x_holo hG_cont

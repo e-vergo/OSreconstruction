@@ -111,15 +111,157 @@ theorem constructedSchwinger_tempered (Wfn : WightmanFunctions d) (n : ℕ) :
   -- This follows from the temperedness of W_analytic and the integrability of Schwartz functions.
   sorry
 
-/-- The Schwinger functions satisfy translation invariance (E1a).
+/-- The BHW extension of W_analytic from the forward tube to the permuted extended tube.
 
-    Proof: Change of variables x ↦ x + a in the integral, using Lebesgue
-    measure invariance and translation invariance of W_analytic on the forward tube. -/
+    Applying the `bargmann_hall_wightman` axiom (AnalyticContinuation.lean) to the
+    holomorphic extension `W_analytic` from `spectrum_condition`, we obtain `F_ext`
+    on the permuted extended tube with:
+    1. Complex Lorentz invariance (from real Lorentz covariance + identity theorem)
+    2. Permutation symmetry (from local commutativity at spacelike pairs)
+    3. Agreement with W_analytic on the forward tube (uniqueness)
+
+    The sorry here absorbs verifying the BHW hypotheses:
+    - `hF_lorentz`: W_analytic inherits real Lorentz invariance from the Wightman
+      distribution (requires identity theorem on tube domains in ℂⁿ, not in Mathlib)
+    - `hF_bv`: continuous extension to real boundary (distributional boundary values)
+    - `hF_local`: local commutativity from `Wfn.locally_commutative`
+
+    Ref: Streater-Wightman, Theorem 2-11; Jost, Ch. IV -/
+theorem W_analytic_BHW (Wfn : WightmanFunctions d) (n : ℕ) :
+    ∃ (F_ext : (Fin n → Fin (d + 1) → ℂ) → ℂ),
+      DifferentiableOn ℂ F_ext (PermutedExtendedTube d n) ∧
+      (∀ z ∈ ForwardTube d n,
+        F_ext z = (Wfn.spectrum_condition n).choose z) ∧
+      (∀ (Λ : ComplexLorentzGroup d) (z : Fin n → Fin (d + 1) → ℂ),
+        z ∈ PermutedExtendedTube d n →
+        F_ext (fun k μ => ∑ ν, Λ.val μ ν * z k ν) = F_ext z) ∧
+      (∀ (π : Equiv.Perm (Fin n)) (z : Fin n → Fin (d + 1) → ℂ),
+        z ∈ PermutedExtendedTube d n →
+        F_ext (fun k => z (π k)) = F_ext z) := by
+  sorry
+
+/-- The holomorphic extension W_analytic inherits translation invariance from
+    the Wightman distribution W_n.
+
+    Proof sketch: Both z ↦ W_analytic(z) and z ↦ W_analytic(z + c) (for c = Wick(a))
+    are holomorphic on the forward tube with the same distributional boundary values
+    (by translation invariance of W_n). By uniqueness of analytic continuation in
+    tube domains, they must agree.
+
+    The sorry requires the identity theorem for holomorphic functions on tube domains
+    in ℂⁿ (several complex variables), which is not in Mathlib. The 1D version is
+    proved in EdgeOfWedge.lean (`identity_theorem_connected`).
+
+    Ref: Streater-Wightman, Theorem 2.8 (uniqueness of holomorphic extension to tubes) -/
+theorem W_analytic_translation_invariant (Wfn : WightmanFunctions d) (n : ℕ)
+    (a : SpacetimeDim d) (x : NPointDomain d n) :
+    (Wfn.spectrum_condition n).choose (fun k => wickRotatePoint (x k)) =
+    (Wfn.spectrum_condition n).choose (fun k => wickRotatePoint (fun μ => x k μ + a μ)) := by
+  sorry
+
 theorem constructedSchwinger_translation_invariant (Wfn : WightmanFunctions d)
     (n : ℕ) (a : SpacetimeDim d) (f g : SchwartzNPoint d n)
     (hfg : ∀ x, g.toFun x = f.toFun (fun i => x i + a)) :
     constructSchwingerFunctions Wfn n f = constructSchwingerFunctions Wfn n g := by
+  -- Unfold the definition: S(f) = ∫ W(Wick(x)) * f(x) dx
+  simp only [constructSchwingerFunctions]
+  -- Rewrite g(x) = f(x + a) using hfg
+  have hfg' : ∀ x : NPointDomain d n,
+      (g : NPointDomain d n → ℂ) x = (f : NPointDomain d n → ℂ) (fun i => x i + a) := hfg
+  simp_rw [hfg']
+  -- Goal: ∫ K(x) * f(x) = ∫ K(x) * f(x + a') where K(x) = W_analytic(Wick(x))
+  -- Proof: ∫ K(x) * f(x+a') = ∫ K(x+a') * f(x+a')   [by K translation invariance]
+  --                           = ∫ K(x) * f(x)           [by Haar measure invariance]
+  set a' : NPointDomain d n := fun _ => a
+  set K : NPointDomain d n → ℂ :=
+    fun x => (Wfn.spectrum_condition n).choose (fun k => wickRotatePoint (x k))
+  -- K is translation-invariant: K(x) = K(x + a')
+  have hK : ∀ x : NPointDomain d n, K x = K (x + a') := fun x =>
+    W_analytic_translation_invariant Wfn n a x
+  symm
+  calc ∫ x : NPointDomain d n, K x * (f : NPointDomain d n → ℂ) (x + a')
+      = ∫ x : NPointDomain d n, K (x + a') * (f : NPointDomain d n → ℂ) (x + a') := by
+        congr 1; ext x; rw [hK]
+    _ = ∫ x : NPointDomain d n, K x * (f : NPointDomain d n → ℂ) x :=
+        MeasureTheory.integral_add_right_eq_self
+          (fun x => K x * (f : NPointDomain d n → ℂ) x) a'
+
+/-- The holomorphic extension W_analytic is invariant under Euclidean rotations:
+    W_analytic(Wick(Rx₁), ..., Wick(Rxₙ)) = W_analytic(Wick(x₁), ..., Wick(xₙ))
+    for R ∈ O(d+1).
+
+    Proof path via existing infrastructure:
+    1. `W_analytic_BHW` gives F_ext on PermutedExtendedTube with complex Lorentz invariance
+    2. `schwinger_euclidean_invariant` (AnalyticContinuation.lean:1075) derives Euclidean
+       rotation invariance from complex Lorentz invariance for det R = 1
+    3. `euclidean_distinct_in_permutedTube` (AnalyticContinuation.lean:389) shows
+       distinct-time Euclidean points lie in PermutedExtendedTube
+    4. F_ext = W_analytic on ForwardTube (BHW agreement); by continuity of holomorphic
+       functions, they agree on the closure (including all Euclidean points)
+
+    Remaining gaps: (a) identity theorem to show F_ext = W_analytic at Euclidean points
+    outside the forward tube; (b) det R = -1 case (improper rotations).
+
+    Ref: Streater-Wightman, Theorem 3.6 (BHW); Jost, §IV.5 -/
+theorem W_analytic_rotation_invariant (Wfn : WightmanFunctions d) (n : ℕ)
+    (R : Matrix (Fin (d + 1)) (Fin (d + 1)) ℝ) (hR : R.transpose * R = 1)
+    (x : NPointDomain d n) :
+    (Wfn.spectrum_condition n).choose (fun k => wickRotatePoint (x k)) =
+    (Wfn.spectrum_condition n).choose
+      (fun k => wickRotatePoint (R.mulVec (x k))) := by
+  -- For det R = 1: follows from W_analytic_BHW + schwinger_euclidean_invariant
+  -- For det R = -1: requires PCT or separate argument
+  -- Both need: F_ext(Wick(x)) = W_analytic(Wick(x)) at all Euclidean points
   sorry
+
+/-- Orthogonal transformations preserve volume: the map x ↦ R·x on ℝ^(d+1)
+    has |det R| = 1, so the product map on NPointDomain preserves Lebesgue measure. -/
+theorem integral_orthogonal_eq_self (R : Matrix (Fin (d + 1)) (Fin (d + 1)) ℝ)
+    (hR : R.transpose * R = 1)
+    (h : NPointDomain d n → ℂ) :
+    ∫ x : NPointDomain d n, h (fun i => R.mulVec (x i)) =
+    ∫ x : NPointDomain d n, h x := by
+  -- det R ≠ 0 and |det R| = 1 from orthogonality
+  have hdet : R.det ≠ 0 := by
+    intro h; have := congr_arg Matrix.det hR
+    rw [Matrix.det_mul, Matrix.det_transpose, Matrix.det_one, h, mul_zero] at this
+    exact zero_ne_one this
+  have habs : |R.det| = 1 := by
+    have h1 : R.det * R.det = 1 := by
+      have := congr_arg Matrix.det hR
+      rwa [Matrix.det_mul, Matrix.det_transpose, Matrix.det_one] at this
+    rcases mul_self_eq_one_iff.mp h1 with h | h <;> simp [h]
+  have hR' : R * R.transpose = 1 := Matrix.mul_eq_one_comm.mpr hR
+  -- R.mulVec preserves volume on each factor
+  have hmv : (fun v => R.mulVec v) = Matrix.toLin' R := by
+    ext v; simp [Matrix.toLin'_apply]
+  have hcont_R : Continuous (Matrix.toLin' R) :=
+    LinearMap.continuous_of_finiteDimensional _
+  have hcont_Rt : Continuous (Matrix.toLin' R.transpose) :=
+    LinearMap.continuous_of_finiteDimensional _
+  have hmp_factor : MeasureTheory.MeasurePreserving
+      (fun v : Fin (d+1) → ℝ => R.mulVec v)
+      MeasureTheory.volume MeasureTheory.volume := by
+    rw [hmv]; constructor
+    · exact hcont_R.measurable
+    · rw [Real.map_matrix_volume_pi_eq_smul_volume_pi hdet]
+      simp [abs_inv, habs]
+  -- Construct MeasurableEquiv for the componentwise map
+  let e : (Fin n → Fin (d+1) → ℝ) ≃ᵐ (Fin n → Fin (d+1) → ℝ) :=
+    { toEquiv := {
+        toFun := fun a i => R.mulVec (a i)
+        invFun := fun a i => R.transpose.mulVec (a i)
+        left_inv := fun a => by ext i j; simp [Matrix.mulVec_mulVec, hR]
+        right_inv := fun a => by ext i j; simp [Matrix.mulVec_mulVec, hR'] }
+      measurable_toFun :=
+        measurable_pi_lambda _ fun i => hcont_R.measurable.comp (measurable_pi_apply i)
+      measurable_invFun :=
+        measurable_pi_lambda _ fun i => hcont_Rt.measurable.comp (measurable_pi_apply i) }
+  -- Lift volume preservation to product, then get integral equality
+  have hmp : MeasureTheory.MeasurePreserving (⇑e)
+      MeasureTheory.volume MeasureTheory.volume :=
+    MeasureTheory.volume_preserving_pi (fun (_ : Fin n) => hmp_factor)
+  exact hmp.integral_comp' h
 
 /-- The Schwinger functions satisfy rotation invariance (E1b).
 
@@ -132,7 +274,27 @@ theorem constructedSchwinger_rotation_invariant (Wfn : WightmanFunctions d)
     (f g : SchwartzNPoint d n)
     (hfg : ∀ x, g.toFun x = f.toFun (fun i => R.mulVec (x i))) :
     constructSchwingerFunctions Wfn n f = constructSchwingerFunctions Wfn n g := by
-  sorry
+  simp only [constructSchwingerFunctions]
+  have hfg' : ∀ x : NPointDomain d n,
+      (g : NPointDomain d n → ℂ) x =
+      (f : NPointDomain d n → ℂ) (fun i => R.mulVec (x i)) := hfg
+  simp_rw [hfg']
+  -- Goal: ∫ K(x) * f(x) = ∫ K(x) * f(Rx)
+  -- where K(x) = W_analytic(Wick(x)) and (Rx)(i) = R.mulVec (x i)
+  set K : NPointDomain d n → ℂ :=
+    fun x => (Wfn.spectrum_condition n).choose (fun k => wickRotatePoint (x k))
+  -- K is rotation-invariant: K(x) = K(Rx)
+  have hK : ∀ x : NPointDomain d n, K x = K (fun i => R.mulVec (x i)) :=
+    fun x => W_analytic_rotation_invariant Wfn n R hR x
+  symm
+  calc ∫ x : NPointDomain d n, K x * (f : NPointDomain d n → ℂ) (fun i => R.mulVec (x i))
+      = ∫ x : NPointDomain d n,
+          K (fun i => R.mulVec (x i)) *
+          (f : NPointDomain d n → ℂ) (fun i => R.mulVec (x i)) := by
+        congr 1; ext x; rw [hK]
+    _ = ∫ x : NPointDomain d n, K x * (f : NPointDomain d n → ℂ) x :=
+        integral_orthogonal_eq_self R hR
+          (fun x => K x * (f : NPointDomain d n → ℂ) x)
 
 /-- The Schwinger functions satisfy reflection positivity (E2).
 
@@ -148,6 +310,38 @@ theorem constructedSchwinger_reflection_positive (Wfn : WightmanFunctions d)
     (OSInnerProduct d (constructSchwingerFunctions Wfn) F F).re ≥ 0 := by
   sorry
 
+/-- The holomorphic extension W_analytic is invariant under permutations of arguments:
+    W_analytic(z_{σ(1)}, ..., z_{σ(n)}) = W_analytic(z_1, ..., z_n) for σ ∈ S_n.
+
+    Proof path via existing infrastructure:
+    1. `W_analytic_BHW` gives F_ext on PermutedExtendedTube with permutation symmetry
+    2. `schwinger_permutation_symmetric` (AnalyticContinuation.lean:1103) derives
+       permutation invariance from BHW permutation symmetry
+    3. `euclidean_distinct_in_permutedTube` shows distinct-time Euclidean points
+       lie in PermutedExtendedTube
+
+    Remaining gap: F_ext(Wick(x)) = W_analytic(Wick(x)) at all Euclidean points
+    (not just those in ForwardTube). This follows by continuity of holomorphic
+    functions + density of ordered points, but requires the SCV identity theorem.
+
+    Ref: Jost, §IV.5; Streater-Wightman, Theorem 3.6 -/
+theorem W_analytic_permutation_invariant (Wfn : WightmanFunctions d) (n : ℕ)
+    (σ : Equiv.Perm (Fin n)) (x : NPointDomain d n) :
+    (Wfn.spectrum_condition n).choose (fun k => wickRotatePoint (x k)) =
+    (Wfn.spectrum_condition n).choose (fun k => wickRotatePoint (x (σ k))) := by
+  -- Follows from W_analytic_BHW + schwinger_permutation_symmetric
+  -- Gap: showing F_ext = W_analytic at Wick-rotated points outside ForwardTube
+  sorry
+
+/-- Permutations preserve volume: the map x ↦ x ∘ σ on (ℝ^{d+1})^n is
+    a rearrangement of factors, preserving Lebesgue measure. -/
+theorem integral_perm_eq_self (σ : Equiv.Perm (Fin n))
+    (h : NPointDomain d n → ℂ) :
+    ∫ x : NPointDomain d n, h (fun i => x (σ i)) =
+    ∫ x : NPointDomain d n, h x :=
+  (MeasureTheory.volume_measurePreserving_piCongrLeft
+    (fun _ : Fin n => Fin (d + 1) → ℝ) σ).symm.integral_comp' h
+
 /-- The Schwinger functions satisfy permutation symmetry (E3).
 
     Proof: BHW permutation invariance on the permuted extended tube,
@@ -156,15 +350,63 @@ theorem constructedSchwinger_symmetric (Wfn : WightmanFunctions d)
     (n : ℕ) (σ : Equiv.Perm (Fin n)) (f g : SchwartzNPoint d n)
     (hfg : ∀ x, g.toFun x = f.toFun (fun i => x (σ i))) :
     constructSchwingerFunctions Wfn n f = constructSchwingerFunctions Wfn n g := by
-  -- This uses the full BHW theorem, not just basic Wightman properties
-  -- The Wightman functions on the forward tube extend to the permuted extended tube
-  -- with permutation symmetry
+  simp only [constructSchwingerFunctions]
+  have hfg' : ∀ x : NPointDomain d n,
+      (g : NPointDomain d n → ℂ) x =
+      (f : NPointDomain d n → ℂ) (fun i => x (σ i)) := hfg
+  simp_rw [hfg']
+  set K : NPointDomain d n → ℂ :=
+    fun x => (Wfn.spectrum_condition n).choose (fun k => wickRotatePoint (x k))
+  have hK : ∀ x : NPointDomain d n, K x = K (fun i => x (σ i)) :=
+    fun x => W_analytic_permutation_invariant Wfn n σ x
+  symm
+  calc ∫ x : NPointDomain d n, K x * (f : NPointDomain d n → ℂ) (fun i => x (σ i))
+      = ∫ x : NPointDomain d n,
+          K (fun i => x (σ i)) *
+          (f : NPointDomain d n → ℂ) (fun i => x (σ i)) := by
+        congr 1; ext x; rw [hK]
+    _ = ∫ x : NPointDomain d n, K x * (f : NPointDomain d n → ℂ) x :=
+        integral_perm_eq_self σ
+          (fun x => K x * (f : NPointDomain d n → ℂ) x)
+
+/-- Cluster property of W_analytic at the integral level: when the (n+m)-point
+    analytic Wightman function is integrated against a tensor product f ⊗ g_a
+    where g_a is g translated by a large spacelike vector a, the result
+    approaches the product S_n(f) · S_m(g).
+
+    This is the analytic continuation of the Wightman cluster decomposition
+    property, which follows from uniqueness of the vacuum (the mass gap
+    ensures exponential decay of the truncated correlation functions).
+    The Schwartz decay of f and g provides the domination needed for
+    dominated convergence.
+
+    Ref: Streater-Wightman, Theorem 3.5 (cluster decomposition);
+    Glimm-Jaffe, Chapter 19 -/
+theorem W_analytic_cluster_integral (Wfn : WightmanFunctions d) (n m : ℕ)
+    (f : SchwartzNPoint d n) (g : SchwartzNPoint d m)
+    (ε : ℝ) (hε : ε > 0) :
+    ∃ R : ℝ, R > 0 ∧
+      ∀ a : SpacetimeDim d, (∑ i : Fin d, (a (Fin.succ i))^2) > R^2 →
+        ∀ (g_a : SchwartzNPoint d m),
+          (∀ x : NPointDomain d m, g_a x = g (fun i => x i - a)) →
+          ‖(∫ x : NPointDomain d (n + m),
+              (Wfn.spectrum_condition (n + m)).choose
+                (fun k => wickRotatePoint (x k)) *
+              (f.tensorProduct g_a) x) -
+            (∫ x : NPointDomain d n,
+              (Wfn.spectrum_condition n).choose
+                (fun k => wickRotatePoint (x k)) * f x) *
+            (∫ x : NPointDomain d m,
+              (Wfn.spectrum_condition m).choose
+                (fun k => wickRotatePoint (x k)) * g x)‖ < ε := by
   sorry
 
 /-- The Schwinger functions satisfy clustering (E4).
 
     Proof: Follows from cluster decomposition of Wightman functions (R4)
-    via the analytic continuation. -/
+    via the analytic continuation. The key input is `W_analytic_cluster_integral`,
+    which combines the pointwise cluster property of W_analytic with
+    dominated convergence using Schwartz function decay. -/
 theorem constructedSchwinger_cluster (Wfn : WightmanFunctions d)
     (n m : ℕ) (f : SchwartzNPoint d n) (g : SchwartzNPoint d m)
     (ε : ℝ) (hε : ε > 0) :
@@ -175,7 +417,9 @@ theorem constructedSchwinger_cluster (Wfn : WightmanFunctions d)
           ‖constructSchwingerFunctions Wfn (n + m) (f.tensorProduct g_a) -
             constructSchwingerFunctions Wfn n f *
             constructSchwingerFunctions Wfn m g‖ < ε := by
-  sorry
+  -- Unfold constructSchwingerFunctions to expose the integrals
+  simp only [constructSchwingerFunctions]
+  exact W_analytic_cluster_integral Wfn n m f g ε hε
 
 /-! ### OS to Wightman (Theorem E'→R') -/
 
