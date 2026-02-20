@@ -7,6 +7,7 @@ import Mathlib.Analysis.Complex.CauchyIntegral
 import Mathlib.Topology.Connected.PathConnected
 import Mathlib.Analysis.Convex.Basic
 import Mathlib.Analysis.Analytic.Uniqueness
+import OSReconstruction.SCV.Analyticity
 
 /-!
 # Identity Theorem for Several Complex Variables
@@ -70,13 +71,8 @@ theorem DifferentiableOn.analyticOnNhd_of_finiteDimensional
     {m : ℕ} {F : Type*} [NormedAddCommGroup F] [NormedSpace ℂ F] [CompleteSpace F]
     {U : Set (Fin m → ℂ)} {f : (Fin m → ℂ) → F}
     (hf : DifferentiableOn ℂ f U) (hU : IsOpen U) :
-    AnalyticOnNhd ℂ f U := by
-  -- Proof sketch: For z₀ ∈ U, choose a polydisc P(z₀, r) ⊂ U.
-  -- Write f as an iterated Cauchy integral over the distinguished boundary ∂₀P.
-  -- The Cauchy kernel 1/∏(wⱼ - zⱼ) expands as a geometric series in (z - z₀),
-  -- giving the power series representation. Convergence follows from the
-  -- geometric series convergence on compact subsets of P.
-  sorry
+    AnalyticOnNhd ℂ f U :=
+  fun z hz => SCV.differentiableOn_analyticAt hU hf hz
 
 /-! ### Identity Theorem -/
 

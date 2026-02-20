@@ -521,14 +521,14 @@ structure WightmanFunctions (d : ℕ) [NeZero d] where
       DifferentiableOn ℂ W_analytic (ForwardTube d n) ∧
       -- Boundary values: W_analytic recovers W_n as imaginary parts approach zero.
       -- For any test function f and approach direction η with components in V₊,
-      -- lim_{ε→0⁺} ∫ W_analytic(x - iεη) f(x) dx = W_n(f)
+      -- lim_{ε→0⁺} ∫ W_analytic(x + iεη) f(x) dx = W_n(f)
       -- This is the distributional boundary value condition:
       -- the smeared analytic continuation converges to the Wightman distribution.
       (∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
         (∀ k, InOpenForwardCone d (η k)) →
         Filter.Tendsto
           (fun ε : ℝ => ∫ x : NPointDomain d n,
-            W_analytic (fun k μ => ↑(x k μ) - ε * ↑(η k μ) * Complex.I) * (f x))
+            W_analytic (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
           (nhdsWithin 0 (Set.Ioi 0))
           (nhds (W n f)))
   /-- Local commutativity (weak form) -/
@@ -1358,12 +1358,12 @@ def IsWickRotationPair {d : ℕ} [NeZero d] (S : SchwingerFunctions d) (W : (n :
     DifferentiableOn ℂ F_analytic (ForwardTube d n) ∧
     -- Boundary values of F_analytic = W_n (as distributions):
     -- For each test function f and approach direction η ∈ V₊,
-    -- lim_{ε→0⁺} ∫ F_analytic(x - iεη) f(x) dx = W_n(f)
+    -- lim_{ε→0⁺} ∫ F_analytic(x + iεη) f(x) dx = W_n(f)
     (∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
       (∀ k, InOpenForwardCone d (η k)) →
       Filter.Tendsto
         (fun ε : ℝ => ∫ x : NPointDomain d n,
-          F_analytic (fun k μ => ↑(x k μ) - ε * ↑(η k μ) * Complex.I) * (f x))
+          F_analytic (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
         (nhdsWithin 0 (Set.Ioi 0))
         (nhds (W n f))) ∧
     -- Euclidean restriction gives S_n: integrating F_analytic ∘ Wick against f gives S_n(f)

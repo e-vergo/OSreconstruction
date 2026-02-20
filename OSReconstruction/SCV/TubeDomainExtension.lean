@@ -813,8 +813,14 @@ private lemma rudin_mean_value_real {m : ℕ} (hm : 0 < m)
     intro z hz; rw [abs_one] at hz
     exact hF_holo.differentiableAt (hU_open.mem_nhds (hcb_sub hz))
   -- Step 10: Mean value property
-  have hmv : Real.circleAverage F_disc 0 1 = F_disc 0 :=
-    circleAverage_of_differentiable_on hF_da
+  have hmv : Real.circleAverage F_disc 0 1 = F_disc 0 := by
+    have : DiffContOnCl ℂ F_disc (Metric.ball 0 |1|) := by
+      constructor
+      · exact fun z hz => (hF_da z (Metric.ball_subset_closedBall hz)).differentiableWithinAt
+      · simp only [abs_one]
+        rw [closure_ball (0 : ℂ) one_ne_zero]
+        exact fun z hz => (hF_da z (by rwa [abs_one])).continuousAt.continuousWithinAt
+    exact this.circleAverage
   -- Step 11: F_disc(0) = bv(Re(Φ(ζ)))
   have hF0 : F_disc 0 = bv (fun i => (Phi x₀ ys ζ i).re) := by
     -- smp(ζ,0) = ζ (moebiusRudin(w,0) = w for all w)

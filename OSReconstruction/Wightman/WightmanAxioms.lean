@@ -372,7 +372,7 @@ theorem wightman_analyticity_boundary (qft : WightmanQFT d)
     -- The limit of the analytic continuation from within the forward tube exists
     ∃ (limit : ℂ), Filter.Tendsto
       (fun ε : ℝ => ha.analyticContinuation n
-        (fun k μ => ↑(x k μ) - ε * ↑(η k μ) * Complex.I))
+        (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I))
       (nhdsWithin 0 (Set.Ioi 0))
       (nhds limit) := by
   sorry

@@ -228,8 +228,8 @@ private lemma taylor_remainder_eq_tsum [CompleteSpace F]
   set R : NNReal := ⟨ρ, hρ.le⟩
   have hR : (0 : NNReal) < R := by exact_mod_cast hρ
   have hps := hg.hasFPowerSeriesOnBall hR
-  have hh_mem : h ∈ EMetric.ball (0 : ℂ) R := by
-    simp only [EMetric.mem_ball, edist_eq_enorm_sub, sub_zero]
+  have hh_mem : h ∈ Metric.eball (0 : ℂ) R := by
+    simp only [Metric.mem_eball, edist_eq_enorm_sub, sub_zero]
     exact_mod_cast hh
   have h_hassum : HasSum (fun n => (cauchyPowerSeries g z₀ ρ n) (fun _ => h))
       (g (z₀ + h)) := hps.hasSum hh_mem
@@ -258,8 +258,8 @@ private lemma taylor_tail_summable [CompleteSpace F]
   set R : NNReal := ⟨ρ, hρ.le⟩
   have hR : (0 : NNReal) < R := by exact_mod_cast hρ
   have hps := hg.hasFPowerSeriesOnBall hR
-  have hh_mem : z₀ + h ∈ EMetric.ball z₀ R := by
-    simp only [EMetric.mem_ball, edist_eq_enorm_sub, add_sub_cancel_left]
+  have hh_mem : z₀ + h ∈ Metric.eball z₀ R := by
+    simp only [Metric.mem_eball, edist_eq_enorm_sub, add_sub_cancel_left]
     exact_mod_cast hh
   have h_sum := (hps.hasSum_sub hh_mem).summable
   simp only [add_sub_cancel_left] at h_sum
