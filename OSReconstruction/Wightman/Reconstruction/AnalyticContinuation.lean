@@ -7,6 +7,7 @@ import OSReconstruction.Wightman.WightmanAxioms
 import OSReconstruction.Wightman.Spacetime.MinkowskiGeometry
 import OSReconstruction.Wightman.Reconstruction.Helpers.SeparatelyAnalytic
 import OSReconstruction.Wightman.Reconstruction.Helpers.EdgeOfWedge
+import OSReconstruction.SCV.TubeDomainExtension
 import Mathlib.Data.Fin.Tuple.Sort
 
 /-!
@@ -727,7 +728,7 @@ theorem edge_of_the_wedge_slice {m : ℕ}
     - `f_plus`, `f_minus` are holomorphic on the tube domains `ℝᵐ + iC` and `ℝᵐ - iC`
     - `bv` is a continuous function on the open set `E ⊂ ℝᵐ` giving the common
       boundary value, with `f_±` approaching `bv` in the `nhdsWithin` sense -/
-axiom edge_of_the_wedge {m : ℕ}
+theorem edge_of_the_wedge {m : ℕ}
     (C : Set (Fin m → ℝ)) (hC : IsOpen C) (hconv : Convex ℝ C) (h0 : (0 : Fin m → ℝ) ∉ C)
     (hcone : ∀ (t : ℝ) (y : Fin m → ℝ), 0 < t → y ∈ C → t • y ∈ C)
     (hCne : C.Nonempty)
@@ -752,7 +753,11 @@ axiom edge_of_the_wedge {m : ℕ}
       -- positive tube must agree with F everywhere on U (by the identity theorem,
       -- since U ∩ TubeDomain C is open and nonempty).
       (∀ (G : (Fin m → ℂ) → ℂ), DifferentiableOn ℂ G U →
-        (∀ z ∈ U ∩ TubeDomain C, G z = f_plus z) → ∀ z ∈ U, G z = F z)
+        (∀ z ∈ U ∩ TubeDomain C, G z = f_plus z) → ∀ z ∈ U, G z = F z) :=
+  -- Proved in SCV/TubeDomainExtension.lean. The local TubeDomain and SCV.TubeDomain
+  -- are definitionally equal, as is `fun i => (x i : ℂ)` and `SCV.realEmbed x`.
+  SCV.edge_of_the_wedge_theorem C hC hconv h0 hcone hCne f_plus f_minus
+    hf_plus hf_minus E hE bv hbv_cont hf_plus_bv hf_minus_bv
 
 /-! ### Bargmann-Hall-Wightman Theorem -/
 
