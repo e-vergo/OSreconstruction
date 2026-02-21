@@ -25,16 +25,15 @@ initial Wightman/OS axiom framework.
 
 These commits branch from xiyin's `2dfc99a` and were merged alongside it.
 
-### GaussianFieldBridge (`87d95e1`–`cf96b5b`)
+### GaussianFieldBridge (`87d95e1`–`cf96b5b`, simplified `f905e04`)
 
-- **`GaussianFieldBridge.lean`** (430 lines) — Bridges the gaussian-field library
-  (sorry-free Hermite functions, spectral theorem, Gaussian measure) to the
-  project's nuclear space infrastructure
-- **`toPietschNuclearSpace`** — Converts Dynin-Mityagin NuclearSpace (Schauder
-  basis with polynomial growth/decay) to Pietsch NuclearSpace (nuclear dominance
-  via continuous linear functionals)
-- **`seminorm_le_nuclear_expansion`** — Proved via Hahn-Banach, eliminating all
-  sorrys in the bridge
+- **`GaussianFieldBridge.lean`** (149 lines, sorry-free) — Bridges the gaussian-field
+  library (sorry-free Hermite functions, spectral theorem, Gaussian measure,
+  Pietsch nuclear space definition) to the project's nuclear space infrastructure
+- The Pietsch nuclear space definition (`PietschNuclearSpace`) and the
+  Dynin-Mityagin → Pietsch bridge proof (`toPietschNuclearSpace`) now live
+  in gaussian-field (`Nuclear/PietschNuclear.lean`). The bridge file provides
+  a trivial conversion to OSReconstruction's `NuclearSpace` typeclass.
 - **`nuclear_step`** sorry eliminated — direct proof for n=0, gaussian-field
   bridge for n>0
 - **`SchwartzNuclear.lean`** reworked (237 lines changed)
@@ -214,53 +213,52 @@ function infrastructure. Went from 25 sorrys to 0 (sorry-free).
 
 ---
 
-## All Axioms (17 total)
+## All Axioms (16 total)
 
-### SCV/Distribution Theory Axioms (4)
+### SCV/Distribution Theory Axioms (3)
 
 | # | Axiom | File | Eliminable? |
 |---|-------|------|-------------|
 | 1 | `continuous_boundary_tube` | `SCV/TubeDistributions.lean` | Needs Paley-Wiener-Schwartz |
 | 2 | `distributional_uniqueness_tube` | `SCV/TubeDistributions.lean` | Corollary of #1 + identity thm |
 | 3 | `polynomial_growth_tube` | `SCV/TubeDistributions.lean` | Needs Fourier-Laplace transforms |
-| 4 | `integral_flatten_change_of_variables` | `ForwardTubeDistributions.lean` | 1 Mathlib PR (`measurePreserving_curry`) |
 
 ### Analytic Continuation Axioms (3)
 
 | # | Axiom | File | Eliminable? |
 |---|-------|------|-------------|
-| 5 | `edge_of_the_wedge` | `AnalyticContinuation.lean` | ~300-600 LOC, see proof plan |
-| 6 | `bargmann_hall_wightman` | `AnalyticContinuation.lean` | Needs complex Lie group theory |
-| 7 | `hartogs_analyticity` | `SCV/IdentityTheorem.lean` | ~200 LOC with Osgood |
+| 4 | `edge_of_the_wedge` | `AnalyticContinuation.lean` | ~300-600 LOC, see proof plan |
+| 5 | `bargmann_hall_wightman` | `AnalyticContinuation.lean` | Needs complex Lie group theory |
+| 6 | `hartogs_analyticity` | `SCV/IdentityTheorem.lean` | ~200 LOC with Osgood |
 
 ### Forward Tube BV Axioms (2, WickRotation.lean)
 
 | # | Axiom | Ref | Eliminable? |
 |---|-------|-----|-------------|
-| 8 | `forward_tube_bv_integrable` | Vladimirov §26 | Needs polynomial growth + Schwartz decay |
-| 9 | `lorentz_covariant_distributional_bv` | Streater-Wightman §2.4 | Needs Schwartz COV + measure preservation |
+| 7 | `forward_tube_bv_integrable` | Vladimirov §26 | Needs polynomial growth + Schwartz decay |
+| 8 | `lorentz_covariant_distributional_bv` | Streater-Wightman §2.4 | Needs Schwartz COV + measure preservation |
 
 ### BHW/Jost Point Axioms (5, WickRotation.lean)
 
 | # | Axiom | Ref | Eliminable? |
 |---|-------|-----|-------------|
-| 10 | `local_commutativity_boundary_extension` | Jost §IV.3 | Needs edge-of-wedge at boundary |
-| 11 | `bhw_euclidean_translation_invariance` | S-W Thm 2.8 | Identity thm on PET + continuous extension |
-| 12 | `bhw_euclidean_rotation_invariance` | Jost §IV.5 | Complex Lorentz + PCT + Jost points |
-| 13 | `bhw_euclidean_permutation_invariance` | Jost §IV.5 | BHW perm symmetry + Jost points |
-| 14 | `bhw_distributional_bv_match` | Vladimirov §25.4 | BV approach-direction independence |
+| 9 | `local_commutativity_boundary_extension` | Jost §IV.3 | Needs edge-of-wedge at boundary |
+| 10 | `bhw_euclidean_translation_invariance` | S-W Thm 2.8 | Identity thm on PET + continuous extension |
+| 11 | `bhw_euclidean_rotation_invariance` | Jost §IV.5 | Complex Lorentz + PCT + Jost points |
+| 12 | `bhw_euclidean_permutation_invariance` | Jost §IV.5 | BHW perm symmetry + Jost points |
+| 13 | `bhw_distributional_bv_match` | Vladimirov §25.4 | BV approach-direction independence |
 
 ### R→E Physics Axioms (3, WickRotation.lean)
 
 | # | Axiom | Ref | Eliminable? |
 |---|-------|-----|-------------|
-| 15 | `tempered_schwinger_from_wightman` | OS I Prop 5.1 | Polynomial growth + Schwartz seminorm bounds |
-| 16 | `reflection_positivity_from_wightman` | OS I §5 | Wick rotation of R2 positivity |
-| 17 | `cluster_integral_wick_rotation` | S-W Thm 3.5 | Wightman cluster + dominated convergence |
+| 14 | `tempered_schwinger_from_wightman` | OS I Prop 5.1 | Polynomial growth + Schwartz seminorm bounds |
+| 15 | `reflection_positivity_from_wightman` | OS I §5 | Wick rotation of R2 positivity |
+| 16 | `cluster_integral_wick_rotation` | S-W Thm 3.5 | Wightman cluster + dominated convergence |
 
-Axiom #4 is trivially eliminable. Axiom #5 has a concrete proof plan
-(`docs/edge_of_the_wedge_proof_plan.md`). Axioms #1-3 and #6 depend on large
-bodies of mathematics not in Mathlib. Axioms #8-17 are textbook results
+Axiom #4 has a concrete proof plan
+(`docs/edge_of_the_wedge_proof_plan.md`). Axioms #1-3 and #5 depend on large
+bodies of mathematics not in Mathlib. Axioms #7-16 are textbook results
 whose proofs require distribution theory and Jost point arguments not yet
 available in the formalization.
 
@@ -302,7 +300,7 @@ available in the formalization.
 
 ## Full Sorry Census
 
-**~127 total** across 25 files (down from ~137).
+**~117 total** across 25 files (down from ~127).
 
 | Count | File | Category |
 |-------|------|----------|
@@ -311,7 +309,7 @@ available in the formalization.
 | 15 | `vNA/ModularAutomorphism.lean` | Tomita-Takesaki |
 | 14 | `SchwartzNuclear.lean` | Nuclear spaces |
 | 11 | `vNA/KMS.lean` | KMS condition |
-| 10 | `GaussianFieldBridge.lean` | Gaussian field wiring |
+| 0 | `GaussianFieldBridge.lean` | Sorry-free (proofs moved to gaussian-field) |
 | 10 | `vNA/Unbounded/Spectral.lean` | Spectral theory |
 | 9 | `vNA/ModularTheory.lean` | Modular operators |
 | 22 | Everything else | Scattered (1-4 each) |
@@ -337,7 +335,7 @@ available in the formalization.
 - **`wightman_to_os_full`** — The full R→E bridge theorem (Wightman → Schwinger)
 - `W_analytic_lorentz_on_tube` — Lorentz invariance on forward tube (4 helper lemmas)
 - `ForwardTubeDistributions.lean` — Forward tube as tube domain (591 lines)
-- `GaussianFieldBridge.lean` — Nuclear space bridge (430 lines, partial)
+- `GaussianFieldBridge.lean` — Nuclear space bridge (149 lines, sorry-free)
 - `integral_orthogonal_eq_self` — Orthogonal COV (46 lines)
 - `integral_perm_eq_self` — Permutation COV (6 lines)
 - `restricted_preserves_forward_cone` — SO⁺(1,d) preserves V₊
