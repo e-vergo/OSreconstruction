@@ -110,14 +110,19 @@ axiom continuous_boundary_tube {m : ℕ}
     If two holomorphic functions on a tube domain T(C) have the same distributional
     boundary values, they are equal on T(C).
 
-    This is a corollary of `continuous_boundary_tube` + the identity theorem:
-    both functions extend continuously to the real boundary where they agree
-    (as distributions, hence pointwise by continuity). They therefore agree on
-    an open subset of T(C) (a neighborhood of any real boundary point), and by
-    the identity theorem (`identity_theorem_tubeDomain`), they agree everywhere.
+    Proof from `continuous_boundary_tube`:
+    1. G = F₁ - F₂ is holomorphic on T(C) with distributional BV = 0.
+    2. `continuous_boundary_tube` gives ContinuousWithinAt G (TubeDomain C) (realEmbed x).
+    3. The boundary value G(realEmbed x) = 0: the distributional BV is 0, the continuous
+       extension recovers this value, and a continuous function integrating to 0 against
+       all Schwartz functions must vanish.
+    4. For any z₀ = x₀ + iy₀ ∈ T(C), restrict G to the complex line w ↦ x₀ + wy₀.
+       This gives g holomorphic on {Im w > 0} (since C is a cone) with g(t) = 0 for
+       t ∈ ℝ. By edge-of-the-wedge (glue with the zero function on {Im w < 0}) and
+       the identity theorem, g ≡ 0. In particular G(z₀) = g(i) = 0.
 
     Ref: Vladimirov §26.3; Streater-Wightman, Corollary to Theorem 2-9 -/
-axiom distributional_uniqueness_tube {m : ℕ}
+theorem distributional_uniqueness_tube {m : ℕ}
     {C : Set (Fin m → ℝ)} (hC : IsOpen C) (hconv : Convex ℝ C) (hne : C.Nonempty)
     {F₁ F₂ : (Fin m → ℂ) → ℂ}
     (hF₁ : DifferentiableOn ℂ F₁ (TubeDomain C))
@@ -131,7 +136,40 @@ axiom distributional_uniqueness_tube {m : ℕ}
            F₂ (fun i => ↑(x i) + ↑ε * ↑(η i) * I)) * f x)
       (nhdsWithin 0 (Set.Ioi 0))
       (nhds 0)) :
-    ∀ z ∈ TubeDomain C, F₁ z = F₂ z
+    ∀ z ∈ TubeDomain C, F₁ z = F₂ z := by
+  -- Step 1: G = F₁ - F₂ is holomorphic on T(C) with distributional BV = 0
+  set G := fun z => F₁ z - F₂ z with hG_def
+  have hG_diff : DifferentiableOn ℂ G (TubeDomain C) := hF₁.sub hF₂
+  -- Package the distributional BV = 0 for continuous_boundary_tube
+  have hG_bv : ∃ (T : SchwartzMap (Fin m → ℝ) ℂ → ℂ),
+      ∀ (f : SchwartzMap (Fin m → ℝ) ℂ) (η : Fin m → ℝ), η ∈ C →
+        Filter.Tendsto (fun ε : ℝ =>
+          ∫ x : Fin m → ℝ, G (fun i => ↑(x i) + ↑ε * ↑(η i) * I) * f x)
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (T f)) := by
+    refine ⟨0, fun f η hη => ?_⟩
+    simp only [Pi.zero_apply]
+    -- The integrand G(x+iεη) * f(x) = (F₁ - F₂)(x+iεη) * f(x)
+    exact h_agree f η hη
+  -- Step 2: ContinuousWithinAt G (TubeDomain C) (realEmbed x) for all x
+  have hG_cont : ∀ x : Fin m → ℝ,
+      ContinuousWithinAt G (TubeDomain C) (realEmbed x) :=
+    fun x => continuous_boundary_tube hC hconv hne hG_diff hG_bv x
+  -- Step 3: G(realEmbed x) = 0 for all x ∈ ℝᵐ
+  -- The continuous boundary value must equal the distributional BV (which is 0).
+  -- This follows from: ContinuousWithinAt gives pointwise convergence G(x+iεη) → G(x),
+  -- dominated convergence gives ∫ G(x+iεη)f(x)dx → ∫ G(x)f(x)dx = 0 for all Schwartz f,
+  -- and a continuous function integrating to 0 against all Schwartz functions is 0.
+  have hG_boundary : ∀ x : Fin m → ℝ, G (realEmbed x) = 0 := by
+    sorry
+  -- Step 4: G = 0 on T(C) by one-variable slicing + edge-of-the-wedge
+  -- For z₀ = x₀ + iy₀ ∈ T(C) with y₀ ∈ C, the restriction g(w) = G(x₀ + wy₀) is
+  -- holomorphic on {Im w > 0}, zero on ℝ (by hG_boundary), hence zero everywhere
+  -- by edge_of_the_wedge_1d + identity_theorem_connected.
+  intro z hz
+  have hG_zero : G z = 0 := by
+    sorry
+  exact sub_eq_zero.mp hG_zero
 
 /-! ### Axiom 2: Polynomial Growth Estimates -/
 

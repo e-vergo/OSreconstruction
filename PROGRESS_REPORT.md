@@ -153,8 +153,12 @@ Vladimirov (2002) §25-26:
 3. `polynomial_growth_tube` — tempered BV ⟹ polynomial growth estimates
 4. `bochner_tube_theorem` — holomorphic on T(C) extends to T(conv C)
 
-*Why axioms:* Proofs require Paley-Wiener-Schwartz theorem and Fourier-Laplace
-transform theory. Neither exists in Mathlib.
+*Why axioms:* `continuous_boundary_tube` (#1) and `polynomial_growth_tube` (#3)
+require the Fourier-Laplace representation of tube-domain holomorphic functions
+(Vladimirov §25-26), which is not in Mathlib. `bochner_tube_theorem` (#4) is a
+deep SCV result (convex hull extension). `distributional_uniqueness_tube` (#2) is
+a corollary of #1 + the identity theorem and could potentially be proved from
+the other axioms.
 
 ---
 
@@ -210,37 +214,40 @@ function infrastructure. Went from 25 sorrys to 0 (sorry-free).
 
 ---
 
-## All Axioms (11 total)
+## All Axioms (10 total)
 
-### SCV/Distribution Theory Axioms (4)
+### SCV/Distribution Theory Axioms (3)
 
 | # | Axiom | File | Eliminable? |
 |---|-------|------|-------------|
 | 1 | `continuous_boundary_tube` | `SCV/TubeDistributions.lean` | Needs Paley-Wiener-Schwartz |
-| 2 | `distributional_uniqueness_tube` | `SCV/TubeDistributions.lean` | Corollary of #1 + identity thm |
-| 3 | `polynomial_growth_tube` | `SCV/TubeDistributions.lean` | Needs Fourier-Laplace transforms |
-| 4 | `bochner_tube_theorem` | `SCV/TubeDistributions.lean` | Deep SCV (Bochner 1938) |
+| 2 | `polynomial_growth_tube` | `SCV/TubeDistributions.lean` | Needs Fourier-Laplace transforms |
+| 3 | `bochner_tube_theorem` | `SCV/TubeDistributions.lean` | Deep SCV (Bochner 1938) |
+
+`distributional_uniqueness_tube` was converted from axiom to theorem, proved from
+`continuous_boundary_tube` + identity theorem (2 localized sorrys remain for
+DCT boundary identification and 1D slicing).
 
 ### Analytic Continuation Axioms (2)
 
 | # | Axiom | File | Eliminable? |
 |---|-------|------|-------------|
-| 5 | `edge_of_the_wedge` | `AnalyticContinuation.lean` | ~300-600 LOC, see proof plan |
-| 6 | `bargmann_hall_wightman` | `AnalyticContinuation.lean` | Needs complex Lie group theory |
+| 4 | `edge_of_the_wedge` | `AnalyticContinuation.lean` | ~300-600 LOC, see proof plan |
+| 5 | `bargmann_hall_wightman` | `AnalyticContinuation.lean` | Needs complex Lie group theory |
 
 ### WickRotation Axioms (5)
 
 | # | Axiom | Ref | Eliminable? |
 |---|-------|-----|-------------|
-| 7 | `forward_tube_bv_integrable` | Vladimirov §26 | Needs polynomial growth + Schwartz decay |
-| 8 | `lorentz_covariant_distributional_bv` | Streater-Wightman §2.4 | Needs Schwartz COV + measure preservation |
-| 9 | `euclidean_points_in_permutedTube` | Jost §IV.5 | Jost's theorem: Wick-rotated points ∈ PET |
-| 10 | `bhw_translation_invariant` | S-W Thm 2.8 | ForwardTube coordinate convention gap |
-| 11 | `inductive_analytic_continuation` | OS II Thm 4.1 | Paley-Wiener half-plane extension |
+| 6 | `forward_tube_bv_integrable` | Vladimirov §26 | Needs polynomial growth + Schwartz decay |
+| 7 | `lorentz_covariant_distributional_bv` | Streater-Wightman §2.4 | Needs Schwartz COV + measure preservation |
+| 8 | `euclidean_points_in_permutedTube` | Jost §IV.5 | Jost's theorem: Wick-rotated points ∈ PET |
+| 9 | `bhw_translation_invariant` | S-W Thm 2.8 | ForwardTube coordinate convention gap |
+| 10 | `inductive_analytic_continuation` | OS II Thm 4.1 | Paley-Wiener half-plane extension |
 
-Axiom #5 has a concrete proof plan
-(`docs/edge_of_the_wedge_proof_plan.md`). Axioms #1-4 and #6 depend on large
-bodies of mathematics not in Mathlib. Axioms #7-11 are textbook results
+Axiom #4 has a concrete proof plan
+(`docs/edge_of_the_wedge_proof_plan.md`). Axioms #1-3 and #5 depend on large
+bodies of mathematics not in Mathlib. Axioms #6-10 are textbook results
 whose proofs require distribution theory, Jost point arguments, or Fourier-Laplace
 transforms not yet available in the formalization.
 
@@ -277,11 +284,12 @@ transforms not yet available in the formalization.
 
 ## Full Sorry Census
 
-**90 total** across 19 files.
+**92 total** across 20 files.
 
 | Count | File | Category |
 |-------|------|----------|
 | 14 | `WickRotation.lean` | 6 R→E + 8 E→R |
+| 2 | `SCV/TubeDistributions.lean` | distributional_uniqueness_tube proof |
 | 14 | `vNA/ModularAutomorphism.lean` | Connes cocycle |
 | 11 | `vNA/MeasureTheory/CaratheodoryExtension.lean` | Measure theory |
 | 11 | `vNA/KMS.lean` | KMS condition |

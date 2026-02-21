@@ -43,13 +43,15 @@ but not for the OS reconstruction theorems themselves.
 
 ## Axiom and Sorry Census
 
-### Axioms (11 total: 4 in SCV, 2 in AnalyticContinuation, 5 in WickRotation)
+### Axioms (10 total: 3 in SCV, 2 in AnalyticContinuation, 5 in WickRotation)
 
-**SCV/TubeDistributions.lean — 4 axioms** (deep distribution theory / SCV, not in Mathlib):
+**SCV/TubeDistributions.lean — 3 axioms** (deep distribution theory / SCV, not in Mathlib):
 - `continuous_boundary_tube` — Vladimirov: tube holomorphic + tempered BV ⟹ continuous to boundary
-- `distributional_uniqueness_tube` — same BV ⟹ same function on tube
 - `polynomial_growth_tube` — tube holomorphic + tempered BV ⟹ polynomial growth
 - `bochner_tube_theorem` — holomorphic on T(C) extends to T(conv C)
+
+`distributional_uniqueness_tube` — proved from `continuous_boundary_tube` + identity theorem
+(2 localized sorrys: boundary value = 0 via DCT, holomorphic + zero boundary → zero via 1D slicing)
 
 **AnalyticContinuation.lean — 2 axioms** (deep SCV, depend on edge-of-wedge):
 - `edge_of_the_wedge` (line 730) — multi-D Bogoliubov theorem
@@ -261,7 +263,7 @@ Groups A and B converge at constructWightmanFunctions (needs both BHW and bounda
 | Reconstruction/GNSConstruction.lean | 0 | 0 | ✅ Complete |
 | Reconstruction/Helpers/EdgeOfWedge.lean | 0 | 0 | ✅ Complete (1D edge-of-wedge) |
 | Reconstruction/Helpers/SeparatelyAnalytic.lean | 0 | 0 | ✅ Complete |
-| SCV/TubeDistributions.lean | 0 | 4 | Distribution theory + Bochner axioms |
+| SCV/TubeDistributions.lean | 2 | 3 | Distribution theory + Bochner axioms |
 | **Reconstruction/AnalyticContinuation.lean** | **0** | **2** | edge_of_wedge + BHW axioms |
 | **Reconstruction/WickRotation.lean** | **14** | **5** | OS↔Wightman bridge |
 | **Reconstruction.lean** | **4** | **0** | Core theorems (IsWickRotationPair) |
@@ -270,7 +272,7 @@ Groups A and B converge at constructWightmanFunctions (needs both BHW and bounda
 | NuclearSpaces/BochnerMinlos.lean | 3 | 0 | Deferred |
 | NuclearSpaces/SchwartzNuclear.lean | 5 | 0 | Deferred |
 | NuclearSpaces/EuclideanMeasure.lean | 1 | 0 | Deferred |
-| **Critical path total** | **18** | **11** | |
+| **Critical path total** | **20** | **10** | |
 
 ## Proven Infrastructure (sorry-free)
 
