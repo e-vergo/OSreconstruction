@@ -637,11 +637,112 @@ def complexMeasure (x y : H) (E : Set ℝ) : ℂ :=
   let μmi := (P.diagonalMeasure (x - Complex.I • y) E).toReal
   (1/4 : ℂ) * (μpp - μmm - Complex.I * μpi + Complex.I * μmi)
 
+/-- The spectral inner product measure for a vector z:
+    E ↦ ENNReal.ofReal(⟨z, P(E)z⟩.re).
+    This is a σ-additive measure that equals the diagonal spectral measure. -/
+noncomputable def spectralInnerMeasure (z : H) : Measure ℝ :=
+  Measure.ofMeasurable
+    (fun E _ => ENNReal.ofReal ((@inner ℂ H _ z (P.proj E z)).re))
+    (by simp [P.empty])
+    (fun E _hE_meas hE_disj => by
+      show ENNReal.ofReal ((@inner ℂ H _ z (P.proj (⋃ n, E n) z)).re) =
+        ∑' n, ENNReal.ofReal ((@inner ℂ H _ z (P.proj (E n) z)).re)
+      have h_nonneg : ∀ n, 0 ≤ (@inner ℂ H _ z (P.proj (E n) z)).re :=
+        fun n => P.inner_proj_nonneg z (E n)
+      have h_sigma := P.sigma_additive E (fun i j hij => hE_disj hij) z
+      have h_real : Tendsto (fun N => ∑ i ∈ Finset.range N,
+            (@inner ℂ H _ z (P.proj (E i) z)).re)
+          atTop (nhds ((@inner ℂ H _ z (P.proj (⋃ n, E n) z)).re)) := by
+        have hcont : Continuous (fun y : H => (@inner ℂ H _ z y).re) := by fun_prop
+        have h := hcont.continuousAt.tendsto.comp h_sigma
+        simp only [Function.comp_def] at h
+        exact h.congr (fun N => by
+          rw [inner_sum]
+          simp only [← Complex.coe_reAddGroupHom, map_sum])
+      have h_ennreal : Tendsto (fun N => ∑ i ∈ Finset.range N,
+            ENNReal.ofReal ((@inner ℂ H _ z (P.proj (E i) z)).re))
+          atTop (nhds (ENNReal.ofReal ((@inner ℂ H _ z
+            (P.proj (⋃ n, E n) z)).re))) := by
+        have := ENNReal.continuous_ofReal.continuousAt.tendsto.comp h_real
+        simp only [Function.comp_def] at this
+        exact this.congr (fun N => by
+          exact ENNReal.ofReal_sum_of_nonneg (fun i _ => h_nonneg i))
+      have h_mono : Monotone (fun N => ∑ i ∈ Finset.range N,
+            ENNReal.ofReal ((@inner ℂ H _ z (P.proj (E i) z)).re)) :=
+        fun _ _ hab => Finset.sum_le_sum_of_subset (Finset.range_mono hab)
+      rw [ENNReal.tsum_eq_iSup_nat, iSup_eq_of_tendsto h_mono h_ennreal])
+
+/-- The spectral inner measure applied to a measurable set. -/
+theorem spectralInnerMeasure_apply (z : H) (E : Set ℝ) (hE : MeasurableSet E) :
+    P.spectralInnerMeasure z E = ENNReal.ofReal ((@inner ℂ H _ z (P.proj E z)).re) :=
+  Measure.ofMeasurable_apply E hE
+
+/-- The spectral inner measure is a finite measure. -/
+instance spectralInnerMeasure_isFiniteMeasure (z : H) :
+    IsFiniteMeasure (P.spectralInnerMeasure z) := by
+  constructor
+  rw [P.spectralInnerMeasure_apply z Set.univ MeasurableSet.univ, P.univ,
+    ContinuousLinearMap.id_apply]
+  exact ENNReal.ofReal_lt_top
+
+/-- The diagonal measure is a finite measure. -/
+instance diagonalMeasure_isFiniteMeasure (z : H) :
+    IsFiniteMeasure (P.diagonalMeasure z) where
+  measure_univ_lt_top := (P.distributionFunction z).measure_finite
+
+/-- The diagonal measure of Iic t equals the spectral inner measure of Iic t. -/
+theorem diagonalMeasure_Iic_eq (z : H) (t : ℝ) :
+    P.diagonalMeasure z (Set.Iic t) = P.spectralInnerMeasure z (Set.Iic t) := by
+  rw [P.spectralInnerMeasure_apply z _ measurableSet_Iic]
+  simp only [diagonalMeasure, SpectralDistribution.toMeasure]
+  have h_tendsto : Tendsto (P.distributionFunction z).toStieltjes atBot (nhds (0 : ℝ)) :=
+    (P.distributionFunction z).tendsto_neg_infty
+  rw [(P.distributionFunction z).toStieltjes.measure_Iic h_tendsto t, sub_zero]
+  simp only [SpectralDistribution.toStieltjes, distributionFunction]
+
+/-- The diagonal measure equals the spectral inner product measure. -/
+theorem diagonalMeasure_eq_spectralInnerMeasure (z : H) :
+    P.diagonalMeasure z = P.spectralInnerMeasure z :=
+  Measure.ext_of_Iic _ _ (P.diagonalMeasure_Iic_eq z)
+
+/-- The core connection: μ_z(E).toReal = ⟨z, P(E)z⟩.re for measurable E. -/
+theorem diagonalMeasure_apply (z : H) (E : Set ℝ) (hE : MeasurableSet E) :
+    (P.diagonalMeasure z E).toReal = (@inner ℂ H _ z (P.proj E z)).re := by
+  rw [P.diagonalMeasure_eq_spectralInnerMeasure z, P.spectralInnerMeasure_apply z E hE,
+    ENNReal.toReal_ofReal (P.inner_proj_nonneg z E)]
+
 /-- The complex measure agrees with the inner product on projections. -/
-theorem complexMeasure_eq_inner (x y : H) (E : Set ℝ) :
+theorem complexMeasure_eq_inner (x y : H) (E : Set ℝ) (hE : MeasurableSet E) :
     P.complexMeasure x y E = @inner ℂ H _ x (P.proj E y) := by
-  -- Follows from polarization identity for inner products
-  sorry
+  simp only [complexMeasure]
+  -- Rewrite each diagonal measure using diagonalMeasure_apply
+  rw [P.diagonalMeasure_apply (x + y) E hE,
+      P.diagonalMeasure_apply (x - y) E hE,
+      P.diagonalMeasure_apply (x + Complex.I • y) E hE,
+      P.diagonalMeasure_apply (x - Complex.I • y) E hE]
+  -- Now LHS has (1/4) * (re⟨x+y, P(E)(x+y)⟩ - re⟨x-y, P(E)(x-y)⟩ - I*re⟨x+iy, P(E)(x+iy)⟩ + I*re⟨x-iy, P(E)(x-iy)⟩)
+  -- RHS is ⟨x, P(E) y⟩
+  -- Use self-adjointness to get ⟨x, P(E) y⟩ = ⟨P(E) x, y⟩
+  have h_adj : @inner ℂ H _ x (P.proj E y) =
+      @inner ℂ H _ (P.proj E x) y := by
+    rw [← ContinuousLinearMap.adjoint_inner_left, P.selfAdjoint]
+  rw [h_adj]
+  -- Apply the polarization identity for the operator P(E)
+  have h_pol := inner_map_polarization' (P.proj E).toLinearMap x y
+  simp only [ContinuousLinearMap.coe_coe] at h_pol
+  rw [h_pol]
+  -- Now both sides have the same structure. The RHS uses ⟨P(E) z, z⟩ while LHS uses (⟨z, P(E) z⟩.re : ℂ)
+  -- For self-adjoint P(E): ⟨P(E) z, z⟩ = ⟨z, P(E) z⟩ and ⟨z, P(E) z⟩ is real
+  -- So ⟨P(E) z, z⟩ = (⟨z, P(E) z⟩.re : ℂ)
+  have h_diag : ∀ z : H, @inner ℂ H _ (P.proj E z) z =
+      ((@inner ℂ H _ z (P.proj E z)).re : ℂ) := by
+    intro z
+    have h1 : @inner ℂ H _ (P.proj E z) z = @inner ℂ H _ z (P.proj E z) := by
+      rw [← ContinuousLinearMap.adjoint_inner_left, P.selfAdjoint]
+    rw [h1, Complex.ext_iff]
+    exact ⟨by simp, by simp [P.inner_proj_real z E]⟩
+  rw [h_diag (x + y), h_diag (x - y), h_diag (x + Complex.I • y), h_diag (x - Complex.I • y)]
+  ring
 
 end ProjectionValuedMeasure
 

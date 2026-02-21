@@ -63,7 +63,12 @@ def closedStrip (β : ℝ) : Set ℂ :=
 /-- The boundary of the strip consists of two real lines -/
 theorem strip_boundary (β : ℝ) (_hβ : 0 < β) :
     frontier (strip β) = { z : ℂ | z.im = 0 } ∪ { z : ℂ | z.im = β } := by
-  sorry
+  have hstrip : strip β = Complex.im ⁻¹' Set.Ioo 0 β := by
+    ext z; simp [strip, Set.mem_preimage, Set.mem_Ioo]
+  rw [hstrip, Complex.frontier_preimage_im, frontier_Ioo _hβ]
+  ext z
+  simp [Set.mem_preimage, Set.mem_insert_iff, Set.mem_singleton_iff, Set.mem_union,
+        Set.mem_setOf_eq]
 
 /-! ### KMS condition -/
 

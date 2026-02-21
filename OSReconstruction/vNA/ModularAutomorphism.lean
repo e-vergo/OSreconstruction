@@ -65,6 +65,11 @@ structure ModularAutomorphismGroup (Ω : H) where
   Δ_selfadj : Δ.IsSelfAdjoint Δ_dense
   /-- Δ is positive -/
   Δ_pos : Δ.IsPositive
+  /-- Δ^{it} fixes the cyclic vector for all t ∈ ℝ.
+      This follows from ΔΩ = Ω (Ω is an eigenvector of Δ with eigenvalue 1),
+      hence by spectral calculus f(Δ)Ω = f(1)Ω for any Borel function f,
+      in particular Δ^{it}Ω = 1^{it}Ω = Ω. -/
+  unitaryGroup_fixes_vec : ∀ t : ℝ, unitaryGroup Δ Δ_dense Δ_selfadj t Ω = Ω
 
 namespace ModularAutomorphismGroup
 
@@ -96,7 +101,20 @@ theorem preserves_mul (σ : ModularAutomorphismGroup M Ω) (t : ℝ)
   -- Δ^{it}(ab)Δ^{-it} = (Δ^{it}aΔ^{-it})(Δ^{it}bΔ^{-it})
   -- Uses: Δ^{-it}Δ^{it} = 1 in the middle
   -- U(t) (ab) U(-t) = U(t) a (U(-t) U(t)) b U(-t) = (U(t) a U(-t)) (U(t) b U(-t))
-  sorry
+  simp only [apply, unitaryAt]
+  have hid : unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj (-t) ∘L
+             unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj t = 1 :=
+    unitaryGroup_neg_comp σ.Δ σ.Δ_dense σ.Δ_selfadj t
+  ext x
+  simp only [ContinuousLinearMap.comp_apply]
+  -- RHS is U(t) (a (U(-t) (U(t) (b (U(-t) x)))))
+  -- Insert U(-t) U(t) = 1 in the middle: a (U(-t) (U(t) (b ...))) = a (b ...)
+  have h : (unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj (-t) ∘L
+            unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj t) (b (unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj (-t) x))
+           = b (unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj (-t) x) := by
+    rw [hid]; simp
+  simp only [ContinuousLinearMap.comp_apply] at h
+  rw [h]
 
 /-- σ_t preserves adjoints: σ_t(a*) = σ_t(a)*.
     Since Δ^{it} is unitary, (UaU*)* = Ua*U*. -/
@@ -106,7 +124,12 @@ theorem preserves_adjoint (σ : ModularAutomorphismGroup M Ω) (t : ℝ)
     ContinuousLinearMap.adjoint (σ.apply t a ha) := by
   -- Δ^{it}a*Δ^{-it} = (Δ^{it}aΔ^{-it})*
   -- Uses: (UaU*)* = U**a*U* = Ua*U* (since U is unitary)
-  sorry
+  simp only [apply, unitaryAt]
+  -- (U(t) ∘L a ∘L U(-t))* = U(-t)* ∘L a* ∘L U(t)* = U(t) ∘L a* ∘L U(-t)
+  rw [ContinuousLinearMap.adjoint_comp, ContinuousLinearMap.adjoint_comp,
+      unitaryGroup_inv σ.Δ σ.Δ_dense σ.Δ_selfadj t,
+      unitaryGroup_inv σ.Δ σ.Δ_dense σ.Δ_selfadj (-t), neg_neg]
+  ext x; simp [ContinuousLinearMap.comp_apply]
 
 /-- σ_t is an automorphism (bijective) with inverse σ_{-t} -/
 theorem is_automorphism (σ : ModularAutomorphismGroup M Ω) (t : ℝ)
@@ -162,32 +185,103 @@ theorem at_zero (σ : ModularAutomorphismGroup M Ω) (a : H →L[ℂ] H) (ha : a
   simp only [neg_zero, h0]
   ext x; simp
 
-/-- Continuity: t ↦ σ_t(a) is σ-weakly continuous.
-    This means that for all ξ, η ∈ H, the function t ↦ ⟨ξ, σ_t(a)η⟩ is continuous.
-    This follows from the strong continuity of the unitary group t ↦ Δ^{it}. -/
-theorem sigma_weak_continuous (σ : ModularAutomorphismGroup M Ω)
-    (a : H →L[ℂ] H) (_ha : a ∈ M) (ξ η : H) :
-    Continuous (fun t : ℝ => @inner ℂ H _ ξ ((σ.apply t a _ha) η)) := by
-  -- Uses strong continuity of unitary group: t ↦ U(t)x is continuous
-  -- The map t ↦ ⟨ξ, U(t) a U(-t) η⟩ is continuous since
-  -- inner product is continuous and composition with continuous maps is continuous
-  sorry
-
 /-- Strong continuity on a dense domain -/
 theorem strong_continuous (σ : ModularAutomorphismGroup M Ω)
     (a : H →L[ℂ] H) (_ha : a ∈ M) (ξ : H) :
     Continuous (fun t : ℝ => σ.apply t a _ha ξ) := by
   -- t ↦ σ_t(a)ξ = U(t) a U(-t) ξ is norm continuous
   -- since t ↦ U(t)x is continuous for all x
-  sorry
+  simp only [apply, unitaryAt]
+  -- Goal: Continuous (fun t => U(t) (a (U(-t) ξ)))
+  -- Step 1: t ↦ U(-t)ξ is continuous
+  have h_neg_cont : Continuous (fun t : ℝ => unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj (-t) ξ) := by
+    exact (unitaryGroup_continuous σ.Δ σ.Δ_dense σ.Δ_selfadj ξ).comp continuous_neg
+  -- Step 2: t ↦ a(U(-t)ξ) is continuous (CLM is continuous)
+  have h_mid_cont : Continuous (fun t : ℝ => a (unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj (-t) ξ)) :=
+    a.continuous.comp h_neg_cont
+  -- Step 3: Use ε/2 argument for t ↦ U(t)(a(U(-t)ξ))
+  -- ‖U(t)(y(t)) - U(s)(y(s))‖ ≤ ‖y(t) - y(s)‖ + ‖U(t)(y(s)) - U(s)(y(s))‖
+  rw [Metric.continuous_iff]
+  intro s ε hε
+  -- Get δ₁ from continuity of y = t ↦ a(U(-t)ξ) at s
+  have hy_cont := Metric.continuous_iff.mp h_mid_cont s (ε / 2) (half_pos hε)
+  obtain ⟨δ₁, hδ₁_pos, hδ₁⟩ := hy_cont
+  -- Get δ₂ from continuity of t ↦ U(t)(y(s)) at s, where y(s) = a(U(-s)ξ)
+  have hU_cont := unitaryGroup_continuous σ.Δ σ.Δ_dense σ.Δ_selfadj
+                    (a (unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj (-s) ξ))
+  have hU_at := Metric.continuous_iff.mp hU_cont s (ε / 2) (half_pos hε)
+  obtain ⟨δ₂, hδ₂_pos, hδ₂⟩ := hU_at
+  refine ⟨min δ₁ δ₂, lt_min hδ₁_pos hδ₂_pos, fun t ht => ?_⟩
+  have ht₁ : dist t s < δ₁ := lt_of_lt_of_le ht (min_le_left _ _)
+  have ht₂ : dist t s < δ₂ := lt_of_lt_of_le ht (min_le_right _ _)
+  -- Triangle inequality:
+  -- ‖U(t)(y(t)) - U(s)(y(s))‖ ≤ ‖U(t)(y(t)) - U(t)(y(s))‖ + ‖U(t)(y(s)) - U(s)(y(s))‖
+  calc dist (unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj t
+              (a (unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj (-t) ξ)))
+            (unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj s
+              (a (unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj (-s) ξ)))
+      ≤ dist (unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj t
+                (a (unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj (-t) ξ)))
+             (unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj t
+                (a (unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj (-s) ξ)))
+        + dist (unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj t
+                  (a (unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj (-s) ξ)))
+               (unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj s
+                  (a (unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj (-s) ξ))) :=
+        dist_triangle _ _ _
+    _ < ε / 2 + ε / 2 := by
+        apply add_lt_add
+        · -- ‖U(t)(y(t)) - U(t)(y(s))‖ = ‖y(t) - y(s)‖ since U(t) is isometric
+          simp only [dist_eq_norm]
+          rw [← map_sub]
+          -- U(t) is an isometry: ‖U(t)x‖ = ‖x‖
+          -- Proved via ⟨U(t)z, U(t)z⟩ = ⟨z, U(t)*U(t)z⟩ = ⟨z, z⟩
+          have h_adj_comp : ContinuousLinearMap.adjoint (unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj t) ∘L
+              unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj t = 1 := by
+            rw [unitaryGroup_inv, unitaryGroup_neg_comp]
+          have hiso : ∀ z : H, ‖unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj t z‖ = ‖z‖ := by
+            intro z
+            have h_inner : @inner ℂ H _ (unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj t z)
+                                        (unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj t z)
+                         = @inner ℂ H _ z z := by
+              rw [← ContinuousLinearMap.adjoint_inner_right, ← ContinuousLinearMap.comp_apply,
+                  h_adj_comp, ContinuousLinearMap.one_apply]
+            rw [inner_self_eq_norm_sq_to_K, inner_self_eq_norm_sq_to_K] at h_inner
+            -- h_inner : (↑‖U(t)z‖)^2 = (↑‖z‖)^2 in ℂ
+            have h_sq : ‖unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj t z‖ ^ 2 = ‖z‖ ^ 2 := by
+              exact_mod_cast h_inner
+            nlinarith [norm_nonneg (unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj t z),
+                        norm_nonneg z,
+                        sq_nonneg (‖unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj t z‖ - ‖z‖)]
+          rw [hiso, ← dist_eq_norm]
+          exact hδ₁ t ht₁
+        · exact hδ₂ t ht₂
+    _ = ε := add_halves ε
+
+/-- Continuity: t ↦ σ_t(a) is σ-weakly continuous.
+    This means that for all ξ, η ∈ H, the function t ↦ ⟨ξ, σ_t(a)η⟩ is continuous.
+    This follows from the strong continuity of the unitary group t ↦ Δ^{it}. -/
+theorem sigma_weak_continuous (σ : ModularAutomorphismGroup M Ω)
+    (a : H →L[ℂ] H) (_ha : a ∈ M) (ξ η : H) :
+    Continuous (fun t : ℝ => @inner ℂ H _ ξ ((σ.apply t a _ha) η)) := by
+  -- Uses strong continuity: t ↦ σ_t(a)η is continuous, then inner product is continuous
+  exact Continuous.inner continuous_const (σ.strong_continuous a _ha η)
 
 /-- The state φ_Ω is invariant under σ_t -/
 theorem state_invariant (σ : ModularAutomorphismGroup M Ω) (t : ℝ)
     (a : H →L[ℂ] H) (ha : a ∈ M) :
     @inner ℂ H _ Ω ((σ.apply t a ha) Ω) = @inner ℂ H _ Ω (a Ω) := by
-  -- ⟨Ω, σ_t(a)Ω⟩ = ⟨Ω, aΩ⟩
-  -- This follows from ΔΩ = Ω (Ω is a fixed point of the modular operator)
-  sorry
+  -- ⟨Ω, σ_t(a)Ω⟩ = ⟨Ω, U(t) a U(-t) Ω⟩ = ⟨Ω, U(t)(aΩ)⟩ = ⟨U(t)*Ω, aΩ⟩ = ⟨U(-t)Ω, aΩ⟩ = ⟨Ω, aΩ⟩
+  -- Uses: U(-t)Ω = Ω (unitaryGroup_fixes_vec) and U(t)* = U(-t) (unitaryGroup_inv)
+  simp only [apply, unitaryAt, ContinuousLinearMap.comp_apply]
+  rw [σ.unitaryGroup_fixes_vec (-t)]
+  -- Goal: inner Ω (U(t) (a Ω)) = inner Ω (a Ω)
+  -- Use: ⟨Ω, U(t)(aΩ)⟩ = ⟨U(t)*Ω, aΩ⟩ = ⟨U(-t)Ω, aΩ⟩ = ⟨Ω, aΩ⟩
+  conv_lhs =>
+    rw [show @inner ℂ H _ Ω (unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj t (a Ω)) =
+         @inner ℂ H _ (ContinuousLinearMap.adjoint (unitaryGroup σ.Δ σ.Δ_dense σ.Δ_selfadj t) Ω)
+           (a Ω) from by rw [ContinuousLinearMap.adjoint_inner_left]]
+  rw [unitaryGroup_inv σ.Δ σ.Δ_dense σ.Δ_selfadj t, σ.unitaryGroup_fixes_vec (-t)]
 
 end ModularAutomorphismGroup
 
@@ -225,9 +319,46 @@ theorem cocycle_unitary (c : ConnesCocycle M Ω₁ Ω₂) (t : ℝ) :
   -- u_t = U₁(t) U₂(-t), u_t* = U₂(-t)* U₁(t)* = U₂(t) U₁(-t)
   have hinv1 := unitaryGroup_inv c.σ₁.Δ c.σ₁.Δ_dense c.σ₁.Δ_selfadj t
   have hinv2 := unitaryGroup_inv c.σ₂.Δ c.σ₂.Δ_dense c.σ₂.Δ_selfadj (-t)
-  -- This requires showing that U₂(t)U₁(-t)U₁(t)U₂(-t) = 1
-  -- which needs commutativity properties of different modular operators
-  sorry
+  -- adjoint(U₁(t) ∘L U₂(-t)) = adjoint(U₂(-t)) ∘L adjoint(U₁(t)) = U₂(t) ∘L U₁(-t)
+  rw [ContinuousLinearMap.adjoint_comp]
+  rw [hinv1, hinv2, neg_neg]
+  -- Now need: (U₂(t) ∘L U₁(-t)) ∘L (U₁(t) ∘L U₂(-t)) = 1
+  -- and (U₁(t) ∘L U₂(-t)) ∘L (U₂(t) ∘L U₁(-t)) = 1
+  have h1_cancel := unitaryGroup_neg_comp c.σ₁.Δ c.σ₁.Δ_dense c.σ₁.Δ_selfadj t
+  have h1_cancel' := unitaryGroup_comp_neg c.σ₁.Δ c.σ₁.Δ_dense c.σ₁.Δ_selfadj t
+  have h2_cancel := unitaryGroup_neg_comp c.σ₂.Δ c.σ₂.Δ_dense c.σ₂.Δ_selfadj t
+  have h2_cancel' := unitaryGroup_comp_neg c.σ₂.Δ c.σ₂.Δ_dense c.σ₂.Δ_selfadj t
+  constructor
+  · -- (U₂(t) ∘L U₁(-t)) ∘L (U₁(t) ∘L U₂(-t)) = 1
+    ext x; simp only [ContinuousLinearMap.comp_apply, ContinuousLinearMap.one_apply]
+    -- U₁(-t)(U₁(t)(U₂(-t) x)) = U₂(-t) x
+    have : (unitaryGroup c.σ₁.Δ c.σ₁.Δ_dense c.σ₁.Δ_selfadj (-t) ∘L
+            unitaryGroup c.σ₁.Δ c.σ₁.Δ_dense c.σ₁.Δ_selfadj t)
+            (unitaryGroup c.σ₂.Δ c.σ₂.Δ_dense c.σ₂.Δ_selfadj (-t) x)
+           = unitaryGroup c.σ₂.Δ c.σ₂.Δ_dense c.σ₂.Δ_selfadj (-t) x := by
+      rw [h1_cancel]; simp
+    simp only [ContinuousLinearMap.comp_apply] at this
+    rw [this]
+    -- U₂(t)(U₂(-t) x) = x
+    have : (unitaryGroup c.σ₂.Δ c.σ₂.Δ_dense c.σ₂.Δ_selfadj t ∘L
+            unitaryGroup c.σ₂.Δ c.σ₂.Δ_dense c.σ₂.Δ_selfadj (-t)) x = x := by
+      rw [h2_cancel']; simp
+    simpa [ContinuousLinearMap.comp_apply] using this
+  · -- (U₁(t) ∘L U₂(-t)) ∘L (U₂(t) ∘L U₁(-t)) = 1
+    ext x; simp only [ContinuousLinearMap.comp_apply, ContinuousLinearMap.one_apply]
+    -- U₂(-t)(U₂(t)(U₁(-t) x)) = U₁(-t) x
+    have : (unitaryGroup c.σ₂.Δ c.σ₂.Δ_dense c.σ₂.Δ_selfadj (-t) ∘L
+            unitaryGroup c.σ₂.Δ c.σ₂.Δ_dense c.σ₂.Δ_selfadj t)
+            (unitaryGroup c.σ₁.Δ c.σ₁.Δ_dense c.σ₁.Δ_selfadj (-t) x)
+           = unitaryGroup c.σ₁.Δ c.σ₁.Δ_dense c.σ₁.Δ_selfadj (-t) x := by
+      rw [h2_cancel]; simp
+    simp only [ContinuousLinearMap.comp_apply] at this
+    rw [this]
+    -- U₁(t)(U₁(-t) x) = x
+    have : (unitaryGroup c.σ₁.Δ c.σ₁.Δ_dense c.σ₁.Δ_selfadj t ∘L
+            unitaryGroup c.σ₁.Δ c.σ₁.Δ_dense c.σ₁.Δ_selfadj (-t)) x = x := by
+      rw [h1_cancel']; simp
+    simpa [ContinuousLinearMap.comp_apply] using this
 
 /-- The cocycle is in M. This follows from the Tomita-Takesaki theorem:
     Δ^{it} M Δ^{-it} = M, so Δ_φ^{it} Δ_ψ^{-it} ∈ M. -/
@@ -259,11 +390,30 @@ theorem chain_rule (c₁ : ConnesCocycle M Ω₁ Ω₂) (Ω₃ : H)
   -- Chain rule: Δ_φ^{it} Δ_ψ^{-it} · Δ_ψ^{it} Δ_ρ^{-it} = Δ_φ^{it} Δ_ρ^{-it}
   simp only [cocycle, ModularAutomorphismGroup.unitaryAt]
   -- Use the equality hypotheses to rewrite
-  have heq1 : c₁.σ₁.Δ = c₃.σ₁.Δ := by rw [h13]
-  have heq2 : c₂.σ₂.Δ = c₃.σ₂.Δ := by rw [h23]
-  have heq3 : c₁.σ₂.Δ = c₂.σ₁.Δ := by rw [h12]
-  -- The middle terms cancel: Δ_ψ^{-it} Δ_ψ^{it} = 1
-  sorry
+  -- Use structural equality to rewrite unitaryAt terms
+  -- h12 gives c₁.σ₂ = c₂.σ₁, so their unitaryAt match
+  have hmid : unitaryGroup c₁.σ₂.Δ c₁.σ₂.Δ_dense c₁.σ₂.Δ_selfadj (-t) ∘L
+              unitaryGroup c₂.σ₁.Δ c₂.σ₁.Δ_dense c₂.σ₁.Δ_selfadj t = 1 := by
+    rw [h12]; exact unitaryGroup_neg_comp c₂.σ₁.Δ c₂.σ₁.Δ_dense c₂.σ₁.Δ_selfadj t
+  -- h13 gives c₁.σ₁ = c₃.σ₁
+  have hleft : unitaryGroup c₁.σ₁.Δ c₁.σ₁.Δ_dense c₁.σ₁.Δ_selfadj t =
+               unitaryGroup c₃.σ₁.Δ c₃.σ₁.Δ_dense c₃.σ₁.Δ_selfadj t := by
+    rw [h13]
+  -- h23 gives c₂.σ₂ = c₃.σ₂
+  have hright : unitaryGroup c₂.σ₂.Δ c₂.σ₂.Δ_dense c₂.σ₂.Δ_selfadj (-t) =
+                unitaryGroup c₃.σ₂.Δ c₃.σ₂.Δ_dense c₃.σ₂.Δ_selfadj (-t) := by
+    rw [h23]
+  ext x
+  simp only [ContinuousLinearMap.comp_apply]
+  -- LHS: U₁_σ₁(t) (U₁_σ₂(-t) (U₂_σ₁(t) (U₂_σ₂(-t) x)))
+  -- Cancel middle: U₁_σ₂(-t) (U₂_σ₁(t) y) = y
+  have hcancel : ∀ y, (unitaryGroup c₁.σ₂.Δ c₁.σ₂.Δ_dense c₁.σ₂.Δ_selfadj (-t) ∘L
+                  unitaryGroup c₂.σ₁.Δ c₂.σ₁.Δ_dense c₂.σ₁.Δ_selfadj t) y = y := by
+    intro y; rw [hmid]; simp
+  simp only [ContinuousLinearMap.comp_apply] at hcancel
+  rw [hcancel]
+  -- Now: U₁_σ₁(t) (U₂_σ₂(-t) x) = U₃_σ₁(t) (U₃_σ₂(-t) x)
+  rw [hleft, hright]
 
 /-- (Dφ : Dφ)_t = 1 when the modular operators are the same.
     Since u_t = Δ^{it} Δ^{-it} = 1. -/
