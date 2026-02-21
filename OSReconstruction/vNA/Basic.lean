@@ -151,18 +151,76 @@ theorem separating_iff_cyclic_commutant (Ω : H) :
     M.IsSeparating Ω ↔ M.commutant.IsCyclic Ω := by
   constructor
   · -- If Ω is separating for M, it is cyclic for M'
+    -- Proof via projections: Let K = M'.cyclicSubspace(Ω). The star projection p onto K
+    -- belongs to M (since K is M'-invariant → p commutes with M' → p ∈ M'' = M).
+    -- Since Ω ∈ K, we get (1-p)Ω = 0, and separating gives 1-p = 0, so K = H.
     intro hsep
-    -- The key insight: if x ⊥ M'·Ω, then for all b ∈ M', ⟨x, bΩ⟩ = 0
-    -- Define a_x ∈ M'' = M by ⟨a_x Ω, ξ⟩ = ⟨x, ξ⟩ for ξ ∈ M'·Ω
-    -- Then a_x Ω = x, but also a_x = 0 by density argument, so x = 0
     unfold IsCyclic cyclicSubspace
-    sorry
+    set K := (Submodule.span ℂ (M.commutant.orbit Ω)).topologicalClosure with hK_def
+    -- K is a closed submodule in a complete space, so it has orthogonal projection
+    let p := K.starProjection
+    -- Step 1: p ∈ M, using IsStarProjection.mem_iff
+    have hp_star : IsStarProjection p := isStarProjection_starProjection
+    have hp_mem : (p : H →L[ℂ] H) ∈ M := by
+      rw [VonNeumannAlgebra.IsStarProjection.mem_iff hp_star]
+      intro y hy
+      -- Need: range(p) is y-invariant, i.e., K is y-invariant for y ∈ M'
+      rw [Module.End.mem_invtSubmodule_iff_map_le]
+      rw [Submodule.range_starProjection]
+      -- Show K is y-invariant: this follows from cyclicSubspace_invariant
+      intro z hz
+      obtain ⟨w, hw, rfl⟩ := Submodule.mem_map.mp hz
+      exact M.commutant.cyclicSubspace_invariant Ω y hy w hw
+    -- Step 2: (1 - p)Ω = 0 since Ω ∈ K
+    have hΩ_mem : Ω ∈ K := by
+      apply Submodule.le_topologicalClosure
+      exact Submodule.subset_span (M.commutant.Ω_mem_orbit Ω)
+    have hp_Ω : p Ω = Ω :=
+      Submodule.starProjection_eq_self_iff.mpr hΩ_mem
+    have h1mp_Ω : (1 - p) Ω = 0 := by
+      simp only [ContinuousLinearMap.sub_apply, ContinuousLinearMap.one_apply, hp_Ω, sub_self]
+    -- Step 3: 1 - p ∈ M
+    have h1mp_mem : (1 - p : H →L[ℂ] H) ∈ M := by
+      exact M.toStarSubalgebra.sub_mem M.toStarSubalgebra.one_mem hp_mem
+    -- Step 4: Separating gives 1 - p = 0
+    have h1mp_zero : (1 : H →L[ℂ] H) - p = 0 := hsep (1 - p) h1mp_mem h1mp_Ω
+    -- Step 5: p = 1, so K = ⊤
+    have hp_one : p = 1 := by
+      have := sub_eq_zero.mp h1mp_zero
+      exact this.symm
+    rw [show K = (p.toLinearMap).range from (Submodule.range_starProjection K).symm,
+        hp_one]
+    exact LinearMap.range_id
   · -- If Ω is cyclic for M', it is separating for M
     intro hcyc a ha haΩ
-    -- If aΩ = 0, then for all b ∈ M', ⟨aΩ, bΩ⟩ = 0
-    -- But ⟨aΩ, bΩ⟩ = ⟨Ω, a†bΩ⟩ = ⟨Ω, ba†Ω⟩ (since a ∈ M, b ∈ M' commute)
-    -- Since M'·Ω is dense, a†Ω = 0, and by similar argument a = 0
-    sorry
+    -- Step 1: a vanishes on M'·Ω (using commutativity: a ∈ M, b ∈ M' ⟹ ab = ba)
+    have h_vanish : ∀ x ∈ M.commutant.orbit Ω, a x = 0 := by
+      rintro x ⟨b, hb, rfl⟩
+      rw [VonNeumannAlgebra.mem_commutant_iff] at hb
+      have comm := hb a ha
+      have : (a * b) Ω = (b * a) Ω :=
+        congrFun (congrArg DFunLike.coe comm) Ω
+      simp only [ContinuousLinearMap.mul_apply] at this
+      rw [this, haΩ, map_zero]
+    -- Step 2: a vanishes on span(M'·Ω)
+    have h_span : ∀ x ∈ Submodule.span ℂ (M.commutant.orbit Ω), a x = 0 := by
+      intro x hx
+      refine Submodule.span_induction ?_ ?_ ?_ ?_ hx
+      · exact h_vanish
+      · exact map_zero a
+      · intro u v _ _ hu hv; simp [hu, hv]
+      · intro c u _ hu; simp [hu]
+    -- Step 3: a vanishes on closure(span(M'·Ω)) = H, hence a = 0
+    have h_dense : Dense (Submodule.span ℂ (M.commutant.orbit Ω) : Set H) := by
+      unfold IsCyclic cyclicSubspace at hcyc
+      rwa [Submodule.dense_iff_topologicalClosure_eq_top]
+    have h_eqon : Set.EqOn a (0 : H →L[ℂ] H)
+        (Submodule.span ℂ (M.commutant.orbit Ω) : Set H) := by
+      intro x hx
+      simp only [ContinuousLinearMap.zero_apply]
+      exact h_span x hx
+    have h_fun_eq := Continuous.ext_on h_dense a.continuous (0 : H →L[ℂ] H).continuous h_eqon
+    exact DFunLike.coe_injective h_fun_eq
 
 /-- Cyclic for M implies separating for M' -/
 theorem cyclic_implies_separating_commutant (Ω : H) (h : M.IsCyclic Ω) :

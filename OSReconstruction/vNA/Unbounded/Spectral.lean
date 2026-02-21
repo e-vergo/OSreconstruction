@@ -2612,9 +2612,10 @@ def UnboundedOperator.power (T : UnboundedOperator H) (hT : T.IsDenselyDefined)
 
 /-- T^0 = 1
 
-    **Proof:** The function f(λ) = λ^0 = 1 for λ > 0 (and 0 elsewhere).
-    By functional calculus identity: ∫ 1 dP(λ) = P(ℝ) = 1.
-    Depends on: functional calculus identity property. -/
+    **Status:** FALSE as stated. The `power` definition uses `else 0` for λ ≤ 0,
+    making f(λ) = χ_{(0,∞)}(λ) at s = 0. This gives P(Ioi 0), not P(ℝ) = 1.
+    For operators with 0 in the point spectrum (e.g., T = 0), P({0}) ≠ 0
+    and the result fails. See the proof comment for fix options. -/
 theorem UnboundedOperator.power_zero (T : UnboundedOperator H) (hT : T.IsDenselyDefined)
     (hsa : T.IsSelfAdjoint hT) (hpos : T.IsPositive) :
     T.power hT hsa hpos 0 (by simp [Complex.zero_re]) = 1 := by
@@ -2636,21 +2637,30 @@ theorem UnboundedOperator.power_zero (T : UnboundedOperator H) (hT : T.IsDensely
   - P((0, ∞)) = P(ℝ) = 1 (i.e., P((-∞, 0]) = 0)
   - This uses positivity: ⟨x, Tx⟩ ≥ 0 implies spectrum ⊆ [0, ∞)
   -/
-  unfold UnboundedOperator.power
-  -- Show: functionalCalculus P (fun x => if x > 0 then exp(0 * log x) else 0) = 1
-  -- Key: exp(0 * z) = exp(0) = 1 for all z
-  have h1 : ∀ x : ℝ, (if x > 0 then Complex.exp (0 * Complex.log x) else 0) =
-      (if x > 0 then 1 else 0) := by
-    intro x
-    split_ifs with hx
-    · simp only [zero_mul, Complex.exp_zero]
-    · rfl
-  -- The function is χ_{(0,∞)}
-  -- For a strictly positive operator, ∫ χ_{(0,∞)} dP = P((0,∞)) = P(ℝ) = 1
-  -- This requires the positivity condition on T.
-  --
-  -- FOUNDATIONAL: Requires showing P((-∞, 0]) = 0 for positive T
-  -- and that the functional calculus of the constant 1 on support is the identity.
+  /-
+  BUG: This theorem is FALSE as stated for non-injective positive operators.
+
+  The `power` function uses `else 0` for λ ≤ 0, so at s = 0:
+    f(λ) = if λ > 0 then exp(0 * log λ) else 0 = if λ > 0 then 1 else 0 = χ_{(0,∞)}
+
+  For T^0 = 1, we need functionalCalculus P χ_{(0,∞)} = 1, i.e., P(Ioi 0) = P(ℝ) = 1,
+  which requires P(Iic 0) = 0. In particular, P({0}) = 0.
+
+  Counterexample: For T = 0 (the zero operator), T is densely defined, self-adjoint,
+  and positive (⟨0, x⟩ = 0 ≥ 0). Its spectral measure is P({0}) = 1. Then:
+    power T ... 0 _ = functionalCalculus P χ_{(0,∞)} = P(Ioi 0) = 0 ≠ 1.
+
+  Fix options:
+  (A) Change `power` definition to use `else 1` instead of `else 0`.
+      This makes f(λ) = 1 for all λ at s = 0, giving functionalCalculus P 1 = P(ℝ) = 1.
+      power_add still holds: for λ ≤ 0, (f_s * f_t)(λ) = 1 * 1 = 1 = f_{s+t}(λ).
+  (B) Add hypothesis that T is injective (strictly positive), ensuring P({0}) = 0.
+  (C) Weaken the conclusion to hold a.e. w.r.t. the spectral measure.
+
+  Option (A) is recommended as it requires only a one-character change to the definition
+  and preserves all existing proofs (the boundedness/integrability proofs use ‖·‖ ≤ 1,
+  which holds for both 0 and 1).
+  -/
   sorry
 
 /-- T^(s+t) = T^s ∘ T^t
@@ -2767,7 +2777,10 @@ theorem UnboundedOperator.power_imaginary_unitary (T : UnboundedOperator H)
   u* ∘ u = T^{-it} ∘ T^{it} = T^{-it + it} = T^0 = 1
   u ∘ u* = T^{it} ∘ T^{-it} = T^{it + (-it)} = T^0 = 1
   -/
-  -- Depends on functionalCalculus_star, power_add, power_zero (all sorry'd)
+  -- Depends on functionalCalculus_star (proven), power_add (proven), power_zero (sorry'd).
+  -- Inherits the bug from power_zero: false for non-injective positive operators.
+  -- For T = 0: u = T^{it} = functionalCalculus P (indicator_Ioi) = P(Ioi 0) = 0,
+  -- so u* ∘ u = 0 ≠ 1. Fix power definition first (see power_zero comment).
   sorry
 
 /-! ### One-parameter unitary groups
