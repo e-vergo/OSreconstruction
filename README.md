@@ -28,25 +28,24 @@ This will fetch Mathlib and all dependencies automatically. The first build may 
 
 ## Project Status
 
-The project builds cleanly. The R→E direction of the OS reconstruction theorem (`wightman_to_os_full`) is **sorry-free** (verified via `lean_verify`). The formalization uses 16 named axioms encoding textbook results from Vladimirov, Jost, and Streater-Wightman; see [`PROGRESS_REPORT.md`](PROGRESS_REPORT.md) for the full list.
+The project builds cleanly. The formalization uses 11 named axioms encoding textbook results from Vladimirov, Jost, Bochner, and Streater-Wightman; see [`PROGRESS_REPORT.md`](PROGRESS_REPORT.md) for the full list.
 
-Remaining work is tracked via `sorry` placeholders (~117 total):
+Remaining work is tracked via `sorry` placeholders (90 total across 19 files):
 
 | Area | Sorry-free highlights | Remaining `sorry`s |
 |------|----------------------|---------------------|
-| R→E reconstruction | `wightman_to_os_full`: all E0–E4 properties | 0 |
+| E'→R' bridge | `os_to_wightman_full`: sorry-free | 0 |
+| R→E bridge | `wightman_to_os_full`: 1 geometric sorry | 1 |
+| R→E properties | E1a (translation), E1b (rotation det=1), E3 (permutation) | 5 |
 | Lorentz invariance | `W_analytic_lorentz_on_tube` + 4 helper lemmas | 0 |
 | Forward tube distributions | `ForwardTubeDistributions.lean` (591 lines) | 0 |
-| Nuclear space bridge | `GaussianFieldBridge.lean` (DM→Pietsch via gaussian-field) | 0 |
-| Spectral theory (RMK chain) | Full chain: functional, measure, theorem, Cayley, projections | 0 |
+| E→R analytic continuation | Paley-Wiener axiom + Bochner tube theorem axiom | 8 |
 | GNS construction | Inner product, field operators, reproducing property | 0 |
 | 1D edge-of-the-wedge | Via Morera's theorem | 0 |
-| Schwartz tensor product | Full infrastructure | 0 |
 | Spacetime geometry | Minkowski metric, Lorentz/Poincaré groups | 0 |
-| E→R reconstruction | Analytic continuation, boundary values | ~10 |
 | Modular theory | Tomita operator, modular operator/conjugation | ~9 |
-| Modular automorphisms | σ_t, Connes cocycle | ~13 |
-| KMS condition | Equilibrium states | ~9 |
+| Modular automorphisms | σ_t, Connes cocycle | ~14 |
+| KMS condition | Equilibrium states | ~11 |
 
 See [`PROGRESS_REPORT.md`](PROGRESS_REPORT.md) for a detailed breakdown of axioms, sorry census, and proof strategies. See also [`OSReconstruction/vNA/TODO.md`](OSReconstruction/vNA/TODO.md) and [`OSReconstruction/Wightman/TODO.md`](OSReconstruction/Wightman/TODO.md) for execution plans.
 
