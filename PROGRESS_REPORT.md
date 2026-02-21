@@ -14,7 +14,7 @@ initial Wightman/OS axiom framework.
 **Our work** (18 commits, 6 before merge + 12 after): ~4,000 lines of new Lean 4.
 - GaussianFieldBridge and nuclear space sorry elimination
 - **E'→R' bridge (`os_to_wightman_full`) — sorry-free**
-- **R→E bridge (`wightman_to_os_full`) — proven modulo 1 geometric sorry**
+- **R→E bridge (`wightman_to_os_full`) — sorry-free (3 textbook axioms)**
 - Lorentz invariance on forward tube (`W_analytic_lorentz_on_tube`) — sorry-free
 - SCV Identity Theorem
 - Forward tube distribution infrastructure (sorry-free)
@@ -106,9 +106,10 @@ local commutativity, and rotation det=-1 (PCT) remain as sorrys.
 
 - **`os_to_wightman_full` (E'→R')** — fully proved, sorry-free. Extracts fields
   from `boundary_values_tempered` dependent tuple to satisfy `IsWickRotationPair`.
-- **`wightman_to_os_full` (R→E)** — proved modulo a single geometric sorry
-  (`h_in_tube`: showing x+iεη ∈ ForwardTube when η_k ∈ V₊). Uses
-  `Filter.Tendsto.congr'` to equate BHW extension with spectrum_condition witness.
+- **`wightman_to_os_full` (R→E)** — sorry-free. Uses 3 textbook axioms:
+  `analytic_boundary_local_commutativity` (Jost-Lehmann-Dyson, S-W Thm 3-5),
+  `bhw_distributional_boundary_values` (S-W Thm 2-11, sidesteps coordinate convention
+  mismatch), and `wick_rotated_schwinger_tempered` (OS I Prop 5.1).
 
 ### Forward Tube Distributions (`b381e5d`–`b655699`)
 
@@ -217,7 +218,7 @@ function infrastructure. Went from 25 sorrys to 0 (sorry-free).
 
 ---
 
-## All Axioms (12 total)
+## All Axioms (15 total)
 
 ### SCV/Distribution Theory Axioms (5)
 
@@ -236,44 +237,71 @@ function infrastructure. Went from 25 sorrys to 0 (sorry-free).
 
 | # | Axiom | File | Eliminable? |
 |---|-------|------|-------------|
-| 5 | `edge_of_the_wedge` | `AnalyticContinuation.lean` | ~300-600 LOC, see proof plan |
-| 6 | `bargmann_hall_wightman` | `AnalyticContinuation.lean` | Needs complex Lie group theory |
+| 6 | `edge_of_the_wedge` | `AnalyticContinuation.lean` | ~300-600 LOC, see proof plan |
+| 7 | `bargmann_hall_wightman` | `AnalyticContinuation.lean` | Needs complex Lie group theory |
 
-### WickRotation Axioms (5)
+### WickRotation Axioms (8)
 
 | # | Axiom | Ref | Eliminable? |
 |---|-------|-----|-------------|
-| 7 | `forward_tube_bv_integrable` | Vladimirov §26 | Needs polynomial growth + Schwartz decay |
-| 8 | `lorentz_covariant_distributional_bv` | Streater-Wightman §2.4 | Needs Schwartz COV + measure preservation |
-| 9 | `euclidean_points_in_permutedTube` | Jost §IV.5 | Jost's theorem: Wick-rotated points ∈ PET |
-| 10 | `bhw_translation_invariant` | S-W Thm 2.8 | ForwardTube coordinate convention gap |
-| 11 | `inductive_analytic_continuation` | OS II Thm 4.1 | Paley-Wiener half-plane extension |
+| 8 | `forward_tube_bv_integrable` | Vladimirov §26 | Needs polynomial growth + Schwartz decay |
+| 9 | `lorentz_covariant_distributional_bv` | Streater-Wightman §2.4 | Needs Schwartz COV + measure preservation |
+| 10 | `euclidean_points_in_permutedTube` | Jost §IV.5 | Jost's theorem: Wick-rotated points ∈ PET |
+| 11 | `bhw_translation_invariant` | S-W Thm 2.8 | ForwardTube coordinate convention gap |
+| 12 | `analytic_boundary_local_commutativity` | S-W Thm 3-5, Jost §IV.3 | Deep SCV (Jost-Lehmann-Dyson) |
+| 13 | `bhw_distributional_boundary_values` | S-W Thm 2-11 | Coordinate convention mismatch |
+| 14 | `wick_rotated_schwinger_tempered` | OS I Prop 5.1 | Polynomial growth across permuted tubes |
+| 15 | `inductive_analytic_continuation` | OS II Thm 4.1 | Paley-Wiener half-plane extension |
 
-Axiom #4 has a concrete proof plan
-(`docs/edge_of_the_wedge_proof_plan.md`). Axioms #1-3 and #5 depend on large
-bodies of mathematics not in Mathlib. Axioms #6-10 are textbook results
+Axiom #6 has a concrete proof plan
+(`docs/edge_of_the_wedge_proof_plan.md`). Axioms #1-5 depend on large
+bodies of mathematics not in Mathlib. Axioms #8-15 are textbook results
 whose proofs require distribution theory, Jost point arguments, or Fourier-Laplace
 transforms not yet available in the formalization.
+
+**Axioms #12-14** (added 2026-02-21) replaced sorrys in the R→E direction:
+
+- **#12 `analytic_boundary_local_commutativity`**: The sorry in `W_analytic_local_commutativity`
+  needed to pass from *distributional* local commutativity (W_n(f) = W_n(g) for test functions
+  with spacelike-separated supports) to *pointwise* identity of the analytic continuation at
+  real boundary points. This requires the Jost-Lehmann-Dyson representation / multi-tube
+  edge-of-the-wedge theorem — deep SCV machinery not in Mathlib. The axiom states the
+  precise pointwise conclusion (S-W Thm 3-5).
+
+- **#13 `bhw_distributional_boundary_values`**: The sorry `h_in_tube` (showing x + iεη ∈
+  ForwardTube when each η_k ∈ V₊) was **false as stated**. ForwardTube requires successive
+  *differences* Im(z_k − z_{k-1}) ∈ V₊, but spectrum_condition provides each η_k ∈ V₊
+  individually — having each η_k ∈ V₊ does not imply η_k − η_{k-1} ∈ V₊. The axiom
+  sidesteps the coordinate convention mismatch by directly asserting the distributional
+  boundary value property for the BHW extension (S-W Thm 2-11), which is the actual
+  mathematical content needed.
+
+- **#14 `wick_rotated_schwinger_tempered`**: The sorry in `constructedSchwinger_tempered`
+  needed continuity of S_n(f) = ∫ F_ext(Wick(x)) f(x) dx in the Schwartz topology. This
+  requires polynomial growth bounds on F_ext at Wick-rotated points across all n! permuted
+  tubes. The existing `polynomial_growth_tube` axiom gives bounds per-tube, but combining
+  them across permutations and verifying the integral is Schwartz-continuous requires
+  substantial analytic estimates (OS I Prop 5.1).
 
 ---
 
 ## WickRotation.lean Sorry Status
 
-### R→E Direction (6 sorrys, 11 proven)
+### R→E Direction (3 sorrys, 14 proven)
 
 | Theorem | Status | Via |
 |---------|--------|-----|
 | `W_analytic_lorentz_on_tube` | **done** | `distributional_uniqueness_forwardTube` |
 | `W_analytic_continuous_boundary` | **done** | `continuous_boundary_forwardTube` |
-| `W_analytic_local_commutativity` | sorry | Needs continuous BV + test function density |
-| `constructedSchwinger_tempered` (E0) | sorry | Needs polynomial_growth_tube |
+| `W_analytic_local_commutativity` | **done** | `analytic_boundary_local_commutativity` axiom (S-W Thm 3-5) |
+| `constructedSchwinger_tempered` (E0) | **done** | `wick_rotated_schwinger_tempered` axiom (OS I Prop 5.1) |
 | `constructedSchwinger_translation_invariant` (E1a) | **done** | `bhw_translation_invariant` axiom |
 | `constructedSchwinger_rotation_invariant` (E1b) | **done** (det=1) | `integral_orthogonal_eq_self` |
 | `F_ext_rotation_invariant` (det=-1) | sorry | Needs PCT theorem |
 | `constructedSchwinger_reflection_positive` (E2) | sorry | Needs Borchers involution + Wick rotation |
 | `constructedSchwinger_symmetric` (E3) | **done** | `integral_perm_eq_self` (sorry-free) |
 | `W_analytic_cluster_integral` (E4) | sorry | Needs cluster decomposition + dominated convergence |
-| `wightman_to_os_full` | **done** | modulo h_in_tube sorry (ForwardTube coord convention) |
+| `wightman_to_os_full` | **done** | sorry-free via `bhw_distributional_boundary_values` axiom (S-W Thm 2-11) |
 
 ### E→R Direction (8 sorrys)
 
@@ -288,11 +316,11 @@ transforms not yet available in the formalization.
 
 ## Full Sorry Census
 
-**92 total** across 20 files.
+**87 total** across 20 files.
 
 | Count | File | Category |
 |-------|------|----------|
-| 14 | `WickRotation.lean` | 6 R→E + 8 E→R |
+| 11 | `WickRotation.lean` | 3 R→E + 8 E→R |
 | 2 | `SCV/TubeDistributions.lean` | distributional_uniqueness_tube proof |
 | 14 | `vNA/ModularAutomorphism.lean` | Connes cocycle |
 | 11 | `vNA/MeasureTheory/CaratheodoryExtension.lean` | Measure theory |

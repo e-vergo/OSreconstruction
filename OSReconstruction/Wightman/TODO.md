@@ -43,7 +43,7 @@ but not for the OS reconstruction theorems themselves.
 
 ## Axiom and Sorry Census
 
-### Axioms (12 total: 5 in SCV, 2 in AnalyticContinuation, 5 in WickRotation)
+### Axioms (15 total: 5 in SCV, 2 in AnalyticContinuation, 8 in WickRotation)
 
 **SCV/TubeDistributions.lean — 5 axioms** (deep distribution theory / SCV, not in Mathlib):
 - `continuous_boundary_tube` — Vladimirov: tube holomorphic + tempered BV ⟹ continuous to boundary
@@ -59,12 +59,38 @@ but not for the OS reconstruction theorems themselves.
 - `edge_of_the_wedge` (line 730) — multi-D Bogoliubov theorem
 - `bargmann_hall_wightman` (line 788) — extend from forward tube to PET
 
-**WickRotation.lean — 5 axioms** (textbook results, plumbing gaps):
+**WickRotation.lean — 8 axioms** (textbook results, plumbing gaps):
 - `forward_tube_bv_integrable` (line 376) — BV integrands are integrable
 - `lorentz_covariant_distributional_bv` (line 404) — Lorentz COV of BVs from Wightman axiom
 - `euclidean_points_in_permutedTube` (line 442) — Jost's theorem: Wick-rotated points ∈ PET
-- `bhw_translation_invariant` (line 613) — W depends on differences (coordinate convention gap; see docstring)
-- `inductive_analytic_continuation` (line 1035) — OS II Thm 4.1: C_k^(r) → C_k^(r+1) via Paley-Wiener
+- `analytic_boundary_local_commutativity` (line 545) — pointwise local commutativity at spacelike boundary (S-W Thm 3-5, Jost §IV.3)
+- `bhw_translation_invariant` (line 650) — W depends on differences (coordinate convention gap; see docstring)
+- `bhw_distributional_boundary_values` (line 673) — BHW extension has same distributional BV as W_n (S-W Thm 2-11)
+- `wick_rotated_schwinger_tempered` (line 719) — Schwinger functions are tempered (OS I Prop 5.1)
+- `inductive_analytic_continuation` (line 1113) — OS II Thm 4.1: C_k^(r) → C_k^(r+1) via Paley-Wiener
+
+### Known design issues (identified via Gemini deep-think review, 2026-02-21)
+
+1. **`continuous_boundary_tube` may be too strong at lightcone points.**
+   This SCV axiom gives `ContinuousWithinAt` at ALL real boundary points.
+   In interacting QFTs, the Wightman function has singularities at lightcone
+   points ((x_i - x_j)² = 0), where the boundary value exists only as a
+   distribution, not a continuous function. The axiom is correct at spacelike
+   and timelike separated points, and all current uses (e.g.,
+   `analytic_boundary_local_commutativity`) only evaluate at spacelike points.
+   A future refinement could restrict `ContinuousWithinAt` to non-lightcone
+   boundary points.
+
+2. **`constructSchwingerFunctions` uses a raw Lebesgue integral.**
+   The definition `S_n(f) = ∫ F_ext(Wick(x)) f(x) dx` integrates over all
+   of `NPointDomain` including coincident points x_i = x_j. For fundamental
+   scalar fields in d+1 ≥ 2, the near-diagonal singularities (~1/|x|^{d-1})
+   are locally integrable and the integral converges. For higher-dimension
+   fields (scaling dimension Δ > d/2), the singularity could be non-integrable,
+   and Lean's `∫` would silently return 0. The current formalization implicitly
+   restricts to theories where the integral converges. A more general approach
+   would define S_n as a distributional extension (tempered distribution agreeing
+   with the Lebesgue integral away from diagonals).
 
 ### ~~SeparatelyAnalytic.lean — 0 sorrys~~ ✅ DONE (2026-02-15)
 
@@ -159,17 +185,16 @@ AnalyticContinuation.lean (0 sorrys, 2 axioms)
 ├────────┤
 │        │
 ▼        ▼
-WickRotation.lean (14 sorrys, 5 axioms)
+WickRotation.lean (11 sorrys, 8 axioms)
 │
-│  ┌─── R→E DIRECTION (6 sorrys) ────────────────────────────────┐
+│  ┌─── R→E DIRECTION (3 sorrys) ────────────────────────────────┐
 │  │                                                               │
-│  │  W_analytic_local_commutativity        ← sorry (medium)      │
-│  │  constructedSchwinger_tempered (E0)    ← sorry (hard)        │
 │  │  F_ext_rotation_invariant (det=-1)     ← sorry (needs PCT)   │
 │  │  constructedSchwinger_reflection_positive (E2) ← sorry (hard)│
 │  │  W_analytic_cluster_integral (E4)      ← sorry (hard)        │
-│  │  wightman_to_os_full (h_in_tube)       ← sorry (coord conv)  │
 │  │                                                               │
+│  │  W_analytic_local_commutativity        ✅ PROVEN (axiom #12) │
+│  │  constructedSchwinger_tempered (E0)    ✅ PROVEN (axiom #14) │
 │  │  constructedSchwinger_symmetric (E3)    ✅ PROVEN             │
 │  │  constructedSchwinger_translation_invariant ✅ PROVEN         │
 │  │  constructedSchwinger_rotation_invariant    ✅ PROVEN (det=1) │
@@ -178,7 +203,7 @@ WickRotation.lean (14 sorrys, 5 axioms)
 │  │  F_ext_translation_invariant                ✅ PROVEN         │
 │  │         │                                                     │
 │  │         ▼                                                     │
-│  │  wightman_to_os_full (PROVEN, modulo h_in_tube sorry)        │
+│  │  wightman_to_os_full ✅ PROVEN (sorry-free, axiom #13)       │
 │  └───────────────────────────────────────────────────────────────┘
 │
 │  ┌─── E→R DIRECTION (8 sorrys) ───────────────────────────────┐
