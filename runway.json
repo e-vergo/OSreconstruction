@@ -1,0 +1,9 @@
+{
+  "title": "OS Reconstruction",
+  "projectName": "OSReconstruction",
+  "githubUrl": "https://github.com/e-vergo/OSreconstruction",
+  "baseUrl": "/OSreconstruction/",
+  "docgen4Url": null,
+  "runwayDir": "runway",
+  "assetsDir": "../dress-blueprint-action/assets"
+}
