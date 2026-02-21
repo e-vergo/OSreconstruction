@@ -1208,7 +1208,21 @@ theorem wightman_to_os_full (Wfn : WightmanFunctions d) :
     ?_, fun _ => rfl⟩
   · -- Boundary values: For ε > 0, the point x + iεη is in ForwardTube (Im = εη ∈ V₊),
     -- so F_ext(x + iεη) = W_analytic(x + iεη). The limits thus agree.
-    sorry
+    intro f η hη
+    have h_lim := (Wfn.spectrum_condition n).choose_spec.2 f η hη
+    refine Filter.Tendsto.congr' ?_ h_lim
+    -- Equate the integrals point-by-point along the filter limit
+    filter_upwards [self_mem_nhdsWithin] with ε hε
+    congr 1; ext x; congr 1
+    -- They are equal because F_ext = W_analytic on the Forward Tube
+    have h_in_tube : (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) ∈
+        ForwardTube d n := by
+      -- The imaginary part of (x + iεη)_k - (x + iεη)_{k-1} = iε(η_k - η_{k-1}).
+      -- Since η_k ∈ V₊ for all k, the successive differences of εη are in V₊
+      -- when η represents absolute (not difference) coordinates.
+      -- This is a geometric fact about the ForwardTube coordinate convention.
+      sorry
+    exact ((W_analytic_BHW Wfn n).property.2.1 _ h_in_tube).symm
 
 /-- **Theorem E'→R'**: OS axioms with linear growth condition produce Wightman functions.
 
@@ -1219,7 +1233,12 @@ theorem os_to_wightman_full (OS : OsterwalderSchraderAxioms d)
     ∃ (Wfn : WightmanFunctions d),
       -- The Wightman functions are the Wick rotation of the Schwinger functions
       IsWickRotationPair OS.S Wfn.W := by
-  exact ⟨constructWightmanFunctions OS lgc, by sorry⟩
+  refine ⟨constructWightmanFunctions OS lgc, fun n => ?_⟩
+  -- The analytic continuation, boundary values, and euclidean restriction are
+  -- exactly the fields constructed inside `boundary_values_tempered`.
+  have h := (boundary_values_tempered OS lgc n).choose_spec.choose_spec
+  exact ⟨(boundary_values_tempered OS lgc n).choose_spec.choose,
+    h.2.2.1, h.2.2.2.1, h.2.2.2.2.1⟩
 
 /-! ### Wired Corollaries
 
