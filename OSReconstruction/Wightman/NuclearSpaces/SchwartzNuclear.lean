@@ -248,7 +248,7 @@ theorem schwartz_nuclearSpace_fin0 :
 
     * For **n > 0**: follows from the Dynin-Mityagin characterization via the
       Hermite function Schauder basis. The bridge
-      `GaussianField.NuclearSpace.toPietschNuclearSpace` converts the
+      `GaussianField.NuclearSpace.toOSNuclearSpace` converts the
       gaussian-field `GaussianField.NuclearSpace` instance to Pietsch form.
 
     * For **n = 0**: the domain `EuclideanSpace ℝ (Fin 0)` is a single point, so
@@ -263,7 +263,7 @@ theorem SchwartzMap.instNuclearSpace (n : ℕ) :
   · -- n > 0: EuclideanSpace ℝ (Fin n) is nontrivial, use the GF bridge
     haveI : Nonempty (Fin n) := ⟨⟨0, by omega⟩⟩
     haveI : Nontrivial (EuclideanSpace ℝ (Fin n)) := inferInstance
-    exact GaussianField.NuclearSpace.toPietschNuclearSpace _
+    exact GaussianField.NuclearSpace.toOSNuclearSpace _
 
 /-! ### Hermite Function Infrastructure
 
