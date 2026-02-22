@@ -90,15 +90,15 @@ theorem continuous_entry (μ ν : Fin (d + 1)) :
 /-! ### Complex Minkowski matrix helpers -/
 
 /-- The complex Minkowski metric matrix η_ℂ = diag(-1, +1, ..., +1). -/
-private def ηℂ : Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ :=
+def ηℂ : Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ :=
   Matrix.diagonal (fun i => (minkowskiSignature d i : ℂ))
 
-private theorem ηℂ_sq : (ηℂ : Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ) * ηℂ = 1 := by
+theorem ηℂ_sq : (ηℂ : Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ) * ηℂ = 1 := by
   simp only [ηℂ, Matrix.diagonal_mul_diagonal]
   ext i j; simp [Matrix.diagonal, Matrix.one_apply, minkowskiSignature]
   split_ifs <;> push_cast <;> ring
 
-private theorem ηℂ_transpose :
+theorem ηℂ_transpose :
     (ηℂ : Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ).transpose = ηℂ := by
   simp [ηℂ, Matrix.diagonal_transpose]
 
@@ -137,7 +137,7 @@ def one : ComplexLorentzGroup d where
     · subst h
       simp [Finset.sum_ite_eq', minkowskiSignature]
     · apply Finset.sum_eq_zero; intro α _
-      by_cases hα : α = μ <;> simp [hα, h, Matrix.one_apply]
+      by_cases hα : α = μ <;> simp [hα, h]
   proper := by simp
 
 /-- The product of two elements of SO⁺(1,d;ℂ) is in SO⁺(1,d;ℂ). -/
@@ -345,7 +345,7 @@ theorem ext {Λ₁ Λ₂ : ComplexLorentzGroup d}
 
 open NormedSpace in
 /-- ηℂ as a matrix unit (since ηℂ² = 1). -/
-private def ηℂ_unit : (Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ)ˣ where
+def ηℂ_unit : (Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ)ˣ where
   val := ηℂ
   inv := ηℂ
   val_inv := ηℂ_sq

@@ -13,6 +13,7 @@ import Mathlib.Topology.Order.IntermediateValue
 import Mathlib.Analysis.InnerProductSpace.Basic
 import Mathlib.Analysis.SpecialFunctions.Trigonometric.Basic
 import Mathlib.Analysis.SpecialFunctions.Arcosh
+import Mathlib.Analysis.SpecialFunctions.Trigonometric.Arctan
 
 /-!
 # Lorentz Group as a Topological Group
@@ -1034,11 +1035,129 @@ theorem joined_one_spatialRotElement (i j : Fin d) (hij : i ≠ j) (θ : ℝ) :
 
 /-! ### Path-connectedness proof -/
 
+/-- For any a, b : ℝ, there exists θ such that -sin(θ) * a + cos(θ) * b = 0.
+    This is the spatial rotation analogue of `boost_zero_entry`. -/
+theorem rotation_zero_entry (a b : ℝ) : ∃ θ : ℝ, -Real.sin θ * a + Real.cos θ * b = 0 := by
+  by_cases ha : a = 0
+  · exact ⟨Real.pi / 2, by simp [ha, Real.sin_pi_div_two, Real.cos_pi_div_two]⟩
+  · refine ⟨Real.arctan (b / a), ?_⟩
+    set θ := Real.arctan (b / a)
+    have hcos_ne : Real.cos θ ≠ 0 := ne_of_gt (Real.cos_arctan_pos (b / a))
+    have h := Real.tan_arctan (b / a)
+    rw [Real.tan_eq_sin_div_cos, div_eq_div_iff hcos_ne ha] at h
+    linarith
+
+/-- Joined 1 a implies Joined 1 a⁻¹ in any topological group. -/
+private theorem joined_one_inv' {a : RestrictedLorentzGroup d}
+    (h : Joined 1 a) : Joined 1 a⁻¹ := by
+  obtain ⟨γ⟩ := h
+  exact ⟨⟨⟨fun t => (γ t)⁻¹, γ.continuous.inv⟩, by simp [γ.source], by simp [γ.target]⟩⟩
+
+/-- Boost column zeroing: there exists B (product of boosts, Joined 1) such that
+    (B * Λ).val.val k.succ 0 = 0 for all k : Fin d. -/
+private theorem boost_column_zeroing (Λ : RestrictedLorentzGroup d) :
+    ∃ B : RestrictedLorentzGroup d, Joined 1 B ∧
+    ∀ k : Fin d, (B * Λ).val.val k.succ 0 = 0 := by
+  suffices h : ∀ n : ℕ, n ≤ d → ∃ B : RestrictedLorentzGroup d, Joined 1 B ∧
+    ∀ k : Fin d, k.val < n → (B * Λ).val.val k.succ 0 = 0 from by
+    obtain ⟨B, hJ, hz⟩ := h d le_rfl
+    exact ⟨B, hJ, fun k => hz k k.isLt⟩
+  intro n hn
+  induction n with
+  | zero => exact ⟨1, Joined.refl 1, fun _ h => absurd h (Nat.not_lt_zero _)⟩
+  | succ m ih =>
+    obtain ⟨B', hJB', hzero⟩ := ih (by omega)
+    set C := B' * Λ
+    have hCL : IsLorentzMatrix d C.val.val := C.val.prop
+    have hCo : C.val.val 0 0 ≥ 1 := C.prop.2
+    have hab := lorentz_entry00_sq d hCL ⟨m, by omega⟩
+    obtain ⟨β, hβ⟩ := boost_zero_entry d ⟨m, by omega⟩ hCL hCo hab
+    refine ⟨boostElement d ⟨m, by omega⟩ β * B',
+      joined_one_mul_general (joined_one_boostElement _ _ _) hJB', ?_⟩
+    intro k hk
+    rw [mul_assoc]
+    show (planarBoost d ⟨m, by omega⟩ β * C.val.val) k.succ 0 = 0
+    by_cases hkm : k.val = m
+    · convert hβ using 2; exact congrArg Fin.succ (Fin.ext hkm)
+    · rw [planarBoost_mul_other d ⟨m, by omega⟩ β C.val.val k.succ
+        (Fin.succ_ne_zero k)
+        (fun h => hkm (congrArg Fin.val (Fin.succ_injective _ h)))]
+      exact hzero k (by omega)
+
+/-- If Λ is Lorentz with Λ_{k+1, 0} = 0 for all k and Λ₀₀ ≥ 1, then Λ₀₀ = 1. -/
+private theorem col0_zero_entry00_one {Λ : Matrix (Fin (d + 1)) (Fin (d + 1)) ℝ}
+    (hL : IsLorentzMatrix d Λ) (ho : Λ 0 0 ≥ 1)
+    (hcol : ∀ k : Fin d, Λ k.succ 0 = 0) : Λ 0 0 = 1 := by
+  have h := col0_sum_sq d hL
+  have hsum : ∑ k : Fin d, Λ k.succ 0 ^ 2 = 0 :=
+    Finset.sum_eq_zero (fun k _ => by rw [hcol k]; ring)
+  rw [hsum, add_zero] at h
+  nlinarith [sq_nonneg (Λ 0 0 - 1)]
+
+/-- If Λ is Lorentz with column 0 = e₀, then row 0 = e₀ᵀ. -/
+private theorem col0_e0_implies_row0 {Λ : Matrix (Fin (d + 1)) (Fin (d + 1)) ℝ}
+    (hL : IsLorentzMatrix d Λ) (h00 : Λ 0 0 = 1)
+    (hcol : ∀ k : Fin d, Λ k.succ 0 = 0) :
+    ∀ k : Fin d, Λ 0 k.succ = 0 := by
+  intro k
+  have h := congr_fun (congr_fun hL 0) k.succ
+  simp only [minkowskiMatrix, Matrix.mul_apply, Matrix.transpose_apply,
+    Matrix.diagonal_apply, minkowskiSignature, mul_ite, mul_one, mul_zero,
+    Finset.sum_ite_eq', Finset.mem_univ, ite_true] at h
+  rw [Fin.sum_univ_succ] at h
+  simp only [↓reduceIte, Fin.succ_ne_zero] at h
+  simp only [hcol, zero_mul, Finset.sum_const_zero, add_zero,
+    show (0 : Fin (d + 1)) ≠ k.succ from (Fin.succ_ne_zero k).symm, ↓reduceIte] at h
+  rw [h00] at h; linarith
+
+/-- The spatial rotation in plane (i, j) applied to a matrix with column 0 = e₀
+    preserves column 0 = e₀. -/
+private theorem spatialRot_preserves_col0 (i j : Fin d) (hij : i ≠ j) (θ : ℝ)
+    {Λ : Matrix (Fin (d + 1)) (Fin (d + 1)) ℝ}
+    (h00 : Λ 0 0 = 1) (hcol : ∀ k : Fin d, Λ k.succ 0 = 0) :
+    (∀ k : Fin d, (spatialRot d i j θ * Λ) k.succ 0 = 0) ∧
+    (spatialRot d i j θ * Λ) 0 0 = 1 := by
+  constructor
+  · intro k
+    by_cases hki : k = i
+    · rw [hki, spatialRot_mul_row_i d i j hij θ Λ 0, hcol i, hcol j]; ring
+    · by_cases hkj : k = j
+      · rw [hkj, spatialRot_mul_row_j d i j hij θ Λ 0, hcol i, hcol j]; ring
+      · rw [spatialRot_mul_row_other d i j θ Λ 0 k.succ
+            (fun h => hki (Fin.succ_injective _ h))
+            (fun h => hkj (Fin.succ_injective _ h))]
+        exact hcol k
+  · rw [spatialRot_mul_row_other d i j θ Λ 0 0
+        (Ne.symm (Fin.succ_ne_zero i))
+        (Ne.symm (Fin.succ_ne_zero j))]
+    exact h00
+
+-- Commented out: not needed for BHW. To be proved later.
+-- See TODO.md Phase 3 for proof strategy (boost-rotation decomposition).
+/-
+/-- Spatial column zeroing: Given Λ ∈ SO⁺(1,d) with col 0 = e₀, there exists S
+    (product of spatial rotations, Joined 1) such that S * Λ = 1. -/
+private theorem spatial_reduction (Λ : RestrictedLorentzGroup d)
+    (hcol : ∀ k : Fin d, Λ.val.val k.succ 0 = 0) :
+    Joined 1 Λ := by
+  sorry
+
+/-- Every element of SO⁺(1,d) is Joined to 1. -/
+private theorem joined_one (Λ : RestrictedLorentzGroup d) : Joined 1 Λ := by
+  obtain ⟨B, hJB, hcol⟩ := boost_column_zeroing d Λ
+  have h1 : Joined 1 (B * Λ) := spatial_reduction d (B * Λ) hcol
+  have h2 : Λ = B⁻¹ * (B * Λ) := by group
+  rw [h2]
+  exact joined_one_mul_general (joined_one_inv' d hJB) h1
+
 /-- SO⁺(1,d) is path-connected. Every element is connected to the identity
     via boost-rotation decomposition. -/
 theorem RestrictedLorentzGroup.isPathConnected :
     IsPathConnected (Set.univ : Set (RestrictedLorentzGroup d)) := by
-  sorry
+  refine ⟨1, Set.mem_univ _, ?_⟩
+  intro _ _
+  exact joinedIn_univ.mpr (joined_one d _)
+-/
 
 /-! ### Embedding into GL -/
 
