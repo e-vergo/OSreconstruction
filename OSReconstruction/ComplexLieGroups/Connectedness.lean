@@ -6,6 +6,7 @@ Authors: ModularPhysics Contributors
 import Mathlib.Analysis.Complex.CauchyIntegral
 import Mathlib.Topology.Connected.PathConnected
 import OSReconstruction.ComplexLieGroups.Complexification
+import OSReconstruction.SCV.IdentityTheorem
 
 /-!
 # Bargmann-Hall-Wightman Theorem
@@ -1376,6 +1377,36 @@ theorem forwardTube_subset_permutedExtendedTube :
     ForwardTube d n ⊆ PermutedExtendedTube d n :=
   fun _ hz => extendedTube_subset_permutedExtendedTube (forwardTube_subset_extendedTube hz)
 
+/-- The Lorentz action z ↦ Λ·z is an open map (it's a homeomorphism). -/
+theorem complexLorentzAction_isOpenMap (Λ : ComplexLorentzGroup d) :
+    IsOpenMap (fun z : Fin n → Fin (d + 1) → ℂ => complexLorentzAction Λ z) :=
+  IsOpenMap.of_inverse
+    (continuous_complexLorentzAction_snd Λ⁻¹)
+    (fun z => by rw [← complexLorentzAction_mul, mul_inv_cancel, complexLorentzAction_one])
+    (fun z => by rw [← complexLorentzAction_mul, inv_mul_cancel, complexLorentzAction_one])
+
+/-- The permuted forward tube is open (preimage of FT under continuous permutation). -/
+theorem isOpen_permutedForwardTube (π : Equiv.Perm (Fin n)) :
+    IsOpen (PermutedForwardTube d n π) :=
+  isOpen_forwardTube.preimage (continuous_pi (fun k =>
+    continuous_pi (fun μ => (continuous_apply μ).comp (continuous_apply (π k)))))
+
+/-- The permuted extended tube is open (union of images of open sets under homeomorphisms). -/
+theorem isOpen_permutedExtendedTube :
+    IsOpen (@PermutedExtendedTube d n) := by
+  apply isOpen_iUnion; intro π
+  suffices h : { z | ∃ (Λ : ComplexLorentzGroup d) (w : Fin n → Fin (d + 1) → ℂ),
+      w ∈ PermutedForwardTube d n π ∧ z = complexLorentzAction Λ w } =
+    ⋃ Λ : ComplexLorentzGroup d,
+      (fun z => complexLorentzAction Λ z) '' (PermutedForwardTube d n π) by
+    rw [h]
+    exact isOpen_iUnion (fun Λ =>
+      (complexLorentzAction_isOpenMap Λ) _ (isOpen_permutedForwardTube π))
+  ext z; simp only [Set.mem_setOf_eq, Set.mem_iUnion, Set.mem_image]
+  constructor
+  · rintro ⟨Λ, w, hw, rfl⟩; exact ⟨Λ, w, hw, rfl⟩
+  · rintro ⟨Λ, w, hw, rfl⟩; exact ⟨Λ, w, hw, rfl⟩
+
 /-! ### Extension to the extended tube -/
 
 /-- F extends to the extended tube via complex Lorentz transformations:
@@ -1612,44 +1643,30 @@ theorem bargmann_hall_wightman_theorem (n : ℕ)
         (∀ z ∈ ForwardTube d n, G z = F z) →
         ∀ z ∈ PermutedExtendedTube d n, G z = F_ext z) := by
   -- === Construct F_ext ===
-  refine ⟨fullExtendF F, ?_, ?_, ?_, ?_, ?_⟩
-  -- === Property 1: Holomorphicity on PermutedExtendedTube ===
-  -- On each chart Λ₀·(π₀·FT), fullExtendF F = F ∘ ψ where ψ is the inverse chart
-  -- ψ(z) = fun k => (Λ₀⁻¹·z)(π₀ k). Since ψ is linear (hence differentiable) and
-  -- F is differentiable on FT, the composition is differentiable on ψ⁻¹(FT).
-  · intro z₀ hz₀
-    -- Extract a preimage of z₀
+  -- Pre-prove Properties 1 and 2 so they can be referenced in Property 5.
+  have hProp1 : DifferentiableOn ℂ (fullExtendF F) (PermutedExtendedTube d n) := by
+    intro z₀ hz₀
     obtain ⟨π₀, Λ₀, w₀, hw₀, hz₀_eq⟩ := Set.mem_iUnion.mp hz₀
-    -- w₀ ∈ PermutedForwardTube π₀ means (fun k => w₀(π₀ k)) ∈ FT
     have hw_ft : (fun k => w₀ (π₀ k)) ∈ ForwardTube d n := hw₀
-    -- Define the inverse chart: ψ(z) = fun k => (Λ₀⁻¹·z)(π₀ k)
     set ψ := fun z : Fin n → Fin (d + 1) → ℂ =>
       fun k => (complexLorentzAction (Λ₀⁻¹ : ComplexLorentzGroup d) z) (π₀ k) with hψ_def
-    -- ψ is differentiable (composition of linear maps)
     have hψ_diff : Differentiable ℂ ψ := by
       apply differentiable_pi.mpr; intro k
       exact (differentiable_apply (π₀ k)).comp (differentiable_complexLorentzAction_snd Λ₀⁻¹)
-    -- ψ(z₀) = (fun k => w₀(π₀ k)) ∈ FT
     have hψz₀ : ψ z₀ = fun k => w₀ (π₀ k) := by
       simp only [ψ, hz₀_eq]
       rw [← complexLorentzAction_mul, inv_mul_cancel, complexLorentzAction_one]
-    -- V = ψ⁻¹(FT) is open, contains z₀
     have hV_open : IsOpen {z | ψ z ∈ ForwardTube d n} :=
       isOpen_forwardTube.preimage hψ_diff.continuous
     have hz₀_V : ψ z₀ ∈ ForwardTube d n := hψz₀ ▸ hw_ft
-    -- On V, fullExtendF F = F ∘ ψ (by well-definedness of fullExtendF)
     have hfeq : fullExtendF F =ᶠ[nhds z₀] fun z => F (ψ z) := by
       apply Filter.eventuallyEq_of_mem (hV_open.mem_nhds hz₀_V)
       intro z (hz_V : ψ z ∈ ForwardTube d n)
-      -- z = Λ₀·(fun k => (ψ z)(π₀⁻¹ k)) and ψ z ∈ FT
-      have hz_chart : z = complexLorentzAction Λ₀
-          (fun k => (ψ z) (π₀⁻¹ k)) := by
+      have hz_chart : z = complexLorentzAction Λ₀ (fun k => (ψ z) (π₀⁻¹ k)) := by
         have h1 : (fun k => (ψ z) (π₀⁻¹ k)) = complexLorentzAction Λ₀⁻¹ z := by
-          ext k μ
-          simp only [ψ]
+          ext k μ; simp only [ψ]
           rw [show π₀ (π₀⁻¹ k) = k from Equiv.apply_symm_apply π₀ k]
         rw [h1, ← complexLorentzAction_mul, mul_inv_cancel, complexLorentzAction_one]
-      -- fullExtendF chooses some preimage and returns F of it
       simp only [fullExtendF]
       have hex : ∃ (π : Equiv.Perm (Fin n)) (Λ : ComplexLorentzGroup d)
           (w : Fin n → Fin (d + 1) → ℂ),
@@ -1659,33 +1676,27 @@ theorem bargmann_hall_wightman_theorem (n : ℕ)
       exact fullExtendF_well_defined n F hF_holo hF_lorentz hF_bv hF_local
         hex.choose_spec.choose_spec.choose_spec.1 hz_V
         (hex.choose_spec.choose_spec.choose_spec.2.symm.trans hz_chart)
-    -- F ∘ ψ is differentiable at z₀ (chain rule: F diff on FT, ψ linear)
     have hFψ_diff : DifferentiableAt ℂ (fun z => F (ψ z)) z₀ :=
       ((hF_holo _ hz₀_V).differentiableAt (isOpen_forwardTube.mem_nhds hz₀_V)).comp
         z₀ (hψ_diff z₀)
-    -- Conclude: fullExtendF F is differentiable at z₀, hence within PET
     exact (hfeq.differentiableAt_iff.mpr hFψ_diff).differentiableWithinAt
-  -- === Property 2: F_ext = F on ForwardTube ===
-  -- Take π = id, Λ = 1, w = z. Then fullExtendF chooses some preimage w' with
-  -- z = Λ'·(π'·w'). By fullExtendF_well_defined, F(w') = F(z).
-  · intro z hz
+  have hProp2 : ∀ z ∈ ForwardTube d n, fullExtendF F z = F z := by
+    intro z hz
     simp only [fullExtendF]
     have hex : ∃ (π : Equiv.Perm (Fin n)) (Λ : ComplexLorentzGroup d)
         (w : Fin n → Fin (d + 1) → ℂ),
         w ∈ ForwardTube d n ∧ z = complexLorentzAction Λ (fun k => w (π k)) :=
       ⟨Equiv.refl _, 1, z, hz, by simp [complexLorentzAction_one, Equiv.refl_apply]⟩
     rw [dif_pos hex]
-    -- The chosen preimage (π_c, Λ_c, w_c) and the explicit (refl, 1, z) both map to z.
     set w_c := hex.choose_spec.choose_spec.choose with hw_c_def
     have hw_c : w_c ∈ ForwardTube d n := hex.choose_spec.choose_spec.choose_spec.1
     have hz_eq := hex.choose_spec.choose_spec.choose_spec.2
-    -- hz_eq : z = complexLorentzAction Λ_c (fun k => w_c (π_c k))
-    -- Both representations give the same point z.
     have h_eq : complexLorentzAction hex.choose_spec.choose
         (fun k => w_c (hex.choose k)) =
         complexLorentzAction 1 (fun k => z ((Equiv.refl (Fin n)) k)) := by
       rw [← hz_eq, complexLorentzAction_one]; rfl
     exact fullExtendF_well_defined n F hF_holo hF_lorentz hF_bv hF_local hw_c hz h_eq
+  refine ⟨fullExtendF F, hProp1, hProp2, ?_, ?_, ?_⟩
   -- === Property 3: Complex Lorentz invariance ===
   -- If z = Λ'·w_p with w_p ∈ PermutedForwardTube π, then Λz = (ΛΛ')·w_p.
   -- Convert w_p to w_ft ∈ ForwardTube via w_ft = fun k => w_p (π k),
@@ -1766,15 +1777,35 @@ theorem bargmann_hall_wightman_theorem (n : ℕ)
       hex_πz.choose_spec.choose_spec.choose_spec.1
       hex_z.choose_spec.choose_spec.choose_spec.1 h_eq
   -- === Property 5: Uniqueness ===
-  -- G and fullExtendF are holomorphic on PET and agree on FT (open, nonempty).
-  -- For the extended tube ET (π = id): uniqueness follows from the 1D identity
-  -- theorem via the exponential path argument (t ↦ G(exp(tX)·w₀) - fullExtendF(exp(tX)·w₀)
-  -- vanishes near t = 0, hence everywhere by holomorphicity).
-  -- For the full PET: needs PET connected (follows from edge-of-the-wedge, same
-  -- dependency as F_permutation_invariance) plus the multi-variable identity theorem
-  -- (DifferentiableOn ℂ → AnalyticOnNhd ℂ on Fin n → Fin (d+1) → ℂ, available
-  -- via SCV.differentiableOn_analyticAt after type equivalence).
-  · sorry
+  -- By the identity theorem for product types (`identity_theorem_product`):
+  -- G and fullExtendF are holomorphic on PET (open, connected) and agree on FT
+  -- (open, nonempty subset of PET), so they agree on all of PET.
+  · intro G hG_holo hG_eq
+    -- fullExtendF F is differentiable on PET (Property 1)
+    have hF_ext_holo : DifferentiableOn ℂ (fullExtendF F) (PermutedExtendedTube d n) :=
+      hProp1
+    -- PET is open
+    have hPET_open := @isOpen_permutedExtendedTube d n
+    -- PET is connected: different permutation sectors don't directly overlap;
+    -- connectedness requires applying the (proved) edge-of-the-wedge theorem to
+    -- glue sectors at Jost point boundaries via local commutativity.
+    have hPET_conn : IsConnected (PermutedExtendedTube d n) := by
+      constructor
+      · exact (forwardTube_nonempty (d := d) (n := n)).mono
+          forwardTube_subset_permutedExtendedTube
+      · sorry  -- PET preconnected: apply edge-of-the-wedge to join permutation sectors
+    -- Pick z₀ ∈ FT ⊆ PET
+    obtain ⟨z₀, hz₀⟩ := forwardTube_nonempty (d := d) (n := n)
+    have hz₀_PET := forwardTube_subset_permutedExtendedTube hz₀
+    -- G and fullExtendF agree on FT, which is an open neighborhood of z₀
+    have hagree : G =ᶠ[nhds z₀] fullExtendF F := by
+      apply Filter.eventuallyEq_of_mem (isOpen_forwardTube.mem_nhds hz₀)
+      intro w hw
+      rw [hG_eq w hw, hProp2 w hw]
+    -- By identity theorem on product types
+    have h_eq := identity_theorem_product hPET_open hPET_conn hG_holo hF_ext_holo hz₀_PET hagree
+    intro z hz
+    exact h_eq hz
 
 end BHW
 

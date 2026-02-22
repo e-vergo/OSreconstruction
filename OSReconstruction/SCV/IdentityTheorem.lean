@@ -151,4 +151,57 @@ theorem identity_theorem_tubeDomain {m : ℕ}
     (SCV.tubeDomain'_isConnected hC hconv hne)
     hf hg hz₀ hagree
 
+/-! ### Product Type Generalization -/
+
+/-- Continuous linear equivalence flattening `Fin n → Fin m → ℂ` to `Fin (n*m) → ℂ`.
+    Composed from currying + reindexing via `finProdFinEquiv`. -/
+noncomputable def SCV.flattenCLE (n m : ℕ) :
+    (Fin n → Fin m → ℂ) ≃L[ℂ] (Fin (n * m) → ℂ) := by
+  apply LinearEquiv.toContinuousLinearEquiv
+  exact (LinearEquiv.piCurry ℂ (fun (_ : Fin n) (_ : Fin m) => ℂ)).symm.trans
+    (LinearEquiv.piCongrLeft ℂ (fun _ => ℂ)
+      (finProdFinEquiv.symm.trans (Equiv.sigmaEquivProd (Fin n) (Fin m)).symm)).symm
+
+/-- **Hartogs analyticity for product-indexed domains**: a function
+    `f : (Fin n → Fin m → ℂ) → ℂ` that is ℂ-differentiable on an open set is analytic.
+
+    Proof: transfer through `flattenCLE` to `Fin (n*m) → ℂ`, apply
+    `SCV.differentiableOn_analyticAt`, then compose back. -/
+theorem analyticAt_of_differentiableOn_product {n m : ℕ}
+    {f : (Fin n → Fin m → ℂ) → ℂ} {U : Set (Fin n → Fin m → ℂ)}
+    (hU : IsOpen U) (hf : DifferentiableOn ℂ f U)
+    {z : Fin n → Fin m → ℂ} (hz : z ∈ U) :
+    AnalyticAt ℂ f z := by
+  set φ := SCV.flattenCLE n m
+  have hU' : IsOpen (⇑φ '' U) := (φ.toHomeomorph.isOpenMap U) hU
+  have hz' : φ z ∈ ⇑φ '' U := Set.mem_image_of_mem _ hz
+  have hf' : DifferentiableOn ℂ (f ∘ ⇑φ.symm) (⇑φ '' U) := by
+    apply DifferentiableOn.comp hf φ.symm.differentiableOn
+    intro w hw
+    obtain ⟨v, hv, rfl⟩ := hw
+    simp [ContinuousLinearEquiv.symm_apply_apply]; exact hv
+  have h_anal : AnalyticAt ℂ (f ∘ ⇑φ.symm) (φ z) :=
+    SCV.differentiableOn_analyticAt hU' hf' hz'
+  have h_comp := h_anal.comp (φ.analyticAt z)
+  rwa [show (f ∘ ⇑φ.symm) ∘ ⇑φ = f from by
+    ext v; simp [Function.comp, ContinuousLinearEquiv.symm_apply_apply]] at h_comp
+
+/-- **Identity theorem for product-indexed domains**: if two holomorphic functions
+    on a connected open `U ⊆ (Fin n → Fin m → ℂ)` agree in a neighborhood of
+    some point `z₀ ∈ U`, they agree on all of `U`.
+
+    This generalizes `identity_theorem_SCV` from `Fin k → ℂ` to the product type
+    `Fin n → Fin m → ℂ` used in the BHW theorem. -/
+theorem identity_theorem_product {n m : ℕ}
+    {U : Set (Fin n → Fin m → ℂ)} (hU : IsOpen U) (hconn : IsConnected U)
+    {f g : (Fin n → Fin m → ℂ) → ℂ}
+    (hf : DifferentiableOn ℂ f U) (hg : DifferentiableOn ℂ g U)
+    {z₀ : Fin n → Fin m → ℂ} (hz₀ : z₀ ∈ U)
+    (hagree : f =ᶠ[nhds z₀] g) :
+    EqOn f g U :=
+  (AnalyticOnNhd.eqOn_of_preconnected_of_eventuallyEq
+    (fun _ hz => analyticAt_of_differentiableOn_product hU hf hz)
+    (fun _ hz => analyticAt_of_differentiableOn_product hU hg hz)
+    hconn.isPreconnected hz₀ hagree)
+
 end

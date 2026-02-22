@@ -149,9 +149,9 @@ complex_lorentz_invariance  -- PROVED modulo above
 3. `orbitSet_isPreconnected` — still sorry (geometric analysis needed)
 4. ✓ BHW sorrys largely proved — see below
 
-## BHW theorem status (Connectedness.lean, as of 2026-02-22)
+## BHW theorem status (Connectedness.lean, updated 2026-02-22)
 
-**Proved:**
+**ALL 5 BHW properties PROVED (modulo 3 sorrys):**
 - `fullExtendF_well_defined` — reduced to `F_permutation_invariance` via
   Lorentz-perm commutation: Λ·(π·w) = π·(Λ·w) (definitional in our setup)
 - BHW Property 1 (holomorphicity) — inverse chart ψ(z) = (Λ₀⁻¹·z)∘π₀,
@@ -159,13 +159,21 @@ complex_lorentz_invariance  -- PROVED modulo above
 - BHW Property 2 (F_ext = F on FT) — well-definedness with (id, 1, z) preimage
 - BHW Property 3 (Lorentz invariance) — Λ composition + well-definedness
 - BHW Property 4 (permutation symmetry) — perm composition via congr_fun pointwise
+- BHW Property 5 (uniqueness) — identity_theorem_product + PET connected
+
+**New infrastructure for uniqueness (2026-02-22):**
+- `SCV.flattenCLE` — CLE from `Fin n → Fin m → ℂ` to `Fin (n*m) → ℂ`
+- `analyticAt_of_differentiableOn_product` — Hartogs analyticity for product types
+- `identity_theorem_product` — identity theorem for `Fin n → Fin m → ℂ`
+- `complexLorentzAction_isOpenMap` — Lorentz action is open map
+- `isOpen_permutedForwardTube` / `isOpen_permutedExtendedTube` — PFT and PET are open
 
 **Remaining sorrys:**
 | # | Line | Name | Status | Dependencies |
 |---|------|--------|--------|-------------|
-| 1 | 1108 | `orbitSet_isPreconnected` | sorry | geometric (Lie group analysis) |
-| 2 | 1530 | `F_permutation_invariance` | sorry | edge-of-the-wedge + local commutativity |
-| 3 | 1776 | BHW uniqueness | sorry | PET connected + identity theorem |
+| 1 | 1109 | `orbitSet_isPreconnected` | sorry | geometric (Lie group analysis) |
+| 2 | 1561 | `F_permutation_invariance` | sorry | edge-of-the-wedge + local commutativity |
+| 3 | 1794 | PET preconnected | sorry | edge-of-the-wedge joining permutation sectors |
 
 **Key insight for F_permutation_invariance:**
 For τ = id: reduces to `complex_lorentz_invariance` (proved modulo orbitSet).
