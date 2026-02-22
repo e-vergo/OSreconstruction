@@ -21,7 +21,7 @@
 | Axiom | Line | Notes |
 |-------|------|-------|
 | `bargmann_hall_wightman` | ~788 | Requires connectedness of SO⁺(1,d;ℂ) and identity theorem on complex manifolds |
-| `edge_of_the_wedge` | ~730 | **Could be eliminated**: proved `edge_of_the_wedge_theorem` in TubeDomainExtension.lean has compatible signature |
+| ~~`edge_of_the_wedge`~~ | ~730 | **NOW PROVED**: replaced axiom with theorem using `edge_of_the_wedge_theorem` from SCV/TubeDomainExtension.lean |
 
 #### In SCV/TubeDistributions.lean (NEW)
 | Axiom | Notes |

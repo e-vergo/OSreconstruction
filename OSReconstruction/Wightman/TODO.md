@@ -103,9 +103,10 @@ All theorems proven and verified `sorryAx`-free:
 - `tube_domain_gluing` ✅ — via `osgood_lemma`
 - `differentiableOn_of_continuous_off_real_1d` ✅ — 1D holomorphic extension
 
-### AnalyticContinuation.lean — 0 sorrys, 2 axioms
+### AnalyticContinuation.lean — 0 sorrys, 1 axiom
 
-Both `edge_of_the_wedge` and `bargmann_hall_wightman` are stated as axioms (not sorrys).
+`edge_of_the_wedge` is now a **proved theorem** (via SCV.edge_of_the_wedge_theorem).
+`bargmann_hall_wightman` remains as an axiom (partial proof in ComplexLieGroups/Connectedness.lean).
 All other theorems in this file are fully proven.
 
 ### WickRotation.lean — 14 sorrys, 5 axioms
@@ -177,9 +178,9 @@ All other theorems in this file are fully proven.
 SeparatelyAnalytic.lean ✅ (0 sorrys)
 │
 ▼
-AnalyticContinuation.lean (0 sorrys, 2 axioms)
+AnalyticContinuation.lean (0 sorrys, 1 axiom)
 │
-│  edge_of_the_wedge (AXIOM) ◀── would use osgood_lemma for multi-D gluing
+│  edge_of_the_wedge (PROVED THEOREM) ◀── SCV tube domain extension
 │        │
 │        ▼
 │  bargmann_hall_wightman (AXIOM) ◀── edge_of_the_wedge + jost_lemma (PROVEN)
@@ -242,8 +243,8 @@ Reconstruction.lean (4 sorrys — wiring layer)
 
 ## Two Critical Bottlenecks
 
-1. **`edge_of_the_wedge` (axiom)** — blocks BHW (also axiom), which blocks
-   local commutativity + Lorentz covariance (E→R). Currently axiomatized.
+1. ~~**`edge_of_the_wedge` (axiom)**~~ — **NOW PROVED** (via SCV.edge_of_the_wedge_theorem).
+   `bargmann_hall_wightman` remains an axiom (partial proof in ComplexLieGroups/Connectedness.lean).
 2. **`boundary_values_tempered` (#8)** — blocks all 6 constructWightmanFunctions
    field sorrys. Depends on `full_analytic_continuation` + E0'.
 
@@ -268,7 +269,7 @@ Standard OS axiom E1 only requires SO(d+1).
 
 These groups are **independent** and can be worked on simultaneously:
 
-- **Group A** (complex analysis): Prove edge_of_the_wedge and BHW axioms
+- **Group A** (complex analysis): ~~Prove edge_of_the_wedge~~ (DONE) and BHW axiom
 - **Group B** (analytic continuation): full_analytic_continuation → boundary_values_tempered
 - **Group C** (R→E properties): local commutativity, E0, E2, E4, h_in_tube
 - **Group D** (GNS wiring): wightman_reconstruction + wightman_uniqueness

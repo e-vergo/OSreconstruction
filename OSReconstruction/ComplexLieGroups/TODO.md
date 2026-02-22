@@ -29,9 +29,9 @@ Complex Lorentz group SO⁺(1,d;ℂ) fully defined and path-connected:
 ### Connectedness.lean — 3 sorrys (down from 7)
 | # | Line | Name | Status |
 |---|------|------|--------|
-| 1 | 1108 | `orbitSet_isPreconnected` | **sorry** — O_w connected |
-| 2 | 1530 | `F_permutation_invariance` | **sorry** — edge-of-the-wedge (core BHW content) |
-| 3 | 1776 | BHW uniqueness | **sorry** — identity theorem + PET connected |
+| 1 | 1109 | `orbitSet_isPreconnected` | **sorry** — O_w connected |
+| 2 | 1561 | `F_permutation_invariance` | **sorry** — edge-of-the-wedge (core BHW content) |
+| 3 | 1794 | PET preconnected | **sorry** — needs edge-of-the-wedge joining permutation sectors |
 
 **PROVED (previously sorry):**
 - `fullExtendF_well_defined` — reduced to `F_permutation_invariance`
@@ -39,19 +39,28 @@ Complex Lorentz group SO⁺(1,d;ℂ) fully defined and path-connected:
 - BHW Property 2 (F_ext = F on FT) — well-definedness + identity preimage
 - BHW Property 3 (Lorentz invariance) — Lorentz group composition
 - BHW Property 4 (permutation symmetry) — permutation composition + well-definedness
+- **BHW Property 5 (uniqueness)** — identity theorem for product types + PET connected
 
 Note: `nonemptyDomain_isPreconnected` is PROVED from `orbitSet_isPreconnected`
 using `isPreconnected_sUnion`. `complex_lorentz_invariance` is proved modulo
 `orbitSet_isPreconnected`.
 
-Proved infrastructure:
+New infrastructure (2026-02-22):
+- `SCV.flattenCLE` — CLE from `Fin n → Fin m → ℂ` to `Fin (n*m) → ℂ`
+- `analyticAt_of_differentiableOn_product` — Hartogs analyticity for product types
+- `identity_theorem_product` — identity theorem for product types
+- `complexLorentzAction_isOpenMap` — Lorentz action is open map
+- `isOpen_permutedForwardTube` — PFT(π) is open
+- `isOpen_permutedExtendedTube` — PET is open
+
+Previously proved infrastructure:
 - ForwardTube, complexLorentzAction, PermutedExtendedTube definitions
 - `near_identity_invariance` — F(Λ·z₀) = F(z₀) for Λ near 1 in SO⁺(1,d;ℂ)
 - `uniform_near_identity_invariance` — uniform version over a nhd of z₀
 - `eq_zero_on_convex_of_eventuallyEq_zero` — identity theorem on open convex domains
 - `complex_lorentz_invariance` — PROVED modulo `orbitSet_isPreconnected`
 - `fullExtendF_well_defined` — PROVED from `F_permutation_invariance`
-- `fullExtendF` definition + all BHW properties except uniqueness PROVED
+- `fullExtendF` definition + ALL BHW properties PROVED
 - `extendF`, `extendF_eq_on_forwardTube`, `extendF_preimage_eq`, etc.
 - BHW theorem statement with all hypotheses
 
@@ -87,16 +96,15 @@ Proved infrastructure:
   F∘σ on σ·FT into a holomorphic function on FT ∪ σ·FT ∪ (Jost neighborhood).
 - Iterate over adjacent transpositions for general τ.
 
-### BHW uniqueness (identity theorem)
+### PET preconnected (edge-of-the-wedge)
 
-**Goal:** G holomorphic on PET + G = F on FT ⟹ G = fullExtendF on PET.
+**Goal:** `IsPreconnected (PermutedExtendedTube d n)`
 
-**Dependencies:**
-- PET connected (follows from edge-of-the-wedge connecting permutation sectors)
-- Multi-variable identity theorem (DifferentiableOn → AnalyticOnNhd for
-  Fin n → Fin (d+1) → ℂ, available via SCV.differentiableOn_analyticAt + type equiv)
-- Alternative: 1D exponential path argument avoids multi-variable identity theorem
-  for the extended tube ET, but still needs PET connected for full PET.
+**Why needed:** BHW uniqueness uses the identity theorem, which requires PET connected.
+
+**Dependencies:** Same as `F_permutation_invariance` — edge-of-the-wedge is what
+connects different permutation sectors of PET. Once F_permutation_invariance is
+proved, the same analytic continuation argument shows PET is connected.
 
 ---
 
@@ -117,7 +125,12 @@ LorentzLieGroup.lean (1 sorry, deferred)     Complexification.lean ✓
           Connectedness.lean (3 sorrys)
             orbitSet_isPreconnected [geometric]
             F_permutation_invariance [edge-of-the-wedge]
-            BHW uniqueness [identity theorem + PET connected]
+            PET preconnected [edge-of-the-wedge]
+                     │
+                     ▼
+          SCV/IdentityTheorem.lean ✓
+            flattenCLE, analyticAt_of_differentiableOn_product
+            identity_theorem_product
                      │
                      ▼
           (bridges to Wightman/AnalyticContinuation.lean)
@@ -127,6 +140,6 @@ LorentzLieGroup.lean (1 sorry, deferred)     Complexification.lean ✓
 
 1. **Connectedness.lean** — prove `orbitSet_isPreconnected` (geometric analysis)
 2. **Connectedness.lean** — prove `F_permutation_invariance` (edge-of-the-wedge)
-3. **Connectedness.lean** — prove BHW uniqueness (follows from 2 + identity theorem)
+3. **Connectedness.lean** — prove PET preconnected (follows from 2)
 4. Build: `lake build OSReconstruction.ComplexLieGroups`
 5. **LorentzLieGroup.lean** — prove `isPathConnected` (Phase 3, when convenient)

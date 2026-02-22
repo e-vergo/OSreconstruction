@@ -190,7 +190,7 @@ function infrastructure. Went from 25 sorrys to 0 (sorry-free).
 - `sliceMap` infrastructure — `sliceMap_upper_mem_tubeDomain`, etc.
 - `tubeDomain_isOpen`, `neg_image_isOpen`, `tubeDomain_disjoint_neg`
 - `holomorphic_extension_across_real`, `tube_domain_gluing`
-- Promoted `edge_of_the_wedge` and `bargmann_hall_wightman` to named axioms
+- Promoted `bargmann_hall_wightman` to named axiom (note: `edge_of_the_wedge` was later proved as a theorem using SCV infrastructure)
 
 ### SCV Infrastructure (`1ab849b`, `2dfc99a`)
 
@@ -218,7 +218,7 @@ function infrastructure. Went from 25 sorrys to 0 (sorry-free).
 
 ---
 
-## All Axioms (15 total)
+## All Axioms (14 remaining, 1 eliminated)
 
 ### SCV/Distribution Theory Axioms (5)
 
@@ -233,11 +233,11 @@ function infrastructure. Went from 25 sorrys to 0 (sorry-free).
 `distributional_uniqueness_tube` was converted from axiom to theorem, proved from
 `boundary_value_zero` + edge-of-the-wedge + identity theorem (sorry-free).
 
-### Analytic Continuation Axioms (2)
+### Analytic Continuation Axioms (1 remaining, 1 eliminated)
 
-| # | Axiom | File | Eliminable? |
-|---|-------|------|-------------|
-| 6 | `edge_of_the_wedge` | `AnalyticContinuation.lean` | ~300-600 LOC, see proof plan |
+| # | Axiom | File | Status |
+|---|-------|------|--------|
+| ~~6~~ | ~~`edge_of_the_wedge`~~ | `AnalyticContinuation.lean` | **PROVED** — replaced with theorem using SCV infrastructure |
 | 7 | `bargmann_hall_wightman` | `AnalyticContinuation.lean` | Needs complex Lie group theory |
 
 ### WickRotation Axioms (8)
@@ -253,8 +253,8 @@ function infrastructure. Went from 25 sorrys to 0 (sorry-free).
 | 14 | `wick_rotated_schwinger_tempered` | OS I Prop 5.1 | Polynomial growth across permuted tubes |
 | 15 | `inductive_analytic_continuation` | OS II Thm 4.1 | Paley-Wiener half-plane extension |
 
-Axiom #6 has a concrete proof plan
-(`docs/edge_of_the_wedge_proof_plan.md`). Axioms #1-5 depend on large
+Axiom #6 (`edge_of_the_wedge`) has been **eliminated** — proved as a theorem
+using the SCV infrastructure (`SCV/TubeDomainExtension.lean`). Axioms #1-5 depend on large
 bodies of mathematics not in Mathlib. Axioms #8-15 are textbook results
 whose proofs require distribution theory, Jost point arguments, or Fourier-Laplace
 transforms not yet available in the formalization.
@@ -334,11 +334,9 @@ transforms not yet available in the formalization.
 
 ### What's closest to provable next
 
-1. **`edge_of_the_wedge` axiom** — Eliminable via slice-based construction
-   using existing `edge_of_the_wedge_slice` + `osgood_lemma`.
-   See `docs/edge_of_the_wedge_proof_plan.md`.
+1. ~~**`edge_of_the_wedge` axiom**~~ — **DONE**: Proved as theorem using SCV infrastructure.
 
-2. **`hartogs_analyticity` sorry** (IdentityTheorem.lean) — ~200 LOC with Osgood lemma.
+2. ~~**`hartogs_analyticity` sorry**~~ — **DONE**: Proved via `SCV.differentiableOn_analyticAt`.
 
 3. **E→R direction** — The 8 sorrys in WickRotation.lean require
    the full OS-II inductive analytic continuation machinery (iterate
