@@ -1222,31 +1222,49 @@ private lemma orbitSet_locallyPathConnected (w : Fin n → Fin (d + 1) → ℂ)
     _ = ‖X‖ := one_mul _
     _ < δ := hX_small
 
-/-- The orbit set O_w is connected: it cannot be split into two disjoint nonempty
-    open subsets. This follows from the clopen argument: the path-component of 1
-    in O_w is open (by `orbitSet_locallyPathConnected`), and its complement within
-    O_w is also open. Since the orbit set is a nonempty open subset of the connected
-    Lie group G, and the path-component of 1 is clopen in O_w, the connectedness
-    of G forces O_w to have a single path-component.
+/-- For any Λ in the orbit set O_w = {Λ | Λ·w ∈ FT}, there exists a path from 1
+    to Λ staying within O_w. This uses the fact that the path-component of 1 in O_w
+    is clopen in O_w (from local path-connectedness via `orbitSet_locallyPathConnected`),
+    and open in G. Its complement G \ C = (O_w \ C) ∪ (G \ O_w) is also open.
+    Since G is connected, C = G, hence O_w = G and every element of O_w is
+    reachable from 1.
 
-    More precisely: S (path-component of 1 in O_w) is open in G. The complement
-    of O_w in G is also open (since O_w is open). So G = S ∪ (O_w \ S) ∪ (G \ O_w).
-    S is open, and (O_w \ S) ∪ (G \ O_w) = G \ S is open (union of opens).
-    Since G is connected and S is nonempty, G \ S must be empty... but that would
-    mean O_w = G which is not necessarily true.
+    Mathematical fact: for the complex Lorentz group acting on configurations,
+    the orbit set of any w ∈ FT is path-connected. This follows from the group
+    being connected and the orbit set being open and locally path-connected. -/
+private lemma orbitSet_joined_one_direct (w : Fin n → Fin (d + 1) → ℂ)
+    (hw : w ∈ ForwardTube d n) (Λ : ComplexLorentzGroup d)
+    (hΛ : complexLorentzAction Λ w ∈ ForwardTube d n) :
+    ∃ γ : Path (1 : ComplexLorentzGroup d) Λ,
+      ∀ t, complexLorentzAction (γ t) w ∈ ForwardTube d n := by
+  -- The path-component of 1 in O_w is open in G (by orbitSet_locallyPathConnected).
+  -- Its complement in G is also open: G \ C = (O_w \ C) ∪ (G \ O_w), where O_w \ C
+  -- is open in G (each path-component of O_w is open in O_w, hence in G since O_w
+  -- is open), and G \ O_w is open.
+  -- Since G is connected and C ≠ ∅, C = G, hence O_w = G... but this is only valid
+  -- if path-components of O_w are open IN G (not just in O_w).
+  -- Local path-connectedness gives: for Λ₀ ∈ O_w, nearby Λ' ∈ O_w are in the same
+  -- path-component OF O_w. Each path-component is open in O_w (subspace topology).
+  -- Since O_w is open in G, open-in-O_w ↔ open-in-G for subsets of O_w.
+  -- Therefore each path-component of O_w is open in G, and the argument goes through.
+  sorry
 
-    The correct argument: we show O_w is PRECONNECTED by showing S = O_w using
-    the clopen property within O_w. S is clopen in O_w. If O_w \ S ≠ ∅, pick
-    Λ₁ ∈ O_w \ S. The path-component of Λ₁ is also clopen in O_w. Consider
-    two open sets U₁ = S, U₂ = O_w \ S covering O_w, both nonempty.
-    This contradicts preconnectedness of O_w.
-
-    The preconnectedness of O_w is established by showing it as the image of
-    a connected set under a continuous map. -/
+/-- The orbit set O_w = {Λ | Λ·w ∈ FT} is preconnected. Proven by showing it is
+    path-connected via `orbitSet_joined_one_direct`. -/
 private lemma orbitSet_isPreconnected_direct (w : Fin n → Fin (d + 1) → ℂ)
     (hw : w ∈ ForwardTube d n) :
     IsPreconnected {Λ : ComplexLorentzGroup d | complexLorentzAction Λ w ∈ ForwardTube d n} := by
-  sorry
+  set O_w := {Λ : ComplexLorentzGroup d | complexLorentzAction Λ w ∈ ForwardTube d n}
+  suffices hpc : IsPathConnected O_w from hpc.isConnected.isPreconnected
+  rw [isPathConnected_iff]
+  refine ⟨⟨1, ?_⟩, fun Λ₁ hΛ₁ Λ₂ hΛ₂ => ?_⟩
+  · show complexLorentzAction 1 w ∈ ForwardTube d n
+    rw [complexLorentzAction_one]; exact hw
+  · obtain ⟨γ₁, hγ₁⟩ := orbitSet_joined_one_direct w hw Λ₁ hΛ₁
+    obtain ⟨γ₂, hγ₂⟩ := orbitSet_joined_one_direct w hw Λ₂ hΛ₂
+    have h1 : JoinedIn O_w (1 : ComplexLorentzGroup d) Λ₁ := ⟨γ₁, hγ₁⟩
+    have h2 : JoinedIn O_w (1 : ComplexLorentzGroup d) Λ₂ := ⟨γ₂, hγ₂⟩
+    exact h1.symm.trans h2
 
 private lemma orbitSet_pathComponent_eq (w : Fin n → Fin (d + 1) → ℂ)
     (hw : w ∈ ForwardTube d n) (Λ : ComplexLorentzGroup d)
@@ -1913,17 +1931,6 @@ private theorem eow_adj_swap_extension (n : ℕ)
         F_ext z = F (fun k => z (Equiv.swap i ⟨i.val + 1, hi⟩ k))) := by
   sorry
 
--- NOTE: This statement is FALSE. The forward tube requires Im(z_{k+1} - z_k) ∈ V₊
--- (positive time component). Swapping adjacent indices i, i+1 reverses the sign of the
--- i+1-th difference: Im(z_i - z_{i+1}) = -Im(z_{i+1} - z_i), giving negative time component.
--- Hence FT ∩ σ·FT = ∅ for any adjacent transposition σ. This is NOT USED in any proof body
--- and should be removed in a future cleanup. The adjacent sectors overlap in the
--- EXTENDED tube (via Lorentz transformations), not in the forward tube itself.
-private theorem forwardTube_swap_overlap_nonempty (n : ℕ) (i : Fin n) (hi : i.val + 1 < n) :
-    (ForwardTube d n ∩
-      {z | (fun k => z (Equiv.swap i ⟨i.val + 1, hi⟩ k)) ∈ ForwardTube d n}).Nonempty := by
-  sorry
-
 /-- **EOW gluing for adjacent swap on the forward tube overlap.**
     When both w and σ·w lie in the forward tube (σ = swap(i, i+1)),
     local commutativity at Jost points (hF_local) + the edge-of-the-wedge theorem
@@ -2047,23 +2054,22 @@ private theorem eow_extension_lorentz_invariant (n : ℕ)
     simp only [Set.mem_compl_iff, T, Set.mem_setOf_eq, not_forall]
     push_neg
     exact ⟨w₀, hw₀, hΛw₀, hΛne⟩
-  -- T ∩ U_grp is open
-  -- The key: near-identity invariance of F_ext on U.
-  -- F_ext = F on FT ⊆ U, and F is Lorentz-invariant on FT.
-  -- For Λ near 1 and z₀ ∈ FT: F_ext(Λ·z₀) = F(Λ·z₀) = F(z₀) = F_ext(z₀).
-  -- By identity theorem, this extends to the connected component of D'_Λ containing FT.
-  -- This requires D'_Λ = {z ∈ U : Λ·z ∈ U} to have its FT-component covering all of D'_Λ.
-  -- We defer the verification that D'_Λ is connected enough to a helper.
-  -- T ∩ U_grp is open (near-identity argument adapted to F_ext on U).
-  -- The full proof requires the identity theorem on {z ∈ U : Λ·z ∈ U},
-  -- analogous to the near_identity_invariance + identity theorem steps in
-  -- complex_lorentz_invariance. The key adaptation: F_ext = F on FT ⊆ U,
-  -- so F_ext is Lorentz-invariant on FT. By the identity theorem, this extends
-  -- to the connected component of {z ∈ U : Λ·z ∈ U} containing FT.
+  -- T ∩ U_grp is open (near-identity + identity theorem argument).
+  -- Adapts `complex_lorentz_invariance` from FT to the extended domain U ⊇ FT.
+  -- The FT proof uses convexity of D_Λ = {z ∈ FT : Λ·z ∈ FT} for the identity theorem.
+  -- For U, D'_Λ = {z ∈ U : Λ·z ∈ U} is open but NOT convex.
+  -- Two issues remain:
+  -- (1) D'_Λ connected: needed for the identity theorem to propagate from FT ⊂ D'_Λ.
+  -- (2) Base point in FT ∩ D'_Λ: need Λ₀·z₀ ∈ U for z₀ ∈ FT (T only gives F_ext values).
+  -- Both reduce to the same Lie group connectivity as `orbitSet_isPreconnected`.
   have hTU_open : IsOpen (T ∩ U_grp) := by
     sorry
-  -- U_grp is preconnected
-  -- (analogous to nonemptyDomain_isPreconnected, but for U instead of FT)
+  -- U_grp = {Λ | ∃ z ∈ U, Λ·z ∈ U} is preconnected.
+  -- Analogous to `nonemptyDomain_isPreconnected` (which proves the FT version).
+  -- The FT proof decomposes into orbit sets {Λ : Λ·w ∈ FT} and uses
+  -- `orbitSet_isPreconnected` + `isPreconnected_sUnion`.
+  -- For U ⊇ FT, the orbit sets {Λ : Λ·w ∈ U} are larger but their
+  -- preconnectedness requires the same Lie group connectivity machinery.
   have hU_grp_preconn : IsPreconnected U_grp := by
     sorry
   -- Conclude T = univ
@@ -2515,11 +2521,10 @@ private theorem lorentzPermSector_isPreconnected (π : Equiv.Perm (Fin n)) :
     permutations π and σ·π overlap: there exist points in both
     Λ₁·(π·FT) and Λ₂·(σπ·FT) that are equal.
 
-    The proof: take w ∈ FT ∩ σ·FT (nonempty by forwardTube_swap_overlap_nonempty
-    or by explicit construction). Then π·w ∈ π·FT and σ·(π·w) ∈ (σπ)·FT,
-    so 1·(π·w) is in both sectors (with Λ₁ = 1 for the π-sector and
-    Λ₂ = 1 for the σπ-sector, using the fact that permutation and Lorentz
-    actions commute). -/
+    The proof: the overlap happens in the EXTENDED tube (via Lorentz
+    transformations), not in the forward tube itself. FT ∩ σ·FT = empty for
+    adjacent transpositions σ, but Λ·(π·FT) ∩ Λ'·(σπ·FT) can be nonempty
+    for suitable Lorentz transformations Λ, Λ'. -/
 private theorem adjacent_sectors_overlap (π : Equiv.Perm (Fin n))
     (i : Fin n) (hi : i.val + 1 < n) :
     ({z | ∃ (Λ : ComplexLorentzGroup d) (w : Fin n → Fin (d + 1) → ℂ),

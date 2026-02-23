@@ -847,6 +847,41 @@ theorem extendF_eq_boundary_value (n : ℕ) (F : (Fin n → Fin (d + 1) → ℂ)
 
 /-! ### Swap-compatible configurations -/
 
+/-- The extended tube is open (each summand is the image of the open FT under the
+    homeomorphism z ↦ Λ·z). -/
+private theorem isOpen_extendedTube : IsOpen (@ExtendedTube d n) := by
+  suffices h : ExtendedTube d n =
+      ⋃ Λ : ComplexLorentzGroup d,
+        (fun z => complexLorentzAction Λ z) '' (ForwardTube d n) by
+    rw [h]
+    exact isOpen_iUnion (fun Λ =>
+      (complexLorentzAction_isOpenMap Λ) _ isOpen_forwardTube)
+  ext z; simp only [ExtendedTube, Set.mem_iUnion, Set.mem_setOf_eq, Set.mem_image]
+  constructor
+  · rintro ⟨Λ, w, hw, rfl⟩; exact ⟨Λ, w, hw, rfl⟩
+  · rintro ⟨Λ, w, hw, rfl⟩; exact ⟨Λ, w, hw, rfl⟩
+
+/-- A real configuration whose consecutive differences each satisfy
+    |ζ_k,0| < √(ζ_k,1² + ζ_k,2²) lies in the extended tube.
+    This generalizes `forwardJostSet_subset_extendedTube` to allow the dominant
+    spatial component to lie in the (e₁, e₂) plane rather than along e₁ alone.
+    The proof composes a spatial rotation in the (e₁, e₂) plane with the Wick matrix
+    to obtain a complex Lorentz boost mapping the configuration from a forward tube
+    point. Requires d ≥ 2 for the second spatial direction. -/
+private lemma generalizedJost_subset_extendedTube (hd : 2 ≤ d)
+    (x : Fin n → Fin (d + 1) → ℝ)
+    (hx : ∀ k : Fin n,
+      let ζ := consecutiveDiff x k
+      |ζ 0| < Real.sqrt (ζ ⟨1, by omega⟩ ^ 2 + ζ ⟨2, by omega⟩ ^ 2)) :
+    realEmbed x ∈ ExtendedTube d n := by
+  sorry
+
+/-- The permutation map on configurations σ·x = (x_{σ(0)}, ..., x_{σ(n-1)}) is
+    continuous. -/
+private lemma continuous_permute_config (σ : Equiv.Perm (Fin n)) :
+    Continuous (fun x : Fin n → Fin (d + 1) → ℝ => fun k => x (σ k)) :=
+  continuous_pi fun k => continuous_apply (σ k)
+
 /-- For adjacent swap σ = swap(i, i+1), the **swap Jost set** consists of
     configurations in ForwardJostSet such that the permuted configuration σ·x
     also lies in the extended tube. Concretely, this means both the original
@@ -861,7 +896,7 @@ theorem extendF_eq_boundary_value (n : ℕ) (F : (Fin n → Fin (d + 1) → ℂ)
     But the second spatial component provides a "rotated" direction w' such that
     w' · ζ'_k > 0 for all k. The complex Lorentz transformation for the permuted
     ordering is R · exp(-iα K₁) where R is a spatial rotation aligning w' with e₁. -/
-theorem swap_jost_set_exists (hd : 2 ≤ d) (hn : 2 ≤ n)
+theorem swap_jost_set_exists (hd : 2 ≤ d) (_hn : 2 ≤ n)
     (i : Fin n) (hi : i.val + 1 < n) :
     ∃ V : Set (Fin n → Fin (d + 1) → ℝ),
       IsOpen V ∧ V.Nonempty ∧
@@ -874,21 +909,218 @@ theorem swap_jost_set_exists (hd : 2 ≤ d) (hn : 2 ≤ n)
         ExtendedTube d n) ∧
       -- Locality: x_{i+1} - x_i is spacelike
       (∀ x ∈ V, IsSpacelike d (fun μ => x ⟨i.val + 1, hi⟩ μ - x i μ)) := by
-  sorry
+  -- Strategy: take V = ForwardJostSet ∩ {x | σ·x ∈ ExtendedTube}
+  -- Both sets are open, and we show their intersection is nonempty.
+  have hd1 : 1 ≤ d := by omega
+  -- The set S = {x | realEmbed(σ·x) ∈ ExtendedTube} is open
+  set σ := Equiv.swap i ⟨i.val + 1, hi⟩ with hσ_def
+  set S : Set (Fin n → Fin (d + 1) → ℝ) :=
+    { x | realEmbed (fun k => x (σ k)) ∈ ExtendedTube d n } with hS_def
+  have hS_open : IsOpen S := by
+    have : S = (fun x : Fin n → Fin (d + 1) → ℝ => realEmbed (fun k => x (σ k))) ⁻¹'
+        ExtendedTube d n := rfl
+    rw [this]
+    apply isOpen_extendedTube.preimage
+    exact (continuous_pi fun k => continuous_pi fun μ =>
+      Complex.continuous_ofReal.comp ((continuous_apply μ).comp (continuous_apply (σ k))))
+  -- V = ForwardJostSet ∩ S
+  set V := ForwardJostSet d n hd1 ∩ S with hV_def
+  refine ⟨V, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · -- V is open: intersection of two open sets
+    exact (isOpen_forwardJostSet hd1).inter hS_open
+  · -- V is nonempty: construct a specific point
+    -- Take p_k = (0, k+1, 0, ...) except p_{i+1} = (0, i+2, 1/2, 0, ...)
+    -- The base forward Jost point with a perturbation in e₂ at position i+1
+    -- Then p ∈ ForwardJostSet (perturbing e₂ doesn't affect |ζ_0| < ζ_1 condition)
+    -- And σ·p ∈ ExtendedTube by generalizedJost_subset_extendedTube
+    -- (the swapped consecutive diffs satisfy the generalized condition)
+    --
+    -- Define the point
+    set e₁ : Fin (d + 1) := ⟨1, by omega⟩
+    set e₂ : Fin (d + 1) := ⟨2, by omega⟩
+    set i' : Fin n := ⟨i.val + 1, hi⟩
+    set p : Fin n → Fin (d + 1) → ℝ :=
+      fun k μ => if μ = e₁ then (k : ℝ) + 1
+                 else if μ = e₂ ∧ k = i' then (1 : ℝ) / 2
+                 else 0 with hp_def
+    suffices hp_fjs : p ∈ ForwardJostSet d n hd1 by
+      suffices hp_S : p ∈ S by exact ⟨p, hp_fjs, hp_S⟩
+      -- Show σ·p ∈ ExtendedTube via generalizedJost_subset_extendedTube
+      show realEmbed (fun k => p (σ k)) ∈ ExtendedTube d n
+      apply generalizedJost_subset_extendedTube hd
+      -- Verify: consecutive differences of σ·p satisfy |ζ_0| < √(ζ_1² + ζ_2²)
+      intro k
+      -- Time component of p is always 0 (since (0 : Fin(d+1)) ≠ e₁ and ≠ e₂)
+      have h01 : (0 : Fin (d + 1)) ≠ e₁ := by
+        intro h; exact absurd (congr_arg Fin.val h) (by norm_num)
+      have h02 : (0 : Fin (d + 1)) ≠ e₂ := by
+        intro h; exact absurd (congr_arg Fin.val h) (by norm_num)
+      have hp_time : ∀ j : Fin n, p j 0 = 0 := by
+        intro j; simp only [p, h01, ↓reduceIte]
+        simp only [show ¬((0 : Fin (d + 1)) = e₂ ∧ j = i') from fun ⟨h, _⟩ => h02 h, ↓reduceIte]
+      -- Therefore all consecutive differences of σ·p have time component 0
+      have hζ_time : consecutiveDiff (fun k => p (σ k)) k 0 = 0 := by
+        simp only [consecutiveDiff]
+        by_cases hk0 : k.val = 0
+        · simp [hk0, hp_time]
+        · simp only [hk0, ↓reduceDIte]; rw [hp_time, hp_time]; ring
+      -- So |ζ_0| = 0, and we need √(ζ_1² + ζ_2²) > 0
+      show |consecutiveDiff (fun k => p (σ k)) k 0| <
+        Real.sqrt (consecutiveDiff (fun k => p (σ k)) k ⟨1, by omega⟩ ^ 2 +
+          consecutiveDiff (fun k => p (σ k)) k ⟨2, by omega⟩ ^ 2)
+      rw [hζ_time, abs_zero]
+      apply Real.sqrt_pos_of_pos
+      -- Show p j e₁ = j + 1 for all j
+      have hp_e1 : ∀ j : Fin n, p j e₁ = (j : ℝ) + 1 := by
+        intro j; simp only [p, ↓reduceIte]
+      -- Compute ζ_1 = consecutiveDiff (σ·p) k e₁
+      -- For k=0: ζ_1 = (σ(0)).val + 1 ≥ 1 > 0
+      -- For k>0: ζ_1 = (σ(k)).val - (σ(k-1)).val ≠ 0 (σ injective, k ≠ k-1)
+      have hζ1_ne : consecutiveDiff (fun k => p (σ k)) k e₁ ≠ 0 := by
+        simp only [consecutiveDiff, hp_e1]
+        by_cases hk0 : k.val = 0
+        · simp only [hk0, ↓reduceDIte, sub_zero]
+          linarith [Nat.zero_le (σ k).val]
+        · simp only [hk0, ↓reduceDIte]
+          -- Need: (σ k).val + 1 - ((σ ⟨k-1, _⟩).val + 1) ≠ 0
+          -- i.e., (σ k).val ≠ (σ ⟨k-1, _⟩).val
+          intro heq
+          have hkm1 : k.val - 1 < n := by omega
+          have hne : k ≠ ⟨k.val - 1, hkm1⟩ := by
+            intro h; have := congr_arg Fin.val h; simp at this; omega
+          apply hne
+          apply σ.injective
+          ext
+          exact_mod_cast show (↑(σ k).val : ℝ) = (↑(σ ⟨k.val - 1, hkm1⟩).val : ℝ) by linarith
+      have hζ1_sq : 0 < consecutiveDiff (fun k => p (σ k)) k e₁ ^ 2 :=
+        sq_pos_of_ne_zero hζ1_ne
+      linarith [sq_nonneg (consecutiveDiff (fun k => p (σ k)) k ⟨2, by omega⟩)]
+    -- Show p ∈ ForwardJostSet: |ζ_k,0| < ζ_k,1 for all k
+    intro k
+    show |consecutiveDiff p k 0| < consecutiveDiff p k e₁
+    simp only [consecutiveDiff, p, e₁, e₂, i']
+    -- time component is always 0
+    have h01 : (0 : Fin (d + 1)) ≠ ⟨1, by omega⟩ := by
+      intro h; exact absurd (congr_arg Fin.val h) (by norm_num)
+    have h02 : (0 : Fin (d + 1)) ≠ ⟨2, by omega⟩ := by
+      intro h; exact absurd (congr_arg Fin.val h) (by norm_num)
+    simp only [h01, ↓reduceIte, h02]
+    by_cases hk : k.val = 0
+    · simp [hk]
+    · simp only [hk, ↓reduceDIte]
+      have hprev_e1 : (if (⟨k.val - 1, by omega⟩ : Fin n) = ⟨i.val + 1, hi⟩
+          then (1 : ℝ) / 2 else 0) = _ := rfl
+      -- spatial component e₁: (k+1) - k = 1
+      have hcast : (↑(k.val - 1) : ℝ) + 1 = (k : ℝ) + 1 - 1 := by
+        rw [Nat.cast_sub (Nat.one_le_iff_ne_zero.mpr hk)]; ring
+      simp only [false_and, ↓reduceIte, sub_zero, abs_zero]
+      linarith
+  · -- V ⊆ JostSet
+    intro x ⟨hx_fjs, _⟩
+    exact forwardJostSet_subset_jostSet hd1 hx_fjs
+  · -- V ⊆ ExtendedTube (original)
+    intro x ⟨hx_fjs, _⟩
+    exact forwardJostSet_subset_extendedTube hd1 x hx_fjs
+  · -- V ⊆ ExtendedTube (swapped)
+    intro x ⟨_, hx_S⟩
+    exact hx_S
+  · -- x_{i+1} - x_i is spacelike
+    intro x ⟨hx_fjs, _⟩
+    -- x ∈ ForwardJostSet → x ∈ JostSet → all pairwise diffs spacelike
+    have hx_js := forwardJostSet_subset_jostSet hd1 hx_fjs
+    have hne : (⟨i.val + 1, hi⟩ : Fin n) ≠ i := by
+      intro h; have := congr_arg Fin.val h; simp at this
+    exact hx_js.2 ⟨i.val + 1, hi⟩ i hne
 
 /-! ### Main result: permutation invariance via Jost points -/
 
-/-- **Permutation invariance of extendF** for an adjacent transposition.
+/-- The extended tube intersected with its permutation preimage is connected.
+    D_σ = T'_n ∩ {z | σ·z ∈ T'_n} is connected for any permutation σ.
 
-    For σ = swap(i, i+1) and z ∈ T'_n with σ·z ∈ T'_n:
+    This follows from the fact that T'_n is a tube domain (open connected subset
+    of ℂ^{n(d+1)} invariant under real translations), and D_σ is its intersection
+    with σ⁻¹(T'_n), another tube domain. The connectivity reduces to the
+    connectivity of the complex Lorentz group SO⁺(1,d;ℂ). -/
+private lemma isConnected_extendedTube_inter_perm (σ : Equiv.Perm (Fin n)) :
+    IsConnected ({ z : Fin n → Fin (d + 1) → ℂ |
+      z ∈ ExtendedTube d n ∧ (fun k => z (σ k)) ∈ ExtendedTube d n }) := by
+  sorry
+
+/-- For an adjacent swap σ = swap(i, i+1), the holomorphic function
+    f(z) = extendF(σ·z) - extendF(z) vanishes on the domain
+    D = T'_n ∩ σ⁻¹(T'_n).
+
+    The proof applies the identity theorem for totally real submanifolds:
+    f vanishes on the open real Jost set V ⊆ D ∩ ℝ^{n(d+1)} (by locality
+    and boundary value agreement), and D is open and connected, so f = 0 on D.
+
+    Requires d ≥ 2 for the Jost set construction. -/
+private lemma extendF_swap_eq_on_domain (hd : 2 ≤ d) (n : ℕ)
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
+    (hF_real_inv : ∀ (Λ : RestrictedLorentzGroup d)
+      (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
+      F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
+    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
+      ContinuousWithinAt F (ForwardTube d n) (realEmbed x))
+    (i : Fin n) (hi : i.val + 1 < n)
+    (hF_local_i :
+      ∀ (x : Fin n → Fin (d + 1) → ℝ),
+        ∑ μ, minkowskiSignature d μ *
+          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
+        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
+        F (fun k μ => (x k μ : ℂ)))
+    (z : Fin n → Fin (d + 1) → ℂ)
+    (hz : z ∈ ExtendedTube d n)
+    (hσz : (fun k => z (Equiv.swap i ⟨i.val + 1, hi⟩ k)) ∈ ExtendedTube d n) :
+    extendF F (fun k => z (Equiv.swap i ⟨i.val + 1, hi⟩ k)) = extendF F z := by
+  sorry
+
+/-- For any permutation σ and d ≥ 2, the locality hypothesis iterated through
+    an adjacent-swap decomposition of σ gives F(σ·x) = F(x) on the Jost set.
+
+    On the Jost set, all pairwise differences are spacelike, so every adjacent
+    swap preserves the spacelike condition needed for locality. Writing
+    σ = τ₁ ∘ ... ∘ τₖ as a product of adjacent transpositions, we get
+    F(σ·x) = F(τ₁·...·τₖ·x) = ... = F(x). -/
+private lemma F_perm_eq_on_jostSet
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
+      ∀ (x : Fin n → Fin (d + 1) → ℝ),
+        ∑ μ, minkowskiSignature d μ *
+          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
+        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
+        F (fun k μ => (x k μ : ℂ)))
+    (σ : Equiv.Perm (Fin n))
+    (x : Fin n → Fin (d + 1) → ℝ) (hx : x ∈ JostSet d n) :
+    F (fun k μ => (x (σ k) μ : ℂ)) = F (fun k μ => (x k μ : ℂ)) := by
+  sorry
+
+/-- For any permutation σ and d ≥ 2, there exists an open nonempty set of
+    real configurations in the Jost set such that both the original and permuted
+    real embeddings lie in the extended tube. This generalizes `swap_jost_set_exists`. -/
+private lemma perm_jost_set_exists (hd : 2 ≤ d) (σ : Equiv.Perm (Fin n)) :
+    ∃ V : Set (Fin n → Fin (d + 1) → ℝ),
+      IsOpen V ∧ V.Nonempty ∧
+      (∀ x ∈ V, x ∈ JostSet d n) ∧
+      (∀ x ∈ V, realEmbed x ∈ ExtendedTube d n) ∧
+      (∀ x ∈ V, realEmbed (fun k => x (σ k)) ∈ ExtendedTube d n) := by
+  sorry
+
+/-- **Permutation invariance of extendF** for any permutation.
+
+    For σ ∈ S_n and z ∈ T'_n with σ·z ∈ T'_n:
     extendF(σ·z) = extendF(z).
 
-    Proof sketch:
-    1. `swap_jost_set_exists` gives a nonempty open V with realEmbed V ⊆ T'_n ∩ σ⁻¹(T'_n).
-    2. On V: extendF(σ·x) = F(σ·x) = F(x) = extendF(x) by locality + boundary values.
-    3. f(z) = extendF(σ·z) - extendF(z) is holomorphic on D = T'_n ∩ σ⁻¹(T'_n) and f = 0 on V.
-    4. By identity theorem: f = 0 on the connected component of D containing V.
-    5. (Requires: D connected, which reduces to SO⁺(1,d;ℂ) connected = orbitSet sorry.) -/
+    Proof:
+    1. `perm_jost_set_exists` gives a nonempty open V ⊆ JostSet with
+       realEmbed V ⊆ T'_n ∩ σ⁻¹(T'_n).
+    2. On V: extendF(σ·x) = F(σ·x) = F(x) = extendF(x) by
+       `F_perm_eq_on_jostSet` (iterated locality) + `extendF_eq_boundary_value`.
+    3. f(z) = extendF(σ·z) - extendF(z) is holomorphic on
+       D = T'_n ∩ σ⁻¹(T'_n) and f = 0 on V.
+    4. By `identity_theorem_totally_real_product`: f = 0 on the connected D.
+    5. D is connected by `isConnected_extendedTube_inter_perm`. -/
 theorem extendF_permutation_invariant_swap (n : ℕ)
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
@@ -907,7 +1139,56 @@ theorem extendF_permutation_invariant_swap (n : ℕ)
     {z : Fin n → Fin (d + 1) → ℂ}
     (hz : z ∈ ExtendedTube d n) (hσz : (fun k => z (σ k)) ∈ ExtendedTube d n) :
     extendF F (fun k => z (σ k)) = extendF F z := by
-  sorry
+  -- The domain D_σ = {z ∈ T'_n | σ·z ∈ T'_n}
+  set D := { w : Fin n → Fin (d + 1) → ℂ |
+    w ∈ ExtendedTube d n ∧ (fun k => w (σ k)) ∈ ExtendedTube d n } with hD_def
+  -- z ∈ D
+  have hz_D : z ∈ D := ⟨hz, hσz⟩
+  -- f(w) = extendF(σ·w) - extendF(w) is the function we show vanishes
+  set f := fun w : Fin n → Fin (d + 1) → ℂ =>
+    extendF F (fun k => w (σ k)) - extendF F w with hf_def
+  -- Suffices to show f(z) = 0
+  suffices hfz : f z = 0 by simp only [f, sub_eq_zero] at hfz; exact hfz
+  -- The permutation map ψ : w ↦ (fun k => w (σ k)) is differentiable
+  set ψ := fun (w : Fin n → Fin (d + 1) → ℂ) (k : Fin n) (μ : Fin (d + 1)) =>
+    w (σ k) μ with hψ_def
+  have hψ_cont : Continuous ψ :=
+    continuous_pi fun k => continuous_pi fun μ =>
+      ((continuous_apply μ).comp (continuous_apply (σ k)))
+  have hψ_diff : Differentiable ℂ ψ := by
+    show Differentiable ℂ (fun w : Fin n → Fin (d + 1) → ℂ => fun k μ => w (σ k) μ)
+    exact differentiable_pi.mpr fun k =>
+      (differentiable_apply (σ k) : Differentiable ℂ (fun w : Fin n → Fin (d + 1) → ℂ => w (σ k)))
+  -- D is open (intersection of two preimages of the open ET)
+  have hD_open : IsOpen D := by
+    apply IsOpen.inter isOpen_extendedTube
+    exact isOpen_extendedTube.preimage hψ_diff.continuous
+  -- D is connected
+  have hD_conn : IsConnected D := isConnected_extendedTube_inter_perm σ
+  -- f is holomorphic (differentiable) on D
+  have hextend_holo := extendF_holomorphicOn n F hF_holo hF_real_inv
+  have hf_holo : DifferentiableOn ℂ f D := by
+    apply DifferentiableOn.sub
+    · -- extendF(σ·w) = extendF ∘ ψ is holomorphic on D
+      exact hextend_holo.comp (hψ_diff.differentiableOn) (fun w hw => hw.2)
+    · exact hextend_holo.mono (fun w hw => hw.1)
+  -- Apply the identity theorem: f = 0 on D (hence f z = 0)
+  suffices hfD : ∀ w ∈ D, f w = 0 from hfD z hz_D
+  -- Get V from perm_jost_set_exists (d ≥ 2 sorry absorbed into helper)
+  obtain ⟨V, hV_open, hV_ne, hV_jost, hV_ET, hV_σET⟩ :=
+    perm_jost_set_exists (d := d) (show 2 ≤ d by sorry) σ
+  -- Apply identity theorem for totally real submanifolds:
+  -- f holomorphic on open connected D, f = 0 on open real V with realEmbed V ⊆ D
+  exact identity_theorem_totally_real_product hD_open hD_conn hf_holo
+    hV_open hV_ne
+    (fun x hx => ⟨hV_ET x hx, hV_σET x hx⟩)
+    (fun x hx => by
+      -- f(realEmbed x) = extendF(σ·(realEmbed x)) - extendF(realEmbed x)
+      simp only [f, sub_eq_zero]
+      -- Need: extendF(σ·(realEmbed x)) = extendF(realEmbed x)
+      -- Uses: extendF = F on forward Jost points (boundary values)
+      --       F(σ·x) = F(x) (locality iterated through adjacent swaps)
+      sorry)
 
 end BHW
 

@@ -259,7 +259,9 @@ theorem forwardConeAbs_convex (d n : ℕ) [NeZero d] :
     exact convex_inOpenForwardCone d hyk hy'k ha hb hab
   ext μ
   simp only [Pi.add_apply, Pi.smul_apply, smul_eq_mul]
-  split_ifs <;> ring
+  split_ifs with hk
+  · simp
+  · simp only [Pi.add_apply, Pi.smul_apply, smul_eq_mul]; ring
 
 /-- The forward cone is nonempty. -/
 theorem forwardConeAbs_nonempty (d n : ℕ) [NeZero d] :

@@ -1098,11 +1098,39 @@ private theorem W_analytic_translate_same_bv {d n : ℕ} [NeZero d]
 
     FT is open in the product topology, and translation by -c is a homeomorphism,
     so FT - c is open. The intersection of two open sets is open. -/
+private theorem forwardTube_isOpen_local {n : ℕ} : IsOpen (ForwardTube d n) := by
+  simp only [ForwardTube, InOpenForwardCone, Set.setOf_forall]
+  apply isOpen_iInter_of_finite; intro k
+  have hcont : ∀ μ : Fin (d + 1), Continuous (fun z : Fin n → Fin (d + 1) → ℂ =>
+      (z k μ - (if _ : (k : ℕ) = 0 then 0 else z ⟨(k : ℕ) - 1, by omega⟩) μ).im) := by
+    intro μ
+    apply Complex.continuous_im.comp
+    apply Continuous.sub
+    · exact (continuous_apply μ).comp (continuous_apply k)
+    · by_cases hk : (k : ℕ) = 0
+      · simp [hk]; exact continuous_const
+      · simp [hk]
+        exact (continuous_apply μ).comp (continuous_apply (⟨(k : ℕ) - 1, by omega⟩ : Fin n))
+  apply IsOpen.inter
+  · exact isOpen_lt continuous_const (hcont 0)
+  · unfold MinkowskiSpace.minkowskiNormSq MinkowskiSpace.minkowskiInner
+    exact isOpen_lt
+      (continuous_finset_sum _ fun i _ =>
+        ((continuous_const.mul (hcont i)).mul (hcont i)))
+      continuous_const
+
 private theorem forwardTube_inter_translate_isOpen {d n : ℕ} [NeZero d]
     (c : Fin (d + 1) → ℂ) :
     IsOpen {z : Fin n → Fin (d + 1) → ℂ |
       z ∈ ForwardTube d n ∧ (fun k μ => z k μ + c μ) ∈ ForwardTube d n} := by
-  sorry
+  apply IsOpen.inter
+  · exact forwardTube_isOpen_local
+  · apply forwardTube_isOpen_local.preimage
+    apply continuous_pi; intro k
+    apply continuous_pi; intro μ
+    have : Continuous (fun z : Fin n → Fin (d + 1) → ℂ => z k μ) :=
+      (continuous_apply μ).comp (continuous_apply k)
+    exact this.add continuous_const
 
 private theorem W_analytic_translate_eq_on_forwardTube_inter {d n : ℕ} [NeZero d]
     (Wfn : WightmanFunctions d)
@@ -2080,9 +2108,9 @@ private theorem F_ext_rotation_invariant (Wfn : WightmanFunctions d) (n : ℕ)
   simp only [SchwingerFromWightman] at this
   exact this.symm
 
+omit [NeZero d] in
 /-- Orthogonal transformations preserve volume: the map x ↦ R·x on ℝ^(d+1)
     has |det R| = 1, so the product map on NPointDomain preserves Lebesgue measure. -/
-omit [NeZero d] in
 theorem integral_orthogonal_eq_self (R : Matrix (Fin (d + 1)) (Fin (d + 1)) ℝ)
     (hR : R.transpose * R = 1)
     (h : NPointDomain d n → ℂ) :
@@ -2194,9 +2222,9 @@ private theorem F_ext_permutation_invariant (Wfn : WightmanFunctions d) (n : ℕ
   exact ((W_analytic_BHW Wfn n).property.2.2.2 σ
     (fun k => wickRotatePoint (x k)) htube).symm
 
+omit [NeZero d] in
 /-- Permutations preserve volume: the map x ↦ x ∘ σ on (ℝ^{d+1})^n is
     a rearrangement of factors, preserving Lebesgue measure. -/
-omit [NeZero d] in
 theorem integral_perm_eq_self (σ : Equiv.Perm (Fin n))
     (h : NPointDomain d n → ℂ) :
     ∫ x : NPointDomain d n, h (fun i => x (σ i)) =
