@@ -112,7 +112,7 @@ theorem metric_preserving_matrix (Λ : ComplexLorentzGroup d) :
   apply Finset.sum_congr rfl; intro α _; ring
 
 /-- Recover the componentwise condition from the matrix equation. -/
-private theorem of_metric_preserving_matrix {M : Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ}
+theorem of_metric_preserving_matrix {M : Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ}
     (h : M.transpose * ηℂ * M = ηℂ) :
     ∀ (μ ν : Fin (d + 1)),
     ∑ α : Fin (d + 1),

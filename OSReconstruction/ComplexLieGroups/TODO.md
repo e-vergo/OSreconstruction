@@ -26,12 +26,26 @@ Complex Lorentz group SO⁺(1,d;ℂ) fully defined and path-connected:
 |---|------|------|--------|
 | 1 | 1039 | `RestrictedLorentzGroup.isPathConnected` | **sorry** (deferred) |
 
+### JostPoints.lean — 2 sorrys
+| # | Line | Name | Status |
+|---|------|------|--------|
+| 1 | ~864 | `swap_jost_set_exists` | **sorry** — swap-compatible Jost configs exist |
+| 2 | ~892 | `extendF_permutation_invariant_swap` | **sorry** — extendF invariant under adjacent swap |
+
+**PROVED:**
+- `forwardJostSet_subset_extendedTube` (Jost's lemma) ✅ — Wick rotation maps ForwardJostSet into ExtendedTube
+- `extendF_holomorphicOn` ✅ — extendF is holomorphic on ExtendedTube
+- `extendF_eq_boundary_value` ✅ — extendF agrees with F on real Jost configurations
+- `identity_theorem_totally_real` ✅ — identity theorem for totally real submanifolds
+- `forwardJostSet_subset_jostSet` ✅ — ForwardJostSet ⊂ JostSet
+- `jostSet_nonempty`, `forwardJostSet_nonempty`, `forwardJostSet_isOpen` ✅
+
 ### Connectedness.lean — 3 sorrys (down from 7)
 | # | Line | Name | Status |
 |---|------|------|--------|
 | 1 | 1109 | `orbitSet_isPreconnected` | **sorry** — O_w connected |
-| 2 | 1561 | `F_permutation_invariance` | **sorry** — edge-of-the-wedge (core BHW content) |
-| 3 | 1794 | PET preconnected | **sorry** — needs edge-of-the-wedge joining permutation sectors |
+| 2 | 1561 | `F_permutation_invariance` | **sorry** — Jost point + identity theorem (core BHW content) |
+| 3 | 1794 | PET preconnected | **sorry** — needs Jost points joining permutation sectors |
 
 **PROVED (previously sorry):**
 - `fullExtendF_well_defined` — reduced to `F_permutation_invariance`
@@ -64,7 +78,7 @@ Previously proved infrastructure:
 - `extendF`, `extendF_eq_on_forwardTube`, `extendF_preimage_eq`, etc.
 - BHW theorem statement with all hypotheses
 
-**Total: 4 sorrys across 2 files**
+**Total: 6 sorrys across 3 files** (LorentzLieGroup: 1, JostPoints: 2, Connectedness: 3)
 
 ---
 
@@ -122,6 +136,12 @@ LorentzLieGroup.lean (1 sorry, deferred)     Complexification.lean ✓
             │                                        │
             │                                        │
             ▼                                        ▼
+          JostPoints.lean (2 sorrys)
+            forwardJostSet_subset_extendedTube ✓ (Jost's lemma)
+            swap_jost_set_exists [sorry]
+            extendF_permutation_invariant_swap [sorry]
+                     │
+                     ▼
           Connectedness.lean (3 sorrys)
             orbitSet_isPreconnected [geometric]
             F_permutation_invariance [edge-of-the-wedge]

@@ -568,21 +568,14 @@ theorem edge_of_the_wedge_slice {m : ℕ}
     have h := hG_minus w (Set.mem_inter hw_V hw_im)
     simp only [g_minus, if_pos hw_im] at h; exact h
 
-/-- **Axiom: The Edge-of-the-Wedge Theorem** (Bogoliubov, 1956).
+/-- **The Edge-of-the-Wedge Theorem** (Bogoliubov, 1956).
 
     Two holomorphic functions on opposite tube domains with matching continuous
     boundary values on a real open set extend to a unique holomorphic function
     on a complex neighborhood.
 
-    **Why this is an axiom (not a theorem):**
-    The full proof for m ≥ 2 requires constructing the holomorphic extension at
-    "gap points" z where Im(z) ∉ C ∪ (-C) ∪ {0}. At such points, neither f_plus
-    nor f_minus provides a value; the extension must be defined via iterated Cauchy
-    integrals on polydiscs or the Bochner tube theorem — neither is formalized in
-    Mathlib. The 1D slicing reduction (`edge_of_the_wedge_slice`, proved above) is
-    complete; only the multi-dimensional gluing step is missing.
-
-    See: `docs/edge_of_the_wedge_gap_analysis.md` for full analysis.
+    Proved via `SCV.edge_of_the_wedge_theorem` in `SCV/TubeDomainExtension.lean`,
+    using iterated Cauchy integrals on polydiscs.
 
     **References:**
     - Bogoliubov, N.N. (1956). *On the theory of quantized fields*. ICM report.

@@ -212,20 +212,89 @@ end CharacteristicFunctional
 
 /-! ### Bochner's Theorem (Finite-Dimensional) -/
 
+section BochnerHelpers
+
+/-- Standard basis vector in `Fin n → ℝ`: the function that is 1 at index `i` and 0 elsewhere. -/
+private def stdBasisFun {n : ℕ} (i : Fin n) : Fin n → ℝ := fun j => if j = i then 1 else 0
+
+/-- Every continuous linear functional on `Fin n → ℝ` equals `x ↦ ∑ i, L(eᵢ) * x i`
+    where `eᵢ` is the standard basis vector. -/
+private lemma clm_eq_sum_coord {n : ℕ} (L : (Fin n → ℝ) →L[ℝ] ℝ) :
+    ∀ x : Fin n → ℝ, L x = ∑ i : Fin n, L (stdBasisFun i) * x i := by
+  intro x
+  have hx : x = ∑ i : Fin n, x i • stdBasisFun i := by
+    ext j
+    simp only [Finset.sum_apply, Pi.smul_apply, smul_eq_mul, stdBasisFun, mul_ite, mul_one,
+      mul_zero]
+    rw [Finset.sum_ite_eq]
+    simp
+  conv_lhs => rw [hx]
+  rw [map_sum]
+  exact Finset.sum_congr rfl (fun i _ => by rw [map_smul, smul_eq_mul, mul_comm])
+
+/-- The `charFunDual` of a measure on `Fin n → ℝ`, expressed as a sum integral.
+    This connects the abstract characteristic function (using dual functionals)
+    to the concrete integral `∫ x, exp(i ∑ tᵢ xᵢ) dμ(x)`. -/
+private lemma charFunDual_eq_sum_integral {n : ℕ}
+    (μ : Measure (Fin n → ℝ)) (L : StrongDual ℝ (Fin n → ℝ)) :
+    charFunDual μ L =
+      ∫ x, exp (↑(∑ i : Fin n, L (stdBasisFun i) * x i) * I) ∂μ := by
+  simp only [charFunDual_apply]
+  congr 1; ext x
+  congr 1; congr 1; congr 1
+  exact clm_eq_sum_coord L x
+
+/-- **Bochner uniqueness**: Two probability measures on `ℝⁿ` with the same
+    characteristic function values are equal.
+
+    Uses `Measure.ext_of_charFunDual` from mathlib, which establishes that
+    finite measures on a normed space are determined by their characteristic
+    function (dual version). -/
+theorem bochner_uniqueness {n : ℕ}
+    (μ₁ μ₂ : Measure (Fin n → ℝ))
+    [IsProbabilityMeasure μ₁] [IsProbabilityMeasure μ₂]
+    (h : ∀ t : Fin n → ℝ,
+      ∫ x, exp (↑(∑ i, t i * x i) * I) ∂μ₁ =
+      ∫ x, exp (↑(∑ i, t i * x i) * I) ∂μ₂) :
+    μ₁ = μ₂ := by
+  apply Measure.ext_of_charFunDual
+  ext L
+  rw [charFunDual_eq_sum_integral, charFunDual_eq_sum_integral]
+  exact h (fun i => L (stdBasisFun i))
+
+/-- **Bochner existence**: A continuous positive-definite function `φ : ℝⁿ → ℂ`
+    with `φ(0) = 1` is the characteristic function of some probability measure.
+
+    The classical proof constructs the measure via:
+    1. φ defines a positive linear functional on L¹(ℝⁿ) convolutions
+    2. Riesz representation gives a positive Radon measure
+    3. Fourier inversion shows the measure has the right characteristic function
+    4. φ(0) = 1 ensures it is a probability measure -/
+theorem bochner_existence {n : ℕ} (φ : (Fin n → ℝ) → ℂ)
+    (hcont : Continuous φ) (hpd : IsPositiveDefiniteFn φ) (hφ0 : φ 0 = 1) :
+    ∃ (μ : Measure (Fin n → ℝ)), IsProbabilityMeasure μ ∧
+      ∀ t, φ t = ∫ x, exp (↑(∑ i, t i * x i) * I) ∂μ := by
+  sorry
+
+end BochnerHelpers
+
 /-- **Bochner's theorem**: Every continuous positive-definite function φ : ℝⁿ → ℂ
     with φ(0) = 1 is the characteristic function of a unique probability measure on ℝⁿ.
 
     That is, there exists a unique probability measure μ such that
     φ(t) = ∫ exp(i⟨t,x⟩) dμ(x) for all t ∈ ℝⁿ.
 
-    This uses the Fourier inversion theorem and the Riesz representation theorem.
-    Mathlib already has `charFun` and `Measure.ext_of_charFun` for the converse
-    and uniqueness. -/
+    Proved by combining:
+    - `bochner_existence` (construction via Fourier inversion + Riesz representation)
+    - `bochner_uniqueness` (via `Measure.ext_of_charFunDual` from mathlib) -/
 theorem bochner_theorem {n : ℕ} (φ : (Fin n → ℝ) → ℂ)
     (hcont : Continuous φ) (hpd : IsPositiveDefiniteFn φ) (hφ0 : φ 0 = 1) :
     ∃! (μ : Measure (Fin n → ℝ)), IsProbabilityMeasure μ ∧
       ∀ t, φ t = ∫ x, exp (↑(∑ i, t i * x i) * I) ∂μ := by
-  sorry
+  obtain ⟨μ, hμ_prob, hμ_cf⟩ := bochner_existence φ hcont hpd hφ0
+  refine ⟨μ, ⟨hμ_prob, hμ_cf⟩, ?_⟩
+  intro ν ⟨hν_prob, hν_cf⟩
+  exact bochner_uniqueness ν μ (fun t => by rw [← hν_cf t, ← hμ_cf t])
 
 /-! ### Minlos' Theorem -/
 
