@@ -384,6 +384,121 @@ axiom forward_tube_bv_integrable {d n : ℕ} [NeZero d]
         F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
       MeasureTheory.volume
 
+/-- Extract the matrix product identities for a restricted Lorentz transformation. -/
+private theorem lorentz_mul_inv_eq_one {d : ℕ} [NeZero d]
+    (Λ : LorentzGroup.Restricted (d := d)) :
+    Λ.val.val * Λ.val⁻¹.val = 1 := by
+  have h1 := LorentzGroup.ext_iff.mp (mul_inv_cancel Λ.val)
+  rw [show (Λ.val * Λ.val⁻¹).val = Λ.val.val * Λ.val⁻¹.val from rfl] at h1
+  rw [show (1 : LorentzGroup d).val = (1 : Matrix _ _ ℝ) from rfl] at h1
+  exact h1
+
+private theorem lorentz_inv_mul_eq_one {d : ℕ} [NeZero d]
+    (Λ : LorentzGroup.Restricted (d := d)) :
+    Λ.val⁻¹.val * Λ.val.val = 1 := by
+  have h1 := LorentzGroup.ext_iff.mp (inv_mul_cancel Λ.val)
+  rw [show (Λ.val⁻¹ * Λ.val).val = Λ.val⁻¹.val * Λ.val.val from rfl] at h1
+  rw [show (1 : LorentzGroup d).val = (1 : Matrix _ _ ℝ) from rfl] at h1
+  exact h1
+
+/-- The componentwise Lorentz action on NPointDomain preserves Lebesgue measure.
+
+    Follows the same pattern as `integral_orthogonal_eq_self` but uses
+    `|det Λ| = 1` from properness instead of orthogonality. -/
+private theorem integral_lorentz_eq_self {d n : ℕ} [NeZero d]
+    (Λ : LorentzGroup.Restricted (d := d))
+    (h : NPointDomain d n → ℂ) :
+    ∫ x : NPointDomain d n, h (fun i => Matrix.mulVec Λ.val.val (x i)) =
+    ∫ x : NPointDomain d n, h x := by
+  have hdet_ne : Λ.val.val.det ≠ 0 := by
+    have hp := Λ.property.1
+    simp only [LorentzGroup.IsProper] at hp
+    rw [hp]; exact one_ne_zero
+  have habs : |Λ.val.val.det| = 1 := by
+    have hp := Λ.property.1
+    simp only [LorentzGroup.IsProper] at hp
+    rw [hp]; simp
+  have hΛ_mul_inv := lorentz_mul_inv_eq_one Λ
+  have hΛinv_mul := lorentz_inv_mul_eq_one Λ
+  have hmv : (fun v => Λ.val.val.mulVec v) = Matrix.toLin' Λ.val.val := by
+    ext v; simp [Matrix.toLin'_apply]
+  have hcont_Λ : Continuous (Matrix.toLin' Λ.val.val) :=
+    LinearMap.continuous_of_finiteDimensional _
+  have hcont_Λinv : Continuous (Matrix.toLin' Λ.val⁻¹.val) :=
+    LinearMap.continuous_of_finiteDimensional _
+  have hmp_factor : MeasureTheory.MeasurePreserving
+      (fun v : Fin (d+1) → ℝ => Λ.val.val.mulVec v)
+      MeasureTheory.volume MeasureTheory.volume := by
+    rw [hmv]; constructor
+    · exact hcont_Λ.measurable
+    · rw [Real.map_matrix_volume_pi_eq_smul_volume_pi hdet_ne]
+      simp [abs_inv, habs]
+  let e : (Fin n → Fin (d+1) → ℝ) ≃ᵐ (Fin n → Fin (d+1) → ℝ) :=
+    { toEquiv := {
+        toFun := fun a i => Λ.val.val.mulVec (a i)
+        invFun := fun a i => Λ.val⁻¹.val.mulVec (a i)
+        left_inv := fun a => by ext i j; simp [Matrix.mulVec_mulVec, hΛinv_mul]
+        right_inv := fun a => by ext i j; simp [Matrix.mulVec_mulVec, hΛ_mul_inv] }
+      measurable_toFun :=
+        measurable_pi_lambda _ fun i => hcont_Λ.measurable.comp (measurable_pi_apply i)
+      measurable_invFun :=
+        measurable_pi_lambda _ fun i => hcont_Λinv.measurable.comp (measurable_pi_apply i) }
+  have hmp : MeasureTheory.MeasurePreserving (⇑e)
+      MeasureTheory.volume MeasureTheory.volume :=
+    MeasureTheory.volume_preserving_pi (fun (_ : Fin n) => hmp_factor)
+  exact hmp.integral_comp' h
+
+/-- The ContinuousLinearEquiv for the inverse Lorentz action on a single spacetime factor. -/
+private noncomputable def lorentzInvCLEquiv {d : ℕ} [NeZero d]
+    (Λ : LorentzGroup.Restricted (d := d)) :
+    (Fin (d + 1) → ℝ) ≃L[ℝ] (Fin (d + 1) → ℝ) := by
+  have hΛinv_mul := lorentz_inv_mul_eq_one Λ
+  have hΛ_mul_inv := lorentz_mul_inv_eq_one Λ
+  exact {
+    toLinearEquiv := {
+      toLinearMap := (Matrix.toLin' Λ.val⁻¹.val)
+      invFun := Matrix.toLin' Λ.val.val
+      left_inv := fun v => by
+        show (Matrix.toLin' Λ.val.val) ((Matrix.toLin' Λ.val⁻¹.val) v) = v
+        rw [← LinearMap.comp_apply, ← Matrix.toLin'_mul, hΛ_mul_inv, Matrix.toLin'_one]
+        simp
+      right_inv := fun v => by
+        show (Matrix.toLin' Λ.val⁻¹.val) ((Matrix.toLin' Λ.val.val) v) = v
+        rw [← LinearMap.comp_apply, ← Matrix.toLin'_mul, hΛinv_mul, Matrix.toLin'_one]
+        simp
+    }
+    continuous_toFun := LinearMap.continuous_of_finiteDimensional _
+    continuous_invFun := LinearMap.continuous_of_finiteDimensional _
+  }
+
+/-- Composing a Schwartz function on NPointDomain with the inverse Lorentz action
+    yields another Schwartz function. -/
+private noncomputable def lorentzCompSchwartz {d n : ℕ} [NeZero d]
+    (Λ : LorentzGroup.Restricted (d := d))
+    (f : SchwartzNPoint d n) : SchwartzNPoint d n :=
+  SchwartzMap.compCLMOfContinuousLinearEquiv ℝ
+    (ContinuousLinearEquiv.piCongrRight (fun (_ : Fin n) => lorentzInvCLEquiv Λ)) f
+
+/-- The pointwise evaluation of lorentzCompSchwartz: g(x) = f(Λ⁻¹ · x). -/
+private theorem lorentzCompSchwartz_apply {d n : ℕ} [NeZero d]
+    (Λ : LorentzGroup.Restricted (d := d))
+    (f : SchwartzNPoint d n) (x : NPointDomain d n) :
+    (lorentzCompSchwartz Λ f).toFun x =
+    f.toFun (fun i => Matrix.mulVec Λ.val⁻¹.val (x i)) := by
+  simp only [lorentzCompSchwartz, SchwartzMap.compCLMOfContinuousLinearEquiv,
+    ContinuousLinearEquiv.piCongrRight, lorentzInvCLEquiv]
+  rfl
+
+/-- After applying Lorentz COV, the composition g(Λx) = f(Λ⁻¹(Λx)) = f(x). -/
+private theorem lorentzCompSchwartz_comp_lorentz {d n : ℕ} [NeZero d]
+    (Λ : LorentzGroup.Restricted (d := d))
+    (f : SchwartzNPoint d n) (x : NPointDomain d n) :
+    (lorentzCompSchwartz Λ f).toFun (fun i => Matrix.mulVec Λ.val.val (x i)) =
+    f.toFun x := by
+  rw [lorentzCompSchwartz_apply]
+  congr 1; ext i j
+  simp only [Matrix.mulVec_mulVec, lorentz_inv_mul_eq_one, Matrix.one_mulVec]
+
 /-- **Lorentz covariance of distributional boundary values**
     (Streater-Wightman, §2.4; Jost, Ch. IV).
 
@@ -401,7 +516,7 @@ This combines three standard results:
 
 General form: applies to any holomorphic F on T_n whose BVs equal W_n,
 not just the specific analytic continuation from spectrum_condition. -/
-axiom lorentz_covariant_distributional_bv {d n : ℕ} [NeZero d]
+theorem lorentz_covariant_distributional_bv {d n : ℕ} [NeZero d]
     (Wfn : WightmanFunctions d)
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_hol : DifferentiableOn ℂ F (ForwardTube d n))
@@ -420,28 +535,122 @@ axiom lorentz_covariant_distributional_bv {d n : ℕ} [NeZero d]
         F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) *
           (↑(x k ν) + ε * ↑(η k ν) * Complex.I)) * (f x))
       (nhdsWithin 0 (Set.Ioi 0))
-      (nhds (Wfn.W n f))
+      (nhds (Wfn.W n f)) := by
+  -- Define the Lorentz-rotated direction and test function
+  let Λη : Fin n → Fin (d + 1) → ℝ := fun k μ => ∑ ν, Λ.val.val μ ν * η k ν
+  let g : SchwartzNPoint d n := lorentzCompSchwartz Λ f
+  -- Λη is in the forward cone (each component)
+  have hΛη : ∀ k, InOpenForwardCone d (Λη k) :=
+    fun k => restricted_preserves_forward_cone Λ (η k) (hη k)
+  -- Apply hF_bv with test function g and direction Λη
+  have hbv_g := hF_bv g Λη hΛη
+  -- By Lorentz covariance (R5), W n f = W n g
+  have hWfg : Wfn.W n f = Wfn.W n g := by
+    apply Wfn.lorentz_covariant n Λ.val f g
+    exact fun x => lorentzCompSchwartz_apply Λ f x
+  -- Show the integrals agree after COV
+  suffices heq : ∀ ε : ℝ,
+      ∫ x : NPointDomain d n,
+        F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) *
+          (↑(x k ν) + ε * ↑(η k ν) * Complex.I)) * (f x) =
+      ∫ y : NPointDomain d n,
+        F (fun k μ => ↑(y k μ) + ε * ↑(Λη k μ) * Complex.I) * (g y) by
+    rw [hWfg]
+    exact Filter.Tendsto.congr (fun ε => (heq ε).symm) hbv_g
+  intro ε
+  -- Step 1: Rewrite integrand by distributing Λ over the sum
+  -- F(Λ(x + iεη)) = F(Λx + iεΛη)
+  have hlin : ∀ x : NPointDomain d n,
+      (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) *
+        (↑(x k ν) + ε * ↑(η k ν) * Complex.I)) =
+      (fun k μ => ↑((fun i => Λ.val.val.mulVec (x i)) k μ) +
+        ε * ↑(Λη k μ) * Complex.I) := by
+    intro x; funext k μ
+    simp only [Λη, Matrix.mulVec]
+    push_cast
+    simp only [mul_add, Finset.sum_add_distrib]
+    congr 1
+    · -- ∑ ↑(Λ μ ν) * ↑(x k ν) = ↑((Λ μ ·) ⬝ᵥ x k)
+      simp only [dotProduct]
+      push_cast
+      rfl
+    · -- Pull ε * I out of the sum
+      -- Goal: ∑ x, ↑(Λ μ x) * (↑ε * ↑(η k x) * I) = (↑ε * ∑ x, ↑(Λ μ x) * ↑(η k x)) * I
+      conv_lhs =>
+        arg 2; ext ν
+        rw [show (↑(Λ.val.val μ ν) : ℂ) * (↑ε * ↑(η k ν) * Complex.I) =
+            ↑ε * (↑(Λ.val.val μ ν) * ↑(η k ν)) * Complex.I from by ring]
+      rw [← Finset.sum_mul, ← Finset.mul_sum]
+  -- Step 2: Apply COV via integral_lorentz_eq_self (backwards direction)
+  -- integral_lorentz_eq_self says: ∫ x, h(Λx) = ∫ x, h(x)
+  -- We use this with h(y) = F(↑y + iεΛη) · g(y)
+  -- Then h(Λx) = F(↑(Λx) + iεΛη) · g(Λx) = F(↑(Λx) + iεΛη) · f(x)
+  -- So: ∫ x, F(↑(Λx) + iεΛη) · f(x) = ∫ x, h(Λx) = ∫ y, h(y) = ∫ y, F(↑y + iεΛη) · g(y)
+  -- Rewrite integrand using hlin
+  have hlhs : (∫ x : NPointDomain d n,
+      F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) *
+        (↑(x k ν) + ε * ↑(η k ν) * Complex.I)) * (f x)) =
+    ∫ x : NPointDomain d n,
+      (fun y => F (fun k μ => ↑(y k μ) + ε * ↑(Λη k μ) * Complex.I) * (g y))
+        (fun i => Λ.val.val.mulVec (x i)) := by
+    congr 1; ext x
+    rw [hlin x]
+    congr 1
+    exact (lorentzCompSchwartz_comp_lorentz Λ f x).symm
+  rw [hlhs]
+  exact integral_lorentz_eq_self Λ
+    (fun y => F (fun k μ => ↑(y k μ) + ε * ↑(Λη k μ) * Complex.I) * (g y))
 
-/-- **All Euclidean Wick-rotated points lie in the permuted extended tube.**
+/-- The set of Euclidean configurations whose Wick rotation does NOT lie in the
+    permuted extended tube has Lebesgue measure zero.
 
-    For any configuration x = (x₁, ..., xₙ) of Euclidean spacetime points,
+    Mathematically, this set consists of "degenerate" configurations: those where
+    no permutation and complex Lorentz transformation can place the Wick-rotated
+    points in the forward tube. By Jost's theorem, all configurations with pairwise
+    distinct non-coincident points are in the permuted extended tube (via complex
+    Lorentz boosts with imaginary rapidity parameters). The complement is contained
+    in a finite union of proper algebraic subvarieties (coincident points, collinear
+    configurations), each of which has codimension >= 1 and hence measure zero.
+
+    This replaces the previous false universal statement `euclidean_points_in_permutedTube`
+    which claimed PET membership for ALL configurations. The a.e. version suffices
+    for all downstream uses (integral identities for Schwinger function properties).
+
+    Ref: Jost, "The General Theory of Quantized Fields" §IV.4, Theorem IV.4;
+    Streater-Wightman, Theorem 2-12 -/
+theorem wickRotation_not_in_PET_null {d n : ℕ} [NeZero d] :
+    MeasureTheory.volume
+      {x : NPointDomain d n |
+        (fun k => wickRotatePoint (x k)) ∉ PermutedExtendedTube d n} = 0 := by
+  -- The "bad" set is contained in a finite union of algebraic subvarieties
+  -- of codimension >= 1 in R^{n(d+1)}, hence has Lebesgue measure zero.
+  -- Full proof requires: (1) characterizing PET membership via complex Lorentz
+  -- orbits (Jost's theorem), (2) showing the complement is algebraic,
+  -- (3) algebraic subvarieties of codim >= 1 have measure zero.
+  sorry
+
+/-- **Almost every Euclidean Wick-rotated configuration lies in the permuted extended tube.**
+
+    For a.e. configuration x = (x₁, ..., xₙ) of Euclidean spacetime points,
     the Wick-rotated configuration (iτ₁, x⃗₁, ..., iτₙ, x⃗ₙ) lies in the
     permuted extended tube T''_n.
 
     This is a consequence of Jost's theorem: the extended tube T'_n contains
     all "Jost points" (real points where consecutive differences are spacelike).
-    Wick-rotated Euclidean points have purely imaginary time differences, hence
-    spacelike separations, making them Jost points (up to permutation).
+    The set of configurations that are NOT Jost points (after any permutation
+    and complex Lorentz transformation) has measure zero.
 
-    For distinct positive times, this is proved as `euclidean_distinct_in_permutedTube`.
-    The general case (coincident or non-positive times) follows by density of distinct
-    configurations in the analytic domain and the closure properties of PET.
+    This suffices for all downstream uses: the Schwinger function properties
+    (translation invariance, rotation invariance, permutation symmetry) are
+    proved via integral identities that only need pointwise equality a.e.
 
     Ref: Jost, "The General Theory of Quantized Fields" §IV.4, Theorem IV.4;
     Streater-Wightman, Theorem 2-12 -/
-axiom euclidean_points_in_permutedTube {d n : ℕ} [NeZero d]
-    (x : Fin n → Fin (d + 1) → ℝ) :
-    (fun k => wickRotatePoint (x k)) ∈ PermutedExtendedTube d n
+theorem ae_euclidean_points_in_permutedTube {d n : ℕ} [NeZero d] :
+    ∀ᵐ (x : NPointDomain d n) ∂MeasureTheory.volume,
+      (fun k => wickRotatePoint (x k)) ∈ PermutedExtendedTube d n := by
+  rw [Filter.Eventually, MeasureTheory.mem_ae_iff]
+  convert wickRotation_not_in_PET_null (d := d) (n := n) using 1
 
 /-- The distributional boundary values of z ↦ W_analytic(Λz) and z ↦ W_analytic(z)
     agree, by Lorentz covariance of the Wightman distribution. -/
@@ -772,7 +981,8 @@ theorem constructedSchwinger_tempered (Wfn : WightmanFunctions d) (n : ℕ) :
 
     Ref: Streater-Wightman, Theorem 2.8 (uniqueness of holomorphic extension to tubes) -/
 private theorem F_ext_translation_invariant (Wfn : WightmanFunctions d) (n : ℕ)
-    (a : SpacetimeDim d) (x : NPointDomain d n) :
+    (a : SpacetimeDim d) (x : NPointDomain d n)
+    (htube : (fun k => wickRotatePoint (x k)) ∈ PermutedExtendedTube d n) :
     (W_analytic_BHW Wfn n).val (fun k => wickRotatePoint (x k)) =
     (W_analytic_BHW Wfn n).val
       (fun k => wickRotatePoint (fun μ => x k μ + a μ)) := by
@@ -784,7 +994,7 @@ private theorem F_ext_translation_invariant (Wfn : WightmanFunctions d) (n : ℕ
     split_ifs <;> push_cast <;> ring
   rw [hwick_add]
   exact (bhw_translation_invariant Wfn (wickRotatePoint a)
-    (fun k => wickRotatePoint (x k)) (euclidean_points_in_permutedTube x)).symm
+    (fun k => wickRotatePoint (x k)) htube).symm
 
 theorem constructedSchwinger_translation_invariant (Wfn : WightmanFunctions d)
     (n : ℕ) (a : SpacetimeDim d) (f g : SchwartzNPoint d n)
@@ -797,12 +1007,15 @@ theorem constructedSchwinger_translation_invariant (Wfn : WightmanFunctions d)
   set a' : NPointDomain d n := fun _ => a
   set K : NPointDomain d n → ℂ :=
     fun x => (W_analytic_BHW Wfn n).val (fun k => wickRotatePoint (x k))
-  have hK : ∀ x : NPointDomain d n, K x = K (x + a') := fun x =>
-    F_ext_translation_invariant Wfn n a x
+  -- K is translation-invariant a.e.: K(x) = K(x + a') for a.e. x with wick(x) ∈ PET
+  have hK_ae : ∀ᵐ (x : NPointDomain d n) ∂MeasureTheory.volume,
+      K x = K (x + a') := by
+    filter_upwards [ae_euclidean_points_in_permutedTube] with x hx
+    exact F_ext_translation_invariant Wfn n a x hx
   symm
   calc ∫ x : NPointDomain d n, K x * (f : NPointDomain d n → ℂ) (x + a')
       = ∫ x : NPointDomain d n, K (x + a') * (f : NPointDomain d n → ℂ) (x + a') := by
-        congr 1; ext x; rw [hK]
+        exact MeasureTheory.integral_congr_ae (hK_ae.mono fun x hx => by simp only; rw [hx])
     _ = ∫ x : NPointDomain d n, K x * (f : NPointDomain d n → ℂ) x :=
         MeasureTheory.integral_add_right_eq_self
           (fun x => K x * (f : NPointDomain d n → ℂ) x) a'
@@ -820,11 +1033,11 @@ theorem constructedSchwinger_translation_invariant (Wfn : WightmanFunctions d)
     Ref: Streater-Wightman, Theorem 3.6 (BHW); Jost, §IV.5 -/
 private theorem F_ext_rotation_invariant (Wfn : WightmanFunctions d) (n : ℕ)
     (R : Matrix (Fin (d + 1)) (Fin (d + 1)) ℝ) (hR : R.transpose * R = 1)
-    (hdet : R.det = 1) (x : NPointDomain d n) :
+    (hdet : R.det = 1) (x : NPointDomain d n)
+    (htube : (fun k => wickRotatePoint (x k)) ∈ PermutedExtendedTube d n) :
     (W_analytic_BHW Wfn n).val (fun k => wickRotatePoint (x k)) =
     (W_analytic_BHW Wfn n).val
       (fun k => wickRotatePoint (R.mulVec (x k))) := by
-  have htube := euclidean_points_in_permutedTube x
   have := schwinger_euclidean_invariant
     (fun n => (W_analytic_BHW Wfn n).val)
     (fun n Λ z hz => (W_analytic_BHW Wfn n).property.2.2.1 Λ z hz)
@@ -899,15 +1112,17 @@ theorem constructedSchwinger_rotation_invariant (Wfn : WightmanFunctions d)
   simp_rw [hfg']
   set K : NPointDomain d n → ℂ :=
     fun x => (W_analytic_BHW Wfn n).val (fun k => wickRotatePoint (x k))
-  -- K is rotation-invariant: K(x) = K(Rx) by BHW complex Lorentz invariance
-  have hK : ∀ x : NPointDomain d n, K x = K (fun i => R.mulVec (x i)) :=
-    fun x => F_ext_rotation_invariant Wfn n R hR hdet x
+  -- K is rotation-invariant a.e.: K(x) = K(Rx) for a.e. x with wick(x) ∈ PET
+  have hK_ae : ∀ᵐ (x : NPointDomain d n) ∂MeasureTheory.volume,
+      K x = K (fun i => R.mulVec (x i)) := by
+    filter_upwards [ae_euclidean_points_in_permutedTube] with x hx
+    exact F_ext_rotation_invariant Wfn n R hR hdet x hx
   symm
   calc ∫ x : NPointDomain d n, K x * (f : NPointDomain d n → ℂ) (fun i => R.mulVec (x i))
       = ∫ x : NPointDomain d n,
           K (fun i => R.mulVec (x i)) *
           (f : NPointDomain d n → ℂ) (fun i => R.mulVec (x i)) := by
-        congr 1; ext x; rw [hK]
+        exact MeasureTheory.integral_congr_ae (hK_ae.mono fun x hx => by simp only; rw [hx])
     _ = ∫ x : NPointDomain d n, K x * (f : NPointDomain d n → ℂ) x :=
         integral_orthogonal_eq_self R hR
           (fun x => K x * (f : NPointDomain d n → ℂ) x)
@@ -935,13 +1150,13 @@ theorem constructedSchwinger_reflection_positive (Wfn : WightmanFunctions d)
 
     Ref: Jost, §IV.5; Streater-Wightman, Theorem 3.6 -/
 private theorem F_ext_permutation_invariant (Wfn : WightmanFunctions d) (n : ℕ)
-    (σ : Equiv.Perm (Fin n)) (x : NPointDomain d n) :
+    (σ : Equiv.Perm (Fin n)) (x : NPointDomain d n)
+    (htube : (fun k => wickRotatePoint (x k)) ∈ PermutedExtendedTube d n) :
     (W_analytic_BHW Wfn n).val (fun k => wickRotatePoint (x k)) =
     (W_analytic_BHW Wfn n).val (fun k => wickRotatePoint (x (σ k))) := by
   -- BHW permutation invariance: F_ext(z ∘ σ) = F_ext(z) for z ∈ PET
-  -- Apply with z = wick(x), using euclidean_points_in_permutedTube
   exact ((W_analytic_BHW Wfn n).property.2.2.2 σ
-    (fun k => wickRotatePoint (x k)) (euclidean_points_in_permutedTube x)).symm
+    (fun k => wickRotatePoint (x k)) htube).symm
 
 /-- Permutations preserve volume: the map x ↦ x ∘ σ on (ℝ^{d+1})^n is
     a rearrangement of factors, preserving Lebesgue measure. -/
@@ -967,14 +1182,17 @@ theorem constructedSchwinger_symmetric (Wfn : WightmanFunctions d)
   simp_rw [hfg']
   set K : NPointDomain d n → ℂ :=
     fun x => (W_analytic_BHW Wfn n).val (fun k => wickRotatePoint (x k))
-  have hK : ∀ x : NPointDomain d n, K x = K (fun i => x (σ i)) :=
-    fun x => F_ext_permutation_invariant Wfn n σ x
+  -- K is permutation-invariant a.e.: K(x) = K(x ∘ σ) for a.e. x with wick(x) ∈ PET
+  have hK_ae : ∀ᵐ (x : NPointDomain d n) ∂MeasureTheory.volume,
+      K x = K (fun i => x (σ i)) := by
+    filter_upwards [ae_euclidean_points_in_permutedTube] with x hx
+    exact F_ext_permutation_invariant Wfn n σ x hx
   symm
   calc ∫ x : NPointDomain d n, K x * (f : NPointDomain d n → ℂ) (fun i => x (σ i))
       = ∫ x : NPointDomain d n,
           K (fun i => x (σ i)) *
           (f : NPointDomain d n → ℂ) (fun i => x (σ i)) := by
-        congr 1; ext x; rw [hK]
+        exact MeasureTheory.integral_congr_ae (hK_ae.mono fun x hx => by simp only; rw [hx])
     _ = ∫ x : NPointDomain d n, K x * (f : NPointDomain d n → ℂ) x :=
         integral_perm_eq_self σ
           (fun x => K x * (f : NPointDomain d n → ℂ) x)
