@@ -897,16 +897,11 @@ theorem schwingerTwoPoint_eq_bilinear
     (_hμ : IsProbabilityMeasure μ)
     (_hchar : ∀ f, freeFieldCharacteristic d m f =
       ∫ ω : (𝓢(EuclideanSpace ℝ (Fin d), ℝ) →L[ℝ] ℝ), exp (↑(ω f) * I) ∂μ)
+    (hm : 0 ≤ m)
+    (hmeas : ∀ h : 𝓢(EuclideanSpace ℝ (Fin d), ℝ),
+      Measurable (fun ω : S' d => ω h))
     (f g : 𝓢(EuclideanSpace ℝ (Fin d), ℝ)) :
     schwingerTwoPoint d μ f g = ↑(freeFieldBilinearForm d m f g) := by
-  -- Infrastructure hypotheses needed by the Gaussian identification helpers:
-  -- (1) m ≥ 0 for non-negativity of the free field form Q(f) ≥ 0
-  -- (2) Measurability of evaluation maps ω ↦ ω(h) in the given σ-algebra
-  -- These hold for the cylinder σ-algebra from Minlos' theorem with physical m > 0,
-  -- but are not explicit in the theorem statement.
-  have hm : (0 : ℝ) ≤ m := by sorry
-  have hmeas : ∀ h : 𝓢(EuclideanSpace ℝ (Fin d), ℝ),
-      Measurable (fun ω : S' d => ω h) := by sorry
   -- The Schwinger two-point function is the complex integral ∫ (ω f : ℂ) * (ω g : ℂ) dμ
   -- which equals ↑(∫ ω f * ω g dμ) since the integrand is real-valued cast to ℂ.
   simp only [schwingerTwoPoint]
