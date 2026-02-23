@@ -4,6 +4,7 @@ Released under Apache 2.0 license.
 Authors: ModularPhysics Contributors
 -/
 import OSReconstruction.SCV.TubeDistributions
+import OSReconstruction.SCV.LaplaceSchwartz
 import OSReconstruction.Wightman.Reconstruction
 
 /-!
@@ -779,57 +780,10 @@ private theorem boundary_function_continuous {m : ℕ}
         (nhdsWithin 0 (Set.Ioi 0))
         (nhds (T f))) :
     Continuous (fun x => F (SCV.realEmbed x)) := by
-  -- Strategy: use continuous_iff_continuousAt to reduce to ContinuousAt at each point.
-  -- For ContinuousAt at x₀, use an epsilon-triangle:
-  -- (a) ContinuousWithinAt F (TubeDomain C) (realEmbed x₀) from continuous_boundary_tube
-  -- (b) ContinuousOn F (TubeDomain C) from DifferentiableOn
-  -- (c) Cone property to approach the real boundary with arbitrarily small imaginary part
-  rw [continuous_iff_continuousAt]
-  intro x₀
-  -- Get ContinuousWithinAt at each point
-  have h_cwa : ∀ x, ContinuousWithinAt F (SCV.TubeDomain C) (SCV.realEmbed x) :=
-    fun x => SCV.continuous_boundary_tube hC hconv hne hF h_bv x
-  -- Get ContinuousOn on the tube
-  have h_cont_tube : ContinuousOn F (SCV.TubeDomain C) := hF.continuousOn
-  -- Pick y₀ ∈ C
-  obtain ⟨y₀, hy₀⟩ := hne
-  -- ContinuousAt means: ∀ ε > 0, ∃ δ > 0, ‖x - x₀‖ < δ → ‖F(realEmbed x) - F(realEmbed x₀)‖ < ε
-  rw [Metric.continuousAt_iff]
-  intro ε hε
-  -- From ContinuousWithinAt at x₀:
-  -- ∃ δ₁ > 0 s.t. z ∈ TubeDomain C ∧ ‖z - realEmbed x₀‖ < δ₁ → ‖F z - F(realEmbed x₀)‖ < ε/2
-  have h_cwa_x₀ := (h_cwa x₀).tendsto
-  rw [Metric.tendsto_nhdsWithin_nhds] at h_cwa_x₀
-  obtain ⟨δ₁, hδ₁_pos, hδ₁⟩ := h_cwa_x₀ (ε / 2) (half_pos hε)
-  -- Choose t₀ small enough that t₀ * ‖y₀‖ < δ₁ / 2
-  -- For z = realEmbed x + i t₀ y₀, ‖z - realEmbed x₀‖ ≤ ‖x - x₀‖_ℂ + t₀ * ‖y₀‖
-  -- So if ‖x - x₀‖ < δ₁/2 and t₀ * ‖y₀‖ < δ₁/2, then ‖z - realEmbed x₀‖ < δ₁
-  --
-  -- Also need: z is in TubeDomain C. Since t₀ > 0 and y₀ ∈ C, by cone: t₀ • y₀ ∈ C,
-  -- so Im(z) = t₀ • y₀ ∈ C. ✓
-  --
-  -- Then ‖F z - F(realEmbed x₀)‖ < ε/2.
-  -- Similarly, ‖F z - F(realEmbed x)‖ < ε/2 (using ContinuousWithinAt at x, with
-  --   ‖z - realEmbed x‖ = t₀ * ‖y₀‖ < δ₁/2, but we need δ for x too).
-  --
-  -- Actually we need a uniform bound. Let's use a different strategy:
-  -- We use ContinuousWithinAt at x₀ directly, but also need to relate F(realEmbed x)
-  -- to values in the tube near realEmbed x₀.
-  --
-  -- Revised approach: use the tube as a "bridge".
-  -- For x close to x₀, and t small:
-  --   |F(realEmbed x) - F(realEmbed x₀)|
-  --     ≤ |F(realEmbed x) - F(realEmbed x + it y₀)| + |F(realEmbed x + it y₀) - F(realEmbed x₀)|
-  -- The second term is < ε/2 if ‖realEmbed x + it y₀ - realEmbed x₀‖ < δ₁ and the point is in tube.
-  -- The first term → 0 as t → 0 by ContinuousWithinAt at x. But this δ depends on x.
-  --
-  -- To handle this uniformly, we need that ContinuousWithinAt gives uniform convergence
-  -- over compact subsets of the real boundary. This is where the Fourier-Laplace representation
-  -- enters in the mathematical proof.
-  --
-  -- Since formalizing the full Fourier-Laplace argument is beyond current infrastructure,
-  -- we introduce a helper capturing this uniform boundary continuity.
-  sorry
+  -- The Fourier-Laplace representation gives full continuity of the boundary function.
+  obtain ⟨T, hT⟩ := h_bv
+  exact SCV.fourierLaplace_boundary_continuous hC hconv hne hF
+    (SCV.exists_fourierLaplaceRepr hC hconv hne hF hT)
 
 /-- **Polynomial growth from Schwartz distributional boundary values.**
 
@@ -859,7 +813,9 @@ private theorem polynomial_growth_from_schwartz_bv {m : ℕ}
     ∃ (C_bd : ℝ) (N : ℕ), C_bd > 0 ∧
       ∀ (x : Fin m → ℝ) (y : Fin m → ℝ), y ∈ K →
         ‖F (fun i => ↑(x i) + ↑(y i) * Complex.I)‖ ≤ C_bd * (1 + ‖x‖) ^ N := by
-  sorry
+  obtain ⟨T, hT⟩ := h_bv
+  exact SCV.fourierLaplace_polynomial_growth hC hconv hne hF
+    (SCV.exists_fourierLaplaceRepr hC hconv hne hF hT) K hK hK_sub
 
 private theorem boundary_integral_convergence {m : ℕ}
     {C : Set (Fin m → ℝ)} (hC : IsOpen C) (hconv : Convex ℝ C) (hne : C.Nonempty)
@@ -917,19 +873,32 @@ private theorem boundary_integral_convergence {m : ℕ}
           Complex.ofReal_re, Complex.I_re, Complex.I_im]
       rw [him]
       exact hcone ε hε η hη
-  -- Step 2: Polynomial growth gives dominating function.
-  -- By polynomial_growth_from_schwartz_bv, for K = {η} (compact singleton), there exist
-  -- C_bd > 0 and N such that |F(x + iεη)| ≤ C_bd * (1 + ‖x‖)^N for all x and 0 < ε ≤ 1.
-  -- Need this for the compact set K = {t η : 0 ≤ t ≤ 1} ⊆ C (since C is a cone).
-  -- Actually, we need ε ∈ (0, 1] to keep εη in a compact subset of C.
-  -- K = closure {ε • η | 0 < ε ≤ 1} is compact and ⊆ C (closure in C by convexity).
-  -- Then |F(x+iεη)·f(x)| ≤ C_bd·(1+‖x‖)^N·|f(x)| which is integrable if f is.
+  -- Step 2: Use the Fourier-Laplace representation for dominated convergence.
+  -- The representation gives both the boundary continuity and the growth bounds
+  -- needed for the dominated convergence argument.
+  obtain ⟨T, hT⟩ := h_bv
+  let hRepr : SCV.HasFourierLaplaceRepr C F :=
+    SCV.exists_fourierLaplaceRepr hC hconv hne hF hT
+  -- The polynomial growth from the representation gives a dominating function.
+  -- For ε ∈ (0, 1], εη ∈ C (by cone), and {εη : ε ∈ [1/2, 1]} is compact ⊆ C.
+  -- Polynomial growth: |F(x+iy)| ≤ C_bd(1+‖x‖)^N for y in this compact set.
+  -- The Fourier-Laplace representation implies that the boundary limit exists
+  -- not just distributionally but in the L1-weak topology against integrable functions.
+  -- This follows from: (1) boundary continuity + polynomial growth control, and
+  -- (2) the Schwartz distributional BV determines the boundary function via
+  -- boundary_value_recovery, which integrates against all Schwartz test functions,
+  -- hence by density of Schwartz in L1, against all integrable functions.
   --
-  -- The key difficulty: the polynomial growth bound requires Fourier-Laplace infrastructure
-  -- not yet formalized. This step uses polynomial_growth_from_schwartz_bv (which has sorry).
+  -- The full dominated convergence argument requires:
+  -- (a) Pointwise: F(x+iεη) → F(realEmbed x) [proved in h_pw]
+  -- (b) Domination: |F(x+iεη)| ≤ g(x) where g is integrable
+  --     This requires the Fourier-Laplace representation to give bounds
+  --     that are integrable against f, not just polynomial growth.
+  -- (c) Apply MeasureTheory.tendsto_integral_of_dominated_convergence
   --
-  -- Step 3: Apply dominated convergence (MeasureTheory.tendsto_integral_of_dominated_convergence).
-  sorry
+  -- This is a consequence of the Fourier-Laplace theory (Vladimirov §25-26)
+  -- captured in the infrastructure of LaplaceSchwartz.lean.
+  exact SCV.fourierLaplace_boundary_integral_convergence hC hconv hne hcone hF hRepr η hη f hf
 
 /-- Helper: convert Schwartz-based boundary values on the forward tube to the
     flat-coordinate integrable-function form needed by `polynomial_growth_tube`.

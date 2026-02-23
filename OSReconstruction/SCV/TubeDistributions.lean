@@ -6,6 +6,7 @@ Authors: ModularPhysics Contributors
 import OSReconstruction.SCV.TubeDomainExtension
 import OSReconstruction.SCV.IdentityTheorem
 import OSReconstruction.SCV.LaplaceSchwartz
+import OSReconstruction.SCV.BochnerTubeTheorem
 import Mathlib.Analysis.Distribution.SchwartzSpace.Deriv
 
 /-!
@@ -409,8 +410,8 @@ theorem bochner_tube_theorem {m : ℕ}
     {F : (Fin m → ℂ) → ℂ} (hF : DifferentiableOn ℂ F (TubeDomain C)) :
     ∃ (F_ext : (Fin m → ℂ) → ℂ),
       DifferentiableOn ℂ F_ext (TubeDomain (convexHull ℝ C)) ∧
-      ∀ z ∈ TubeDomain C, F_ext z = F z := by
-  sorry
+      ∀ z ∈ TubeDomain C, F_ext z = F z :=
+  bochner_tube_extension hC hne hF
 
 end SCV
 

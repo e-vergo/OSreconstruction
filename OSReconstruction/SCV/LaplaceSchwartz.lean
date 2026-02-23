@@ -248,6 +248,34 @@ theorem eq_zero_of_schwartz_integral_zero {m : ℕ}
     ∀ x : Fin m → ℝ, g x = 0 := by
   sorry
 
+/-- **Boundary integral convergence from Fourier-Laplace representation.**
+
+    If F is holomorphic on T(C) with a Fourier-Laplace representation, C is a cone,
+    and η ∈ C, then for any integrable function f:
+      ∫ F(x+iεη) f(x) dx → ∫ F(realEmbed x) f(x) dx  as ε → 0⁺.
+
+    The proof uses dominated convergence:
+    1. Pointwise: F(x+iεη) → F(realEmbed x) from ContinuousWithinAt + cone approach
+    2. Domination: The Fourier-Laplace integral representation F(z) = ∫ e^{iz·ξ} dμ(ξ)
+       gives |F(x+iεη)| ≤ ∫ e^{-ε⟨η,ξ⟩} d|μ|(ξ) which is bounded by ∫ d|μ|(ξ) < ∞
+       (the total mass of the representing measure, finite by temperedness).
+       This bound is independent of x and ε, giving a constant dominating function.
+    3. MeasureTheory.tendsto_integral_of_dominated_convergence
+
+    Ref: Vladimirov §25-26 -/
+theorem fourierLaplace_boundary_integral_convergence {m : ℕ}
+    {C : Set (Fin m → ℝ)} (hC : IsOpen C) (hconv : Convex ℝ C) (hne : C.Nonempty)
+    (hcone : ∀ (t : ℝ), 0 < t → ∀ y ∈ C, t • y ∈ C)
+    {F : (Fin m → ℂ) → ℂ} (hF : DifferentiableOn ℂ F (TubeDomain C))
+    (hRepr : HasFourierLaplaceRepr C F)
+    (η : Fin m → ℝ) (hη : η ∈ C)
+    (f : (Fin m → ℝ) → ℂ) (hf : MeasureTheory.Integrable f) :
+    Filter.Tendsto (fun ε : ℝ =>
+      ∫ x : Fin m → ℝ, F (fun i => ↑(x i) + ↑ε * ↑(η i) * I) * f x)
+    (nhdsWithin 0 (Set.Ioi 0))
+    (nhds (∫ x, F (realEmbed x) * f x)) := by
+  sorry
+
 end SCV
 
 end

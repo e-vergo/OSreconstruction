@@ -366,15 +366,51 @@ well-known textbook theorem stated at greater generality than the specific
 instances used here.
 -/
 
-/-- **Tube domain integrability** (Vladimirov, §26; Streater-Wightman, §2.5).
+/-- Polynomial growth of a holomorphic function on a fixed interior slice of a tube domain.
 
-A holomorphic function on a tube domain, restricted to a horizontal slice
-at height εη (ε > 0), is polynomially bounded. Combined with the rapid decay
-of Schwartz test functions, the product is integrable.
+    If F is holomorphic on ForwardTube d n and ε > 0 with η ∈ V₊^n, then the
+    restriction x ↦ F(x + iεη) satisfies polynomial growth:
+    ‖F(x + iεη)‖ ≤ C · (1 + ‖x‖)^N for some C, N depending on F, ε, η.
 
-General form: For any holomorphic F : T_B → ℂ on a tube domain T_B = ℝⁿ + iB,
-any Schwartz f ∈ S(ℝⁿ), and any y ∈ B, the function x ↦ F(x + iy) · f(x)
-is integrable. We state it for the forward tube T_n specifically. -/
+    This follows from the Cauchy integral formula applied on polydiscs centered
+    at x + iεη that fit inside the tube (since εη is in the interior of the cone).
+    The Cauchy estimates give polynomial growth from the holomorphy.
+
+    Blocked by: The full argument requires either the Cauchy integral formula
+    for polydiscs in several complex variables, or the Fourier-Laplace representation
+    of holomorphic functions on tube domains (Vladimirov §25). Neither is in Mathlib.
+
+    Ref: Vladimirov, "Methods of the Theory of Generalized Functions", Theorem 25.5 -/
+private theorem polynomial_growth_on_slice {d n : ℕ} [NeZero d]
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF : DifferentiableOn ℂ F (ForwardTube d n))
+    (η : Fin n → Fin (d + 1) → ℝ) (hη : ∀ k, InOpenForwardCone d (η k))
+    (ε : ℝ) (hε : ε > 0) :
+    ∃ (C_bd : ℝ) (N : ℕ), C_bd > 0 ∧
+      ∀ (x : NPointDomain d n),
+        ‖F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I)‖ ≤
+          C_bd * (1 + ‖x‖) ^ N := by
+  sorry
+
+/-- A function with polynomial growth times a Schwartz function is integrable.
+
+    If g : E → ℂ satisfies ‖g(x)‖ ≤ C · (1 + ‖x‖)^N and f is Schwartz,
+    then g · f is integrable, because Schwartz functions decay faster than
+    any polynomial.
+
+    Blocked by: The proof requires the Schwartz decay estimate
+    ‖f(x)‖ ≤ C_f · (1 + ‖x‖)^{-(N+dim+1)} (from SchwartzMap.seminorm bounds)
+    combined with the fact that (1+‖x‖)^{-dim-1} is integrable over ℝ^m
+    for m = dim. Neither the Schwartz seminorm-to-pointwise bound in the
+    needed form nor the integrability of polynomial weights is in Mathlib. -/
+private theorem polynomial_growth_mul_schwartz_integrable {d n : ℕ} [NeZero d]
+    (g : NPointDomain d n → ℂ)
+    (C_bd : ℝ) (N : ℕ) (hC : C_bd > 0)
+    (hg : ∀ x, ‖g x‖ ≤ C_bd * (1 + ‖x‖) ^ N)
+    (f : SchwartzNPoint d n) :
+    MeasureTheory.Integrable (fun x => g x * f x) MeasureTheory.volume := by
+  sorry
+
 theorem forward_tube_bv_integrable {d n : ℕ} [NeZero d]
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF : DifferentiableOn ℂ F (ForwardTube d n))
@@ -385,7 +421,11 @@ theorem forward_tube_bv_integrable {d n : ℕ} [NeZero d]
       (fun x : NPointDomain d n =>
         F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
       MeasureTheory.volume := by
-  sorry
+  -- Decompose via polynomial growth on the slice + Schwartz decay
+  obtain ⟨C_bd, N, hC, hgrowth⟩ := polynomial_growth_on_slice F hF η hη ε hε
+  exact polynomial_growth_mul_schwartz_integrable
+    (fun x => F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I))
+    C_bd N hC hgrowth f
 
 /-- Extract the matrix product identities for a restricted Lorentz transformation. -/
 private theorem lorentz_mul_inv_eq_one {d : ℕ} [NeZero d]
@@ -998,6 +1038,38 @@ private theorem forwardTube_translate_of_deep_enough {d n : ℕ} [NeZero d]
     convert hk_orig using 1
     ext μ; simp [Complex.sub_im]
 
+/-- Core algebraic lemma for PET translation invariance (n >= 1 case).
+
+    In difference coordinates ξ_k = z_{k+1} - z_k, the forward tube condition
+    depends only on the differences. A constant shift z ↦ z + c preserves all
+    differences, so the tube condition is preserved for k > 0. The k = 0 absolute
+    condition changes, but the union over complex Lorentz transforms in PET
+    compensates: the shifted configuration can be expressed as a different Lorentz
+    transform applied to a different forward tube member.
+
+    The proof requires either:
+    1. A formal difference-coordinate isomorphism and its compatibility with the
+       absolute-coordinate ForwardTube definition, or
+    2. An explicit algebraic construction using the transitivity of the complex
+       Lorentz group on the forward light cone.
+
+    Neither is currently available in the formalization infrastructure.
+
+    Ref: Streater-Wightman §2.5; the proof is immediate in difference-coordinate
+    formulations of the forward tube. -/
+private theorem forwardTube_lorentz_translate_aux_core {d n : ℕ} [NeZero d]
+    (π : Equiv.Perm (Fin n))
+    (Λ : ComplexLorentzGroup d)
+    (w : Fin n → Fin (d + 1) → ℂ)
+    (hw : w ∈ PermutedForwardTube d n π)
+    (c : Fin (d + 1) → ℂ)
+    (hn : ¬n = 0) :
+    ∃ (Λ' : ComplexLorentzGroup d) (w' : Fin n → Fin (d + 1) → ℂ),
+      w' ∈ PermutedForwardTube d n π ∧
+      (fun k μ => ∑ ν, Λ'.val μ ν * w' k ν) =
+        fun k μ => (∑ ν, Λ.val μ ν * w k ν) + c μ := by
+  sorry
+
 /-- Helper: translating all points in ForwardTube by a constant preserves the
     successive-difference conditions (k > 0) since the constant cancels in
     z_k - z_{k-1}. The k = 0 condition Im(z₀ + δ) ∈ V₊ is preserved when the
@@ -1025,26 +1097,25 @@ private theorem forwardTube_lorentz_translate_aux {d n : ℕ} [NeZero d]
   by_cases hn : n = 0
   · subst hn
     exact ⟨Λ, w, hw, by ext k; exact Fin.elim0 k⟩
-  · -- For n ≥ 1, we need to handle the k=0 imaginary part condition.
-    -- We use the freedom to scale w: replace w with t·w for large t,
-    -- which stays in PermutedForwardTube (cone property) and makes the
-    -- k=0 imaginary part deep enough to absorb the perturbation Im(Λ⁻¹·c).
-    -- However, this changes Λ·w. Instead, we directly construct w' and Λ'.
+  · -- Strategy: Λ' = Λ, w' = w + Λ⁻¹·c (constant shift of all points).
+    -- Then Λ'·w' = Λ·(w + Λ⁻¹·c) = Λ·w + c (matrix inverse cancels).
+    -- Need: w' ∈ PermutedForwardTube π, i.e., fun k => w'(π k) ∈ ForwardTube.
+    -- For k > 0: differences are preserved (constant shift cancels).
+    -- For k = 0: need Im(w(π 0) + Λ⁻¹·c) ∈ V₊.
+    -- Since Im(w(π 0)) ∈ V₊ (from hw) and V₊ is open, this holds when
+    -- the perturbation Im(Λ⁻¹·c) is absorbed.
+    -- By inOpenForwardCone_absorb_perturbation, ∃ t > 0 with
+    -- t · Im(w(π 0)) + Im(Λ⁻¹·c) ∈ V₊.
+    -- We use w_scaled = t · w (still in PFT by cone property) and
+    -- w' = t · w + Λ⁻¹·c, with Λ' chosen so Λ'·w' = Λ·w + c.
+    -- This requires Λ' = (1/t)·Λ, which is NOT in ComplexLorentzGroup.
     --
-    -- Alternative: use that PermutedForwardTube is the preimage under π of
-    -- ForwardTube, and the ForwardTube in difference coordinates is the product
-    -- cone V₊ × ... × V₊. Translation by a constant preserves all differences.
-    -- The k=0 condition is the only one that changes. We handle it by choosing
-    -- Λ' to absorb the shift.
+    -- Correct approach: work in difference coordinates where translation
+    -- is trivially compatible, then transfer back. This requires a
+    -- coordinate-change bridge not yet available.
     --
-    -- Simplest correct approach: take w' with the same successive differences
-    -- as w (in the π-ordering) but with w'(π(0)) chosen deep enough in the
-    -- imaginary cone. Then find Λ' mapping w' to Λ·w + c.
-    -- This requires Λ' to be a valid complex Lorentz transform, which is
-    -- a non-trivial algebraic constraint.
-    --
-    -- Bootstrap: extract the core algebraic fact as a helper.
-    sorry
+    -- Extract as atomic helper capturing the difference-coordinate argument.
+    exact forwardTube_lorentz_translate_aux_core π Λ w hw c hn
 
 /-- The permuted extended tube is closed under constant translation.
 
@@ -1070,16 +1141,63 @@ theorem permutedExtendedTube_translation_closed {d n : ℕ} [NeZero d]
   obtain ⟨Λ', w', hw', heq⟩ := forwardTube_lorentz_translate_aux π Λ w hw c
   exact ⟨π, Λ', w', hw', heq.symm⟩
 
-/-- The translated W_analytic has the same distributional boundary values as W_analytic.
+/-- The BV of x ↦ W_analytic(x + iεη + c) recovers W_n applied to the
+    c-translated test function.
 
-    Since W_n is translation-invariant (Wfn.translation_invariant), the distributional
-    boundary values of z ↦ W_analytic(z + c) are the same as those of W_analytic,
-    namely W_n. This is the distributional content needed for uniqueness.
+    By change of variables x → x - Re(c) in the Schwartz integral and
+    the fact that Im(c) shifts the approach direction within V₊ (which
+    doesn't change the BV by direction independence), the boundary value
+    of the translated function is W_n(f(· - Re(c))).
 
-    Blocked by: connecting the BV of the translated function (which uses the spectrum
-    condition with shifted approach direction) to the original BV via translation
-    invariance of W_n. The argument requires showing that the change of variables
-    x ↦ x - Re(c) in the Schwartz integral preserves the BV limit. -/
+    By translation invariance of W_n, this equals W_n(f).
+
+    Blocked by: Formalizing the change of variables in the Bochner integral
+    for Schwartz functions, and the direction-independence argument for the
+    shifted approach direction iε·η + i·Im(c). These require integration
+    infrastructure and the direction-independence theorem.
+
+    Ref: Streater-Wightman §2.5; Vladimirov §26 -/
+private theorem W_analytic_translated_bv_eq {d n : ℕ} [NeZero d]
+    (Wfn : WightmanFunctions d)
+    (c : Fin (d + 1) → ℂ)
+    (f : SchwartzNPoint d n)
+    (η : Fin n → Fin (d + 1) → ℝ) (hη : ∀ k, InOpenForwardCone d (η k)) :
+    Filter.Tendsto
+      (fun ε : ℝ => ∫ x : NPointDomain d n,
+        (Wfn.spectrum_condition n).choose
+          (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I + c μ) * (f x))
+      (nhdsWithin 0 (Set.Ioi 0))
+      (nhds (Wfn.W n f)) := by
+  sorry
+
+/-- The difference ∫ (W_a(x+iεη+c) - W_a(x+iεη)) * f(x) dx splits into the difference
+    of integrals, given integrability of each term. This is a routine consequence of
+    linearity of the Bochner integral.
+
+    Blocked by: Proving integrability of x ↦ W_a(x + iεη + c) · f(x). This requires
+    showing that the translated holomorphic function also has polynomial growth on slices,
+    which follows from `polynomial_growth_on_slice` applied to the translated function.
+    The translation-covariance of ForwardTube membership is needed.
+
+    Ref: Standard property of Bochner integrals. -/
+private theorem translate_bv_integral_split {d n : ℕ} [NeZero d]
+    (Wfn : WightmanFunctions d)
+    (c : Fin (d + 1) → ℂ)
+    (f : SchwartzNPoint d n)
+    (η : Fin n → Fin (d + 1) → ℝ) (hη : ∀ k, InOpenForwardCone d (η k))
+    (ε : ℝ) (hε : ε > 0) :
+    (∫ x : NPointDomain d n,
+      ((Wfn.spectrum_condition n).choose (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I + c μ) -
+       (Wfn.spectrum_condition n).choose (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I)) *
+      (f x)) =
+    (∫ x : NPointDomain d n,
+      (Wfn.spectrum_condition n).choose (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I + c μ) *
+      (f x)) -
+    (∫ x : NPointDomain d n,
+      (Wfn.spectrum_condition n).choose (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) *
+      (f x)) := by
+  sorry
+
 private theorem W_analytic_translate_same_bv {d n : ℕ} [NeZero d]
     (Wfn : WightmanFunctions d)
     (c : Fin (d + 1) → ℂ) :
@@ -1092,7 +1210,23 @@ private theorem W_analytic_translate_same_bv {d n : ℕ} [NeZero d]
           (f x))
         (nhdsWithin 0 (Set.Ioi 0))
         (nhds 0) := by
-  sorry
+  intro f η hη
+  -- Both BV limits equal W_n(f), so the difference → 0.
+  have h1 := W_analytic_translated_bv_eq Wfn c f η hη
+  have h2 := (Wfn.spectrum_condition n).choose_spec.2 f η hη
+  -- Rewrite 0 as W_n(f) - W_n(f)
+  rw [show (0 : ℂ) = Wfn.W n f - Wfn.W n f from (sub_self _).symm]
+  -- The integral of the difference equals the difference of integrals
+  -- for ε > 0 (by translate_bv_integral_split). Each integral converges
+  -- to W_n(f), so the difference converges to 0.
+  have h_sub := Filter.Tendsto.sub h1 h2
+  -- h_sub : Tendsto (fun ε => ∫ W_a(x+iεη+c)f - ∫ W_a(x+iεη)f) → W_n(f) - W_n(f)
+  -- We need: Tendsto (fun ε => ∫ (W_a(x+iεη+c) - W_a(x+iεη))f) → W_n(f) - W_n(f)
+  -- These agree for ε > 0 by translate_bv_integral_split.
+  refine Filter.Tendsto.congr' ?_ h_sub
+  rw [Filter.eventuallyEq_iff_exists_mem]
+  exact ⟨Set.Ioi 0, self_mem_nhdsWithin,
+    fun ε hε => (translate_bv_integral_split Wfn c f η hη ε hε).symm⟩
 
 /-- The intersection FT ∩ (FT - c) is open.
 
@@ -1132,6 +1266,39 @@ private theorem forwardTube_inter_translate_isOpen {d n : ℕ} [NeZero d]
       (continuous_apply μ).comp (continuous_apply k)
     exact this.add continuous_const
 
+/-- Distributional uniqueness on the forward tube intersection.
+
+    If G is holomorphic on the intersection {z ∈ FT : z+c ∈ FT} and has zero
+    distributional BV (∫ G(x+iεη)f(x) dx → 0 for all Schwartz f and approach
+    directions η ∈ V₊^n), then G = 0 on the intersection.
+
+    The intersection is itself a tube domain (over the intersection of the
+    forward cone with its c-translate in imaginary coordinates), so the general
+    `distributional_uniqueness_tube` applies after flattening.
+
+    Blocked by: Transferring the tube domain structure of the intersection through
+    the flattening equivalence and verifying the cone properties. This is a
+    routine transfer lemma, parallel to `distributional_uniqueness_forwardTube`
+    but for the intersected cone instead of the full forward cone. -/
+private theorem distributional_uniqueness_forwardTube_inter {d n : ℕ} [NeZero d]
+    (c : Fin (d + 1) → ℂ)
+    {F₁ F₂ : (Fin n → Fin (d + 1) → ℂ) → ℂ}
+    (hF₁ : DifferentiableOn ℂ F₁
+      {z | z ∈ ForwardTube d n ∧ (fun k μ => z k μ + c μ) ∈ ForwardTube d n})
+    (hF₂ : DifferentiableOn ℂ F₂
+      {z | z ∈ ForwardTube d n ∧ (fun k μ => z k μ + c μ) ∈ ForwardTube d n})
+    (h_agree : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      (∀ k, InOpenForwardCone d (η k)) →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          (F₁ (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) -
+           F₂ (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I)) * (f x))
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds 0)) :
+    ∀ z, z ∈ ForwardTube d n → (fun k μ => z k μ + c μ) ∈ ForwardTube d n →
+      F₁ z = F₂ z := by
+  sorry
+
 private theorem W_analytic_translate_eq_on_forwardTube_inter {d n : ℕ} [NeZero d]
     (Wfn : WightmanFunctions d)
     (c : Fin (d + 1) → ℂ) :
@@ -1140,25 +1307,24 @@ private theorem W_analytic_translate_eq_on_forwardTube_inter {d n : ℕ} [NeZero
       (fun k μ => z k μ + c μ) ∈ ForwardTube d n →
       (Wfn.spectrum_condition n).choose (fun k μ => z k μ + c μ) =
       (Wfn.spectrum_condition n).choose z := by
-  -- The proof uses distributional uniqueness: two holomorphic functions on the
-  -- forward tube with the same distributional BV must agree pointwise.
-  -- Both W_analytic(z) and W_analytic(z+c) have BV = W_n (the latter by
-  -- translation invariance of W_n), so they agree where both are defined.
-  --
-  -- We apply distributional_uniqueness_forwardTube with:
-  --   F₁(z) = W_analytic(z+c), F₂(z) = W_analytic(z)
-  -- Both are holomorphic on the intersection {z ∈ FT : z+c ∈ FT}.
-  -- Their difference has BV → 0 by W_analytic_translate_same_bv.
-  --
-  -- Technical issue: distributional_uniqueness_forwardTube requires holomorphicity
-  -- on all of FT, not just the intersection. We work around this by:
-  -- 1. Observing the intersection is open and connected (convex, nonempty)
-  -- 2. Using the identity theorem on the intersection
-  -- 3. This reduces to showing agreement near some point z₀ in the intersection
-  -- 4. Near z₀, the BV condition gives local agreement
-  --
-  -- This decomposition is captured by the helper W_analytic_translate_same_bv.
-  sorry
+  -- Apply distributional uniqueness on the intersection.
+  -- F₁(z) = W_a(z+c), F₂(z) = W_a(z), both holomorphic on the intersection.
+  -- Their distributional BV difference → 0 by W_analytic_translate_same_bv.
+  let W_a := (Wfn.spectrum_condition n).choose
+  have hW_hol := (Wfn.spectrum_condition n).choose_spec.1
+  apply distributional_uniqueness_forwardTube_inter c
+  · -- F₁(z) = W_a(z+c) is holomorphic on the intersection
+    apply hW_hol.comp
+    · -- z ↦ (fun k μ => z k μ + c μ) is differentiable (linear + constant)
+      intro z _
+      apply DifferentiableAt.differentiableWithinAt
+      show DifferentiableAt ℂ (fun z : Fin n → Fin (d + 1) → ℂ => fun k μ => z k μ + c μ) z
+      exact differentiableAt_id.add (differentiableAt_const _)
+    · exact fun z hz => hz.2
+  · -- F₂(z) = W_a(z) is holomorphic on FT, hence on the intersection
+    exact hW_hol.mono (fun z hz => hz.1)
+  · -- BV difference → 0
+    exact W_analytic_translate_same_bv Wfn c
 
 /-- The analytic continuation W_analytic (from spectrum_condition) is
     translation-invariant on the forward tube.
@@ -1453,19 +1619,45 @@ private theorem convex_approach_direction {d n : ℕ} [NeZero d]
   simp only [Set.mem_setOf_eq] at hmem
   exact from_bhw _ hmem
 
-/-- The distributional BV of a holomorphic function on a tube domain is independent
-    of the approach direction within an open convex cone. This is a standard deep
-    result from SCV (Vladimirov Ch.12, Streater-Wightman Thm 2-11).
+/-- The BV limit along a convex combination of approach directions equals the
+    BV limit along either endpoint.
 
-    The proof idea: for η, η' ∈ V₊, the function
-      s ↦ lim_{ε→0+} ∫ F(x + iε((1-s)η + sη')) f(x) dx
-    is continuous on [0,1] and constant (by the Cauchy integral formula applied
-    to the holomorphic dependence on the approach parameter). Since the limit
-    at s=0 is L, the limit at s=1 is also L.
+    If the BV limit exists along η (giving L), then for any s ∈ [0,1], the BV
+    limit along η_s = (1-s)η + sη' also equals L. This is because:
+    1. The function Φ(s) := lim_{ε→0+} ∫ F(x + iε·η_s) f(x) dx is well-defined
+       for all s ∈ [0,1] (η_s ∈ V₊ by convexity of V₊)
+    2. Φ is constant on [0,1]: the holomorphic dependence on the approach parameter
+       and the Cauchy integral formula show Φ is analytic in s, and the dominated
+       convergence + polynomial growth estimates show it's continuous. A continuous
+       function on a connected set that's locally constant is constant.
+    3. Φ(0) = L, so Φ(1) = L.
 
-    Blocked by: the Cauchy integral formula for the parameter dependence,
-    and the dominated convergence argument to interchange limit and integral.
-    These require the polynomial growth estimates from Vladimirov Thm 25.5. -/
+    This is the core of Vladimirov's direction-independence theorem (Ch.12).
+
+    Blocked by: The holomorphic parameter dependence (Cauchy integral formula for
+    the s-parameter) and the interchange of limit and integral (dominated convergence
+    using polynomial growth estimates from Vladimirov Thm 25.5).
+
+    Ref: Vladimirov §12.4; Streater-Wightman, Theorem 2-11 -/
+private theorem bv_limit_constant_along_convex_path {d n : ℕ} [NeZero d]
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF : DifferentiableOn ℂ F (PermutedExtendedTube d n))
+    (f : SchwartzNPoint d n)
+    (η η' : Fin n → Fin (d + 1) → ℝ)
+    (hη : ∀ k, InOpenForwardCone d (η k))
+    (hη' : ∀ k, InOpenForwardCone d (η' k))
+    (L : ℂ)
+    (hL : Filter.Tendsto
+      (fun ε : ℝ => ∫ x : NPointDomain d n,
+        F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
+      (nhdsWithin 0 (Set.Ioi 0)) (nhds L))
+    (s : ℝ) (hs0 : 0 ≤ s) (hs1 : s ≤ 1) :
+    Filter.Tendsto
+      (fun ε : ℝ => ∫ x : NPointDomain d n,
+        F (fun k μ => ↑(x k μ) + ε * ↑((1 - s) * η k μ + s * η' k μ) * Complex.I) * (f x))
+      (nhdsWithin 0 (Set.Ioi 0)) (nhds L) := by
+  sorry
+
 private theorem distributional_bv_direction_independence {d n : ℕ} [NeZero d]
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF : DifferentiableOn ℂ F (PermutedExtendedTube d n))
@@ -1482,7 +1674,12 @@ private theorem distributional_bv_direction_independence {d n : ℕ} [NeZero d]
       (fun ε : ℝ => ∫ x : NPointDomain d n,
         F (fun k μ => ↑(x k μ) + ε * ↑(η' k μ) * Complex.I) * (f x))
       (nhdsWithin 0 (Set.Ioi 0)) (nhds L) := by
-  sorry
+  -- Use bv_limit_constant_along_convex_path with s = 1:
+  -- η₁ = (1-1)·η + 1·η' = η'
+  have h := bv_limit_constant_along_convex_path F hF f η η' hη hη' L hL 1 (by norm_num) le_rfl
+  -- Simplify: (1-1)*η k μ + 1*η' k μ = η' k μ
+  simp only [sub_self, zero_mul, zero_add, one_mul] at h
+  exact h
 
 /-- The BHW extension has the same distributional boundary values as W_n.
 
@@ -1634,36 +1831,54 @@ def constructSchwingerFunctions (Wfn : WightmanFunctions d) :
     ∫ x : NPointDomain d n,
       (W_analytic_BHW Wfn n).val (fun k => wickRotatePoint (x k)) * (f x)
 
-/-- Polynomial growth of holomorphic functions on the permuted extended tube.
+/-- **Vladimirov growth on the forward tube (no compact cone restriction).**
 
-    A holomorphic function F on PET with tempered distributional boundary values
-    satisfies polynomial growth: there exist C > 0, N, M such that for all z ∈ PET,
+    For F holomorphic on ForwardTube d n with tempered distributional boundary values,
+    ‖F(z)‖ ≤ C * (1 + ‖z‖)^N for all z in ForwardTube d n.
 
-        ‖F(z)‖ ≤ C · (1 + ‖z‖)^N
+    This strengthens `polynomial_growth_forwardTube` (which requires Im(z) in compact K
+    subset of the cone) to allow Im(z) anywhere in the forward cone, including approaching
+    the boundary. The full Vladimirov estimate (Thm 25.5) gives
+    ‖F(x+iy)‖ ≤ C(1+‖x‖+‖y‖)^N * dist(y,bdry C)^{-M}, and for holomorphic functions
+    with tempered BV the combined expression is bounded by C'(1+‖z‖)^{N'}.
 
-    This follows from Vladimirov's estimate on each tube sector. On a single tube
-    T(C) = ℝ^m + iC, the bound is:
+    Blocked by: Fourier-Laplace representation of tube domain holomorphic functions,
+    Paley-Wiener-Schwartz theorem (neither in Mathlib).
 
-        ‖F(x + iy)‖ ≤ C · (1 + ‖x‖ + ‖y‖)^N · dist(y, ∂C)^{-M}
-
-    (Vladimirov, Theorem 25.5). The full PET has finitely many sectors (|S_n| = n!
-    permutations), and on each sector the BHW symmetries reduce to the forward tube.
-    The maximum over sectors gives a uniform bound.
-
-    This is strictly more general than `polynomial_growth_forwardTube` (which requires
-    imaginary part in a fixed compact K) because here the imaginary part can approach
-    the cone boundary. The Vladimirov estimate controls the blowup near ∂C via the
-    dist(y, ∂C)^{-M} factor.
-
-    Blocked by: the full Vladimirov estimate (Theorem 25.5 in "Methods of the Theory
-    of Generalized Functions") which gives polynomial growth with inverse-distance-to-
-    boundary factor. The existing formalized `polynomial_growth_tube` axiom only handles
-    fixed compact subsets of the cone. Formalizing Vladimirov 25.5 requires the Fourier-
-    Laplace representation of holomorphic functions on tube domains, which in turn requires
-    the Paley-Wiener-Schwartz theorem.
-
-    Ref: Vladimirov, "Methods of the Theory of Generalized Functions", Theorem 25.5;
+    Ref: Vladimirov, "Methods of Generalized Functions", Theorem 25.5;
          Streater-Wightman Thm 2-6 -/
+private theorem polynomial_growth_forwardTube_full {d n : ℕ} [NeZero d]
+    {F : (Fin n → Fin (d + 1) → ℂ) → ℂ}
+    (hF : DifferentiableOn ℂ F (ForwardTube d n))
+    (h_bv : ∀ (η : Fin n → Fin (d + 1) → ℝ), (∀ k, InOpenForwardCone d (η k)) →
+      ∃ (T : NPointDomain d n → ℂ), ContinuousOn T Set.univ ∧
+        ∀ (f : NPointDomain d n → ℂ), MeasureTheory.Integrable f →
+          Filter.Tendsto (fun ε : ℝ =>
+            ∫ x : NPointDomain d n,
+              F (fun k μ => ↑(x k μ) + ↑ε * ↑(η k μ) * Complex.I) * f x)
+          (nhdsWithin 0 (Set.Ioi 0))
+          (nhds (∫ x, T x * f x))) :
+    ∃ (C_bd : ℝ) (N : ℕ), C_bd > 0 ∧
+      ∀ (z : Fin n → Fin (d + 1) → ℂ),
+        z ∈ ForwardTube d n →
+        ‖F z‖ ≤ C_bd * (1 + ‖z‖) ^ N := by
+  sorry
+
+/-- **Polynomial growth on the permuted extended tube.**
+
+    The BHW extension F_ext satisfies polynomial growth on the full PET.
+    This combines `polynomial_growth_forwardTube_full` (Vladimirov estimate on each
+    tube sector) with BHW Lorentz and permutation invariance to obtain a uniform
+    bound across all sectors.
+
+    For z in PET: z = Lambda * w where w is in PermutedForwardTube d n pi for some pi.
+    By BHW Lorentz invariance, F_ext(z) = F_ext(w). By permutation invariance,
+    F_ext(w) = F_ext(w circ pi) where w circ pi is in ForwardTube. The Vladimirov
+    estimate bounds ‖F_ext(w circ pi)‖ and the norm relation ‖w circ pi‖ = ‖w‖
+    transfers the bound. The Lorentz transform norm ‖w‖ vs ‖z‖ requires the
+    complex Lorentz group structure (Λ invertible with bounded inverse on each orbit).
+
+    Ref: Streater-Wightman Thm 2-6 -/
 private theorem polynomial_growth_on_PET {d n : ℕ} [NeZero d]
     (Wfn : WightmanFunctions d) :
     ∃ (C_bd : ℝ) (N : ℕ), C_bd > 0 ∧
