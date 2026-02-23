@@ -214,13 +214,13 @@ theorem forwardConeAbs_implies_allForwardCone {d n : ℕ} [NeZero d]
   induction kv with
   | zero =>
     have h0 := hη ⟨0, hkv⟩
-    simp only [ForwardConeAbs, Set.mem_setOf_eq, dite_true] at h0
+    simp only [dite_true] at h0
     convert h0 using 1; ext μ; simp
   | succ k ih =>
     -- η_{k+1} = η_k + (η_{k+1} - η_k), both in V₊
     have hk : InOpenForwardCone d (η ⟨k, by omega⟩) := ih (by omega)
     have hdiff := hη ⟨k + 1, hkv⟩
-    simp only [ForwardConeAbs, Set.mem_setOf_eq, Nat.succ_ne_zero, dite_false] at hdiff
+    simp only [Nat.succ_ne_zero, dite_false] at hdiff
     have hprev : (⟨k + 1 - 1, by omega⟩ : Fin n) = ⟨k, by omega⟩ := by
       ext; exact Nat.succ_sub_one k
     rw [hprev] at hdiff
@@ -231,8 +231,7 @@ theorem forwardConeAbs_implies_allForwardCone {d n : ℕ} [NeZero d]
 
 theorem forwardConeAbs_convex (d n : ℕ) [NeZero d] :
     Convex ℝ (ForwardConeAbs d n) := by
-  intro y hy y' hy' a b ha hb hab
-  intro k
+  intro y hy y' hy' a b ha hb hab k
   simp only [ForwardConeAbs, Set.mem_setOf_eq] at hy hy' ⊢
   -- The difference (a•y + b•y')_k - (a•y + b•y')_{k-1}
   --   = a•(y_k - y_{k-1}) + b•(y'_k - y'_{k-1})
@@ -260,7 +259,7 @@ theorem forwardConeAbs_convex (d n : ℕ) [NeZero d] :
     exact convex_inOpenForwardCone d hyk hy'k ha hb hab
   ext μ
   simp only [Pi.add_apply, Pi.smul_apply, smul_eq_mul]
-  split_ifs <;> simp [Pi.smul_apply, smul_eq_mul] <;> ring
+  split_ifs <;> ring
 
 /-- The forward cone is nonempty. -/
 theorem forwardConeAbs_nonempty (d n : ℕ) [NeZero d] :
@@ -270,7 +269,7 @@ theorem forwardConeAbs_nonempty (d n : ℕ) [NeZero d] :
   let η₀ : Fin (d + 1) → ℝ := Pi.single 0 1
   have hη₀ : InOpenForwardCone d η₀ := by
     constructor
-    · simp [η₀, Pi.single_apply]
+    · simp [η₀]
     · simp only [MinkowskiSpace.minkowskiNormSq, MinkowskiSpace.minkowskiInner, η₀,
         Pi.single_apply]
       have : ∀ i : Fin (d + 1), (MinkowskiSpace.metricSignature d i *
@@ -281,11 +280,11 @@ theorem forwardConeAbs_nonempty (d n : ℕ) [NeZero d] :
       norm_num
   refine ⟨fun k μ => (↑(k : ℕ) + 1 : ℝ) * η₀ μ, ?_⟩
   intro k
-  simp only [ForwardConeAbs, Set.mem_setOf_eq]
+  simp only []
   convert hη₀ using 1
   ext μ
   split_ifs with h
-  · simp [h, Pi.zero_apply]
+  · simp [h]
   · simp only
     have hk_pos : (k : ℕ) ≥ 1 := Nat.one_le_iff_ne_zero.mpr h
     have : (↑(↑k - 1 : ℕ) : ℝ) = (↑(k : ℕ) : ℝ) - 1 := by
@@ -430,7 +429,7 @@ theorem forwardConeAbs_smul (d n : ℕ) [NeZero d]
   -- The successive difference of t • y is t • (successive difference of y)
   suffices InOpenForwardCone d
       (t • fun μ => y k μ - (if h : k.val = 0 then 0 else y ⟨k.val - 1, by omega⟩) μ) from by
-    convert this using 1; ext μ; split <;> simp [Pi.smul_apply, smul_eq_mul, Pi.zero_apply, mul_sub]
+    convert this using 1; ext μ; split <;> simp [Pi.smul_apply, smul_eq_mul, mul_sub]
   exact inOpenForwardCone_smul d t ht _ hk
 
 /-- ForwardConeFlat is a cone: closed under positive scalar multiplication. -/
@@ -469,7 +468,7 @@ theorem forwardTube_flatten_eq_tubeDomain (d n : ℕ) [NeZero d] :
       intro k μ
       simp only [e, flattenCLEquiv_symm_apply]
       have := congr_fun hyw (finProdFinEquiv (k, μ))
-      simp only [eR, flattenCLEquivReal_apply, Equiv.symm_apply_apply] at this
+      simp only [flattenCLEquivReal_apply, Equiv.symm_apply_apply] at this
       linarith
     intro k
     have hyk := hy k
@@ -555,7 +554,7 @@ theorem continuous_boundary_forwardTube {d n : ℕ} [NeZero d]
       congr 1
       congr 1; funext k μ
       simp only [flattenCLEquiv_symm_apply, flattenCLEquivReal_apply,
-        ← finProdFinEquiv_symm_apply, Equiv.symm_apply_apply]
+        Equiv.symm_apply_apply]
     exact Filter.Tendsto.congr (fun ε => (heq ε).symm) hconv
   -- Apply the general axiom
   have hcont_G := SCV.continuous_boundary_tube

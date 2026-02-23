@@ -1109,7 +1109,7 @@ private theorem eq_zero_on_convex_of_eventuallyEq_zero
     the orbit set because for small ‖X‖, `expLieAlg(tX)·w` stays close to `w`,
     keeping `Λ₀·(expLieAlg(tX)·w)` close to `Λ₀·w ∈ FT` (open). -/
 private lemma orbitSet_locallyPathConnected (w : Fin n → Fin (d + 1) → ℂ)
-    (hw : w ∈ ForwardTube d n) (Λ₀ : ComplexLorentzGroup d)
+    (_hw : w ∈ ForwardTube d n) (Λ₀ : ComplexLorentzGroup d)
     (hΛ₀ : complexLorentzAction Λ₀ w ∈ ForwardTube d n) :
     ∀ᶠ Λ in 𝓝 Λ₀, ∃ γ : Path Λ₀ Λ,
       ∀ t, complexLorentzAction (γ t) w ∈ ForwardTube d n := by
@@ -1938,7 +1938,7 @@ private theorem forwardTube_swap_overlap_nonempty (n : ℕ) (i : Fin n) (hi : i.
 private theorem eow_adj_swap_on_overlap (n : ℕ)
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
-    (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
+    (_hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
       (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
       F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
     (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
@@ -2309,7 +2309,7 @@ private theorem eow_chain_adj_swap (n : ℕ)
         F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
         F (fun k μ => (x k μ : ℂ)))
     (σ₀ : Equiv.Perm (Fin n)) (i₀ : Fin n) (hi₀ : i₀.val + 1 < n)
-    (ih_σ : ∀ (w : Fin n → Fin (d + 1) → ℂ), w ∈ ForwardTube d n →
+    (_ih_σ : ∀ (w : Fin n → Fin (d + 1) → ℂ), w ∈ ForwardTube d n →
       ∀ (Γ : ComplexLorentzGroup d),
         complexLorentzAction Γ (fun k => w (σ₀ k)) ∈ ForwardTube d n →
         F (complexLorentzAction Γ (fun k => w (σ₀ k))) = F w)

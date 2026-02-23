@@ -522,7 +522,7 @@ not just the specific analytic continuation from spectrum_condition. -/
 theorem lorentz_covariant_distributional_bv {d n : ℕ} [NeZero d]
     (Wfn : WightmanFunctions d)
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
-    (hF_hol : DifferentiableOn ℂ F (ForwardTube d n))
+    (_hF_hol : DifferentiableOn ℂ F (ForwardTube d n))
     (hF_bv : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
       (∀ k, InOpenForwardCone d (η k)) →
       Filter.Tendsto
@@ -1364,7 +1364,7 @@ private theorem bhw_smeared_eq_W_analytic_forwardTube_direction {d n : ℕ} [NeZ
     (f : SchwartzNPoint d n)
     (η : Fin n → Fin (d + 1) → ℝ)
     (hη_ft : ∀ k : Fin n,
-      let prev := if h : k.val = 0 then (0 : Fin (d + 1) → ℝ) else η ⟨k.val - 1, by omega⟩
+      let prev := if _h : k.val = 0 then (0 : Fin (d + 1) → ℝ) else η ⟨k.val - 1, by omega⟩
       InOpenForwardCone d (fun μ => η k μ - prev μ))
     (ε : ℝ) (hε : ε > 0) :
     (∫ x : NPointDomain d n,
@@ -2082,6 +2082,7 @@ private theorem F_ext_rotation_invariant (Wfn : WightmanFunctions d) (n : ℕ)
 
 /-- Orthogonal transformations preserve volume: the map x ↦ R·x on ℝ^(d+1)
     has |det R| = 1, so the product map on NPointDomain preserves Lebesgue measure. -/
+omit [NeZero d] in
 theorem integral_orthogonal_eq_self (R : Matrix (Fin (d + 1)) (Fin (d + 1)) ℝ)
     (hR : R.transpose * R = 1)
     (h : NPointDomain d n → ℂ) :
@@ -2195,6 +2196,7 @@ private theorem F_ext_permutation_invariant (Wfn : WightmanFunctions d) (n : ℕ
 
 /-- Permutations preserve volume: the map x ↦ x ∘ σ on (ℝ^{d+1})^n is
     a rearrangement of factors, preserving Lebesgue measure. -/
+omit [NeZero d] in
 theorem integral_perm_eq_self (σ : Equiv.Perm (Fin n))
     (h : NPointDomain d n → ℂ) :
     ∫ x : NPointDomain d n, h (fun i => x (σ i)) =

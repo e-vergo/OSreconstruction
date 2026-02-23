@@ -145,7 +145,7 @@ theorem ForwardTube_subset_ComplexExtended (d n : ℕ) [NeZero d] :
       intro α _
       split_ifs <;> simp_all
   · simp [Matrix.det_one]
-  · ext k μ; simp [Matrix.one_apply, Finset.sum_ite_eq', Finset.mem_univ]
+  · ext k μ; simp [Matrix.one_apply, Finset.mem_univ]
 
 /-- The complex extended forward tube is contained in the permuted extended tube
     (take π = identity). -/
@@ -164,6 +164,7 @@ def IsEuclidean (z : Fin n → Fin (d + 1) → ℂ) : Prop :=
   (∀ k : Fin n, (z k 0).re = 0) ∧  -- time component is purely imaginary
   (∀ k : Fin n, ∀ μ : Fin (d + 1), μ ≠ 0 → (z k μ).im = 0)  -- spatial components are real
 
+omit [NeZero d] in
 /-- Wick-rotated points are Euclidean. -/
 theorem wickRotatePoint_isEuclidean (xs : Fin n → Fin (d + 1) → ℝ) :
     IsEuclidean (fun k => wickRotatePoint (xs k)) := by
@@ -290,7 +291,7 @@ theorem euclidean_distinct_in_permutedTube {n : ℕ}
     · simp only [h, ite_false]
       apply Finset.sum_eq_zero; intro α _; split_ifs <;> simp_all
   · -- z = 1 · w = w
-    ext k μ; simp [Matrix.one_apply, Finset.sum_ite_eq', Finset.mem_univ]
+    ext k μ; simp [Matrix.one_apply, Finset.mem_univ]
 
 /-! ### Edge-of-the-Wedge Theorem -/
 
@@ -354,7 +355,7 @@ theorem sliceMap_lower_mem_neg_tubeDomain {m : ℕ} {C : Set (Fin m → ℝ)} {x
   show (fun i => (sliceMap x η w i).im) ∈ Neg.neg '' C
   rw [sliceMap_im_eq_smul]
   exact ⟨(-w.im) • η, hcone (-w.im) η (by linarith) hη,
-    by ext i; simp [Pi.smul_apply, smul_eq_mul, Pi.neg_apply, neg_mul]⟩
+    by ext i; simp [Pi.smul_apply, smul_eq_mul, Pi.neg_apply]⟩
 
 theorem differentiable_sliceMap {m : ℕ} (x η : Fin m → ℝ) :
     Differentiable ℂ (sliceMap x η) := by
@@ -418,7 +419,7 @@ theorem tubeDomain_disjoint_neg {m : ℕ} {C : Set (Fin m → ℝ)}
     This is the key dimensional reduction step: it shows that f₊ and f₋ have a
     common holomorphic extension along each cone direction through each boundary point. -/
 theorem edge_of_the_wedge_slice {m : ℕ}
-    (C : Set (Fin m → ℝ)) (hC : IsOpen C)
+    (C : Set (Fin m → ℝ)) (_hC : IsOpen C)
     (hcone : ∀ (t : ℝ) (y : Fin m → ℝ), 0 < t → y ∈ C → t • y ∈ C)
     (f_plus f_minus : (Fin m → ℂ) → ℂ)
     (hf_plus : DifferentiableOn ℂ f_plus (TubeDomain C))
@@ -440,7 +441,7 @@ theorem edge_of_the_wedge_slice {m : ℕ}
   have hcont_affine : Continuous (fun t : ℝ => x₀ + t • η) := by continuity
   have haffine_zero : (fun t : ℝ => x₀ + t • η) 0 = x₀ := by simp
   have hmem_preimage : (0 : ℝ) ∈ (fun t : ℝ => x₀ + t • η) ⁻¹' E := by
-    simp [Set.mem_preimage, haffine_zero, hx₀]
+    simp [Set.mem_preimage, hx₀]
   obtain ⟨δ, hδ_pos, hδ_sub'⟩ := Metric.isOpen_iff.mp
     (hE.preimage hcont_affine) 0 hmem_preimage
   have hδ_sub : ∀ t : ℝ, |t| < δ → x₀ + t • η ∈ E := by
@@ -469,7 +470,7 @@ theorem edge_of_the_wedge_slice {m : ℕ}
   -- Boundary values match: g_plus(t) = g_minus(t) for t ∈ (-δ, δ)
   have hmatch' : ∀ x : ℝ, -δ < x → x < δ → g_plus x = g_minus x := by
     intro t _ _
-    simp only [g_plus, g_minus, Complex.ofReal_im, lt_irrefl, ite_false, not_lt_of_gt]
+    simp only [g_plus, g_minus, Complex.ofReal_im, lt_irrefl, ite_false]
   -- Boundary value from above: g_plus approaches g_plus(t) from UHP
   -- This requires translating the multi-D boundary value (hf_plus_bv) to 1D via sliceMap
   have hcont_plus : ∀ x : ℝ, -δ < x → x < δ →
@@ -895,6 +896,7 @@ def SchwingerFromWightman (d : ℕ) [NeZero d]
 def complexWickRotate (z : Fin n → Fin (d + 1) → ℂ) : Fin n → Fin (d + 1) → ℂ :=
   fun k μ => if μ = 0 then I * z k 0 else z k μ
 
+omit [NeZero d] in
 /-- The ℂ-linear Wick rotation agrees with `wickRotatePoint` on real inputs. -/
 theorem complexWickRotate_eq_wickRotatePoint (xs : Fin n → Fin (d + 1) → ℝ) :
     complexWickRotate (fun k μ => (xs k μ : ℂ)) =
@@ -902,6 +904,7 @@ theorem complexWickRotate_eq_wickRotatePoint (xs : Fin n → Fin (d + 1) → ℝ
   ext k μ
   simp [complexWickRotate, wickRotatePoint]
 
+omit [NeZero d] in
 /-- The ℂ-linear Wick rotation is differentiable everywhere. -/
 theorem differentiable_complexWickRotate :
     Differentiable ℂ (complexWickRotate (d := d) (n := n)) := by
@@ -953,6 +956,7 @@ def OmegaRegion (d n : ℕ) [NeZero d] : Set (Fin n → Fin (d + 1) → ℝ) :=
 
 /-! ### Key Properties for OS Axiom Verification -/
 
+omit [NeZero d] in
 /-- The Wick rotation intertwines Euclidean rotations with complex Lorentz transformations:
     wickRotatePoint(R · x) = (ofEuclidean R) · wickRotatePoint(x)
 
@@ -998,11 +1002,13 @@ theorem wickRotatePoint_ofEuclidean
     rw [Complex.ofReal_sum]
     congr 1; ext ν; push_cast; ring
 
+omit [NeZero d] in
 /-- The transpose of an orthogonal matrix with det 1 also has det 1. -/
 private lemma det_transpose_of_SO {R : Matrix (Fin (d + 1)) (Fin (d + 1)) ℝ}
     (hR_det : R.det = 1) : R.transpose.det = 1 := by
   rw [Matrix.det_transpose]; exact hR_det
 
+omit [NeZero d] in
 /-- The transpose of an orthogonal matrix R (with RᵀR = I) satisfies (Rᵀ)ᵀRᵀ = I. -/
 private lemma transpose_orth_of_SO {R : Matrix (Fin (d + 1)) (Fin (d + 1)) ℝ}
     (hR_orth : R.transpose * R = 1) : R.transpose.transpose * R.transpose = 1 := by
@@ -1010,6 +1016,7 @@ private lemma transpose_orth_of_SO {R : Matrix (Fin (d + 1)) (Fin (d + 1)) ℝ}
   have : R * R.transpose = 1 := mul_eq_one_comm.mpr hR_orth
   exact this
 
+omit [NeZero d] in
 /-- The matrix product of ofEuclidean(Rᵀ) and ofEuclidean(R) is the identity.
 
     This follows from the fact that ofEuclidean is a group homomorphism:
@@ -1205,7 +1212,7 @@ theorem PermutedExtendedTube_euclidean_preimage
     This follows from the fact that R is an infinite field and proper subspaces
     are nowhere dense (Baire category), or more directly from the algebraic result
     that a finite union of proper submodules over an infinite field ≠ the whole space. -/
-private lemma exists_avoiding_finite_hyperplanes (m : ℕ) (hm : 2 ≤ m)
+private lemma exists_avoiding_finite_hyperplanes (m : ℕ) (_hm : 2 ≤ m)
     (S : Finset (Fin m → ℝ)) (hS : ∀ s ∈ S, s ≠ 0) :
     ∃ w : Fin m → ℝ, ∀ s ∈ S, ∑ μ, w μ * s μ ≠ 0 := by
   induction S using Finset.induction with

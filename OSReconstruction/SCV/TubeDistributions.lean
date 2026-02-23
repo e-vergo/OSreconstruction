@@ -5,7 +5,7 @@ Authors: ModularPhysics Contributors
 -/
 import OSReconstruction.SCV.TubeDomainExtension
 import OSReconstruction.SCV.IdentityTheorem
-import Mathlib.Analysis.Distribution.SchwartzSpace
+import Mathlib.Analysis.Distribution.SchwartzSpace.Deriv
 
 /-!
 # Distribution Theory Axioms for Tube Domains
