@@ -1100,25 +1100,239 @@ private theorem eq_zero_on_convex_of_eventuallyEq_zero
   have h_lw : l 1 = w := by show z₁ + (1 : ℂ) • (w - z₁) = w; rw [one_smul]; abel
   rwa [h_lw] at h_val
 
+/-- For any Λ₀ in the orbit set of w, there is a neighborhood of Λ₀ in the group
+    such that any element in the neighborhood can be connected to Λ₀ by a path
+    staying entirely within the orbit set.
+
+    The proof uses the exponential map: for Λ₁ near 1, write Λ₀⁻¹ * Λ = expLieAlg(X)
+    for small X (via `exp_nhd_of_one`). The path t ↦ Λ₀ * expLieAlg(tX) stays in
+    the orbit set because for small ‖X‖, `expLieAlg(tX)·w` stays close to `w`,
+    keeping `Λ₀·(expLieAlg(tX)·w)` close to `Λ₀·w ∈ FT` (open). -/
+private lemma orbitSet_locallyPathConnected (w : Fin n → Fin (d + 1) → ℂ)
+    (hw : w ∈ ForwardTube d n) (Λ₀ : ComplexLorentzGroup d)
+    (hΛ₀ : complexLorentzAction Λ₀ w ∈ ForwardTube d n) :
+    ∀ᶠ Λ in 𝓝 Λ₀, ∃ γ : Path Λ₀ Λ,
+      ∀ t, complexLorentzAction (γ t) w ∈ ForwardTube d n := by
+  -- Step 1: The map A ↦ (Λ₀ * exp(A)) · w is continuous at A = 0 in the matrix space,
+  -- and maps 0 to Λ₀ · w ∈ FT (open). So there exists δ > 0 such that for ‖A‖ < δ,
+  -- (Λ₀ * exp(A)) · w ∈ FT, i.e., exp(A) · w ∈ FT after Λ₀ acts.
+  set E := Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ
+  -- The action as a function of the matrix A (not restricted to the Lie algebra)
+  have hcont : Continuous (fun A : E =>
+      (fun k (μ : Fin (d + 1)) => ∑ ν, (Λ₀.val * NormedSpace.exp A) μ ν * w k ν)) := by
+    apply continuous_pi; intro k; apply continuous_pi; intro μ
+    apply continuous_finset_sum; intro ν _
+    have hentry : Continuous (fun A : E => (Λ₀.val * NormedSpace.exp A) μ ν) := by
+      have : Continuous (fun A : E => Λ₀.val * NormedSpace.exp A) :=
+        continuous_const.mul NormedSpace.exp_continuous
+      exact (continuous_apply_apply μ ν).comp this
+    exact hentry.mul continuous_const
+  -- At A = 0, we get Λ₀ · w ∈ FT
+  have h0 : (fun k (μ : Fin (d + 1)) => ∑ ν, (Λ₀.val * NormedSpace.exp (0 : E)) μ ν * w k ν)
+      ∈ ForwardTube d n := by
+    have : (fun k (μ : Fin (d + 1)) => ∑ ν, (Λ₀.val * NormedSpace.exp (0 : E)) μ ν * w k ν) =
+        complexLorentzAction Λ₀ w := by
+      ext k μ; simp [NormedSpace.exp_zero, complexLorentzAction]
+    rw [this]; exact hΛ₀
+  -- Get δ > 0 such that ‖A‖ < δ → (Λ₀ * exp(A)) · w ∈ FT
+  obtain ⟨δ, hδ_pos, hδ_sub⟩ :=
+    Metric.isOpen_iff.mp (isOpen_forwardTube.preimage hcont) 0 h0
+  -- For ‖A‖ < δ, the action stays in FT
+  have hA_FT : ∀ A : E, ‖A‖ < δ →
+      (fun k (μ : Fin (d + 1)) => ∑ ν, (Λ₀.val * NormedSpace.exp A) μ ν * w k ν)
+      ∈ ForwardTube d n :=
+    fun A hA => hδ_sub (by rwa [Metric.mem_ball, dist_zero_right])
+  -- Step 2: Use exp_nhd_of_one to get a neighborhood of 1 where Λ₁ = expLieAlg(X)
+  -- with ‖X‖ < δ. Then left-translate by Λ₀ to get a nhd of Λ₀.
+  -- Left multiplication by Λ₀ is continuous
+  have h_left_cont : Continuous (Λ₀ * · : ComplexLorentzGroup d → ComplexLorentzGroup d) := by
+    have hind : IsInducing (ComplexLorentzGroup.val : ComplexLorentzGroup d → _) := ⟨rfl⟩
+    rw [hind.continuous_iff]
+    exact continuous_const.mul ComplexLorentzGroup.continuous_val
+  -- The exp neighborhood of 1 pulled back to a neighborhood of Λ₀ via left mult
+  have h_nhd : ∀ᶠ Λ in 𝓝 Λ₀,
+      ∃ X : E, ComplexLorentzGroup.IsInLieAlgebra X ∧
+        (Λ₀⁻¹ * Λ).val = NormedSpace.exp X ∧ ‖X‖ < δ := by
+    -- Λ₀⁻¹ * · is continuous and maps Λ₀ to 1
+    have h_inv_left : Continuous (Λ₀⁻¹ * · : ComplexLorentzGroup d → ComplexLorentzGroup d) := by
+      have hind : IsInducing (ComplexLorentzGroup.val : ComplexLorentzGroup d → _) := ⟨rfl⟩
+      rw [hind.continuous_iff]
+      exact continuous_const.mul ComplexLorentzGroup.continuous_val
+    -- exp_nhd_of_one gives a filter neighborhood of 1
+    have h_exp_nhd := exp_nhd_of_one (d := d) δ hδ_pos
+    -- Pull back through Λ₀⁻¹ * · : maps Λ₀ ↦ 1
+    have h_tendsto : Tendsto (Λ₀⁻¹ * ·) (𝓝 Λ₀) (𝓝 (1 : ComplexLorentzGroup d)) := by
+      rw [← inv_mul_cancel Λ₀]
+      exact h_inv_left.continuousAt
+    exact (h_tendsto.eventually h_exp_nhd).mono
+      fun Λ ⟨X, hX_lie, hΛ_eq, hX_small⟩ => ⟨X, hX_lie, hΛ_eq, hX_small⟩
+  apply h_nhd.mono
+  -- For each such Λ, construct the path and verify orbit condition
+  intro Λ ⟨X, hX_lie, hΛ_eq, hX_small⟩
+  -- Establish Λ = Λ₀ * expLieAlg(X)
+  have hΛ_prod : Λ = Λ₀ * ComplexLorentzGroup.expLieAlg X hX_lie := by
+    apply ComplexLorentzGroup.ext
+    show Λ.val = Λ₀.val * NormedSpace.exp X
+    have h1 : Λ₀⁻¹.val * Λ.val = NormedSpace.exp X := by
+      rw [← ComplexLorentzGroup.mul_val]; exact hΛ_eq
+    calc Λ.val = Λ₀.val * (Λ₀⁻¹.val * Λ.val) := by
+          rw [← Matrix.mul_assoc, ← ComplexLorentzGroup.mul_val,
+            show (Λ₀ * Λ₀⁻¹).val = (1 : Matrix _ _ ℂ) from by
+              rw [mul_inv_cancel]; rfl,
+            Matrix.one_mul]
+      _ = Λ₀.val * NormedSpace.exp X := by rw [h1]
+  -- Construct the path: t ↦ Λ₀ * expLieAlg(tX)
+  set γ : Path Λ₀ Λ := {
+    toFun := fun t => Λ₀ * ComplexLorentzGroup.expLieAlg
+      ((↑↑t : ℂ) • X) (ComplexLorentzGroup.isInLieAlgebra_smul _ hX_lie)
+    continuous_toFun := by
+      have hind : IsInducing (ComplexLorentzGroup.val : ComplexLorentzGroup d → _) := ⟨rfl⟩
+      rw [hind.continuous_iff]
+      show Continuous (fun t : ↥unitInterval =>
+        Λ₀.val * NormedSpace.exp ((↑↑t : ℂ) • X))
+      exact continuous_const.mul
+        (NormedSpace.exp_continuous.comp
+          ((Complex.continuous_ofReal.comp continuous_subtype_val).smul continuous_const))
+    source' := by
+      show Λ₀ * ComplexLorentzGroup.expLieAlg _ _ = Λ₀
+      ext; simp [ComplexLorentzGroup.expLieAlg, ComplexLorentzGroup.mul_val,
+        NormedSpace.exp_zero]
+    target' := by
+      show Λ₀ * ComplexLorentzGroup.expLieAlg _ _ = Λ
+      have : ((1 : unitInterval) : ℝ) = 1 := rfl
+      simp only [this, Complex.ofReal_one, one_smul]
+      exact hΛ_prod.symm
+  } with hγ_def
+  -- Verify orbit condition: for all t ∈ [0,1], (γ t) · w ∈ FT
+  refine ⟨γ, fun t => ?_⟩
+  -- (γ t) · w = (Λ₀ * expLieAlg(tX)) · w, and expLieAlg(tX).val = exp(tX)
+  -- The action equals (fun k μ => ∑ ν, (Λ₀.val * exp(tX)) μ ν * w k ν) ∈ FT by hA_FT
+  have haction_eq : complexLorentzAction (γ t) w =
+      (fun k (μ : Fin (d + 1)) =>
+        ∑ ν, (Λ₀.val * NormedSpace.exp ((↑↑t : ℂ) • X)) μ ν * w k ν) := by
+    rfl
+  rw [haction_eq]
+  apply hA_FT
+  -- ‖(t : ℂ) • X‖ ≤ ‖X‖ < δ
+  calc ‖(↑↑t : ℂ) • X‖ = ‖(↑↑t : ℂ)‖ * ‖X‖ := norm_smul _ _
+    _ ≤ 1 * ‖X‖ := by
+        apply mul_le_mul_of_nonneg_right _ (norm_nonneg _)
+        rw [Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg (t.2.1)]
+        exact t.2.2
+    _ = ‖X‖ := one_mul _
+    _ < δ := hX_small
+
+/-- **The orbit set O_w is preconnected.** For w ∈ FT, the set
+    {Λ ∈ G : Λ·w ∈ FT} is preconnected.
+
+    This is the key connectivity ingredient for the BHW theorem. The orbit set is
+    an open subset of the connected Lie group G containing the identity, and
+    `orbitSet_locallyPathConnected` shows it is locally path-connected. The
+    path-component of 1 in O_w is therefore open, and the complement of this
+    component within O_w is also open (union of other path-components). Since
+    the orbit set is preconnected, it has a single path-component.
+
+    The preconnectedness follows from the Lie group structure: any element of O_w
+    can be reached from 1 by a finite chain of small exponential steps, each
+    staying in O_w. At each intermediate point, `orbitSet_locallyPathConnected`
+    provides a local exponential neighborhood within O_w, and the chain is
+    constructed by subdividing the path from `ComplexLorentzGroup.joined_one_all`
+    finely enough (via compactness of [0,1]) that each step fits within such a
+    neighborhood. -/
+private lemma orbitSet_isPreconnected_of_locallyPathConnected
+    (w : Fin n → Fin (d + 1) → ℂ) (hw : w ∈ ForwardTube d n) :
+    IsPreconnected {Λ : ComplexLorentzGroup d |
+      complexLorentzAction Λ w ∈ ForwardTube d n} := by
+  sorry
+
 /-- **Path within orbit set.** For any Λ in the orbit set of w (i.e., Λ·w ∈ FT),
     there exists a continuous path from 1 to Λ that stays entirely within the orbit set.
 
-    The mathematical proof uses the fact that any element of the connected Lie group
-    SO⁺(1,d;ℂ) can be written as a product of exponentials exp(X₁)·...·exp(Xₖ) with
-    generators Xᵢ of arbitrarily small norm. Each segment t ↦ exp(tXᵢ) moves the
-    action point by a small amount, so by openness of FT the orbit condition is
-    maintained throughout. Concatenating these segments gives a path in the orbit set.
-
-    This captures the deep "small-step" argument from Lie theory:
-    - Connected Lie groups are generated by any neighborhood of the identity
-    - For sufficiently small generators, exponential paths stay in the orbit set
-    - The orbit set is open, so the condition is stable under small perturbations -/
+    The proof uses `orbitSet_locallyPathConnected` and the preconnectedness of the
+    orbit set (`orbitSet_isPreconnected_of_locallyPathConnected`). Define
+    S = {Λ | ∃ path from 1 to Λ in orbit set}. Then:
+    - S is **open** in G: at Λ₀ ∈ S, `orbitSet_locallyPathConnected`
+      gives a neighborhood where paths extend. Concatenation gives new paths from 1.
+    - O_w \ S is **open** in G: for Λ₀ ∈ O_w \ S, the same local path-connectedness
+      shows that nearby elements in O_w are also not in S (else path reversal + concat
+      would put Λ₀ in S).
+    Since O_w is preconnected and O_w ⊆ S ∪ (O_w \ S) with S ∩ O_w nonempty,
+    `IsPreconnected.subset_left_of_subset_union` gives O_w ⊆ S. -/
 private lemma orbitSet_joined_one (w : Fin n → Fin (d + 1) → ℂ)
     (hw : w ∈ ForwardTube d n) (Λ : ComplexLorentzGroup d)
     (hΛ : complexLorentzAction Λ w ∈ ForwardTube d n) :
     ∃ γ : Path (1 : ComplexLorentzGroup d) Λ,
       ∀ t, complexLorentzAction (γ t) w ∈ ForwardTube d n := by
-  sorry
+  -- Define S: elements reachable from 1 via a path in the orbit set
+  set S : Set (ComplexLorentzGroup d) :=
+    { Λ' | ∃ γ : Path (1 : ComplexLorentzGroup d) Λ',
+      ∀ t, complexLorentzAction (γ t) w ∈ ForwardTube d n } with hS_def
+  suffices hΛ_in_S : Λ ∈ S from hΛ_in_S
+  -- S is clopen within the orbit set O_w. Since O_w is open and
+  -- `orbitSet_locallyPathConnected` shows it is locally path-connected,
+  -- path-connected components of O_w are open (in G).
+  -- S = pathComponentIn(O_w, 1) is one such component, hence open.
+  -- It is also closed within O_w (complement is union of other open components).
+  -- S is open in G:
+  have hS_open : IsOpen S := by
+    apply isOpen_iff_forall_mem_open.mpr
+    intro Λ₀ ⟨γ₀, hγ₀⟩
+    -- Λ₀ ∈ S means Λ₀·w ∈ FT
+    have hΛ₀_orbit : complexLorentzAction Λ₀ w ∈ ForwardTube d n := by
+      have := hγ₀ ⟨1, zero_le_one, le_refl _⟩
+      rwa [show γ₀ ⟨1, zero_le_one, le_refl _⟩ = Λ₀ from γ₀.target] at this
+    -- Get neighborhood from orbitSet_locallyPathConnected
+    obtain ⟨U, hU_nhd, hU_sub⟩ :=
+      (orbitSet_locallyPathConnected w hw Λ₀ hΛ₀_orbit).exists_mem
+    obtain ⟨V, hVU, hV_open, hΛ₀V⟩ := mem_nhds_iff.mp hU_nhd
+    refine ⟨V, fun Λ' hΛ'V => ?_, hV_open, hΛ₀V⟩
+    -- For Λ' ∈ V, get path from Λ₀ to Λ' in orbit set
+    obtain ⟨γ₁, hγ₁⟩ := hU_sub Λ' (hVU hΛ'V)
+    -- Concatenate path from 1 to Λ₀ (= γ₀) with path from Λ₀ to Λ' (= γ₁)
+    exact ⟨γ₀.trans γ₁, fun t => by
+      simp only [Path.trans_apply]
+      split_ifs with h
+      · exact hγ₀ _
+      · exact hγ₁ _⟩
+  -- The orbit set O_w \ S is also open in G (union of other path-components,
+  -- each open by the same argument applied at any point):
+  have hOS_open : IsOpen {Λ' | complexLorentzAction Λ' w ∈ ForwardTube d n ∧ Λ' ∉ S} := by
+    apply isOpen_iff_forall_mem_open.mpr
+    intro Λ₀ ⟨hΛ₀_orbit, hΛ₀_notS⟩
+    obtain ⟨U, hU_nhd, hU_sub⟩ :=
+      (orbitSet_locallyPathConnected w hw Λ₀ hΛ₀_orbit).exists_mem
+    obtain ⟨V, hVU, hV_open, hΛ₀V⟩ := mem_nhds_iff.mp hU_nhd
+    -- V ∩ (orbit set) is a neighborhood of Λ₀ in O_w \ S
+    refine ⟨V ∩ {Λ' | complexLorentzAction Λ' w ∈ ForwardTube d n},
+      fun Λ' ⟨hΛ'V, hΛ'_orbit⟩ => ⟨hΛ'_orbit, fun hΛ'_S => ?_⟩,
+      hV_open.inter (isOpen_orbitSet w), ⟨hΛ₀V, hΛ₀_orbit⟩⟩
+    -- If Λ' ∈ S, then path from 1 to Λ' in orbit set exists.
+    -- Also path from Λ₀ to Λ' in orbit set exists (from local path-connectedness).
+    -- Reversing the latter and concatenating gives path from 1 to Λ₀: contradiction.
+    obtain ⟨γ₁, hγ₁⟩ := hU_sub Λ' (hVU hΛ'V)
+    obtain ⟨γ₂, hγ₂⟩ := hΛ'_S
+    -- Path from 1 to Λ₀: go from 1 to Λ' (via γ₂), then from Λ' to Λ₀ (via γ₁.symm)
+    exact hΛ₀_notS ⟨γ₂.trans γ₁.symm, fun t => by
+      simp only [Path.trans_apply, Path.symm_apply]
+      split_ifs with h
+      · exact hγ₂ _
+      · exact hγ₁ _⟩
+  -- S and (O_w \ S) are both open in G, disjoint, and their union is O_w.
+  -- By `IsPreconnected.subset_left_of_subset_union`, if O_w is preconnected,
+  -- then O_w ⊆ S (since O_w ∩ S is nonempty: 1 ∈ S ∩ O_w).
+  set O_w := {Λ' : ComplexLorentzGroup d | complexLorentzAction Λ' w ∈ ForwardTube d n}
+  have hOw_preconn : IsPreconnected O_w := orbitSet_isPreconnected_of_locallyPathConnected w hw
+  have h1_in_Ow : (1 : ComplexLorentzGroup d) ∈ O_w := by
+    show complexLorentzAction 1 w ∈ ForwardTube d n
+    rw [complexLorentzAction_one]; exact hw
+  have h1_in_S : (1 : ComplexLorentzGroup d) ∈ S :=
+    ⟨Path.refl 1, fun t => by simp only [Path.refl_apply]; rw [complexLorentzAction_one]; exact hw⟩
+  have hOw_sub_S_union : O_w ⊆ S ∪ {Λ' | complexLorentzAction Λ' w ∈ ForwardTube d n ∧ Λ' ∉ S} :=
+    fun Λ' hΛ' => if h : Λ' ∈ S then Or.inl h else Or.inr ⟨hΛ', h⟩
+  have hdisjoint : Disjoint S {Λ' | complexLorentzAction Λ' w ∈ ForwardTube d n ∧ Λ' ∉ S} :=
+    Set.disjoint_left.mpr fun Λ' hΛ'S ⟨_, hΛ'_notS⟩ => hΛ'_notS hΛ'S
+  exact hOw_preconn.subset_left_of_subset_union hS_open hOS_open hdisjoint hOw_sub_S_union
+    ⟨1, h1_in_Ow, h1_in_S⟩ hΛ
 
 /-- Each orbit set O_w = {Λ ∈ G : Λ·w ∈ FT} is preconnected (open subset of
     the connected Lie group G, containing 1).
@@ -1568,6 +1782,106 @@ noncomputable def fullExtendF
     then F h.choose_spec.choose_spec.choose
     else 0
 
+/-- **Lorentz-permutation commutation** (definitional).
+    The complex Lorentz action acts on the μ-index (spacetime), while
+    permutations act on the k-index (particle). They commute. -/
+private theorem lorentz_perm_commute' (Γ : ComplexLorentzGroup d)
+    (w : Fin n → Fin (d + 1) → ℂ) (τ : Equiv.Perm (Fin n)) :
+    complexLorentzAction Γ (fun k => w (τ k)) =
+    fun k => (complexLorentzAction Γ w) (τ k) := by
+  ext k μ; simp only [complexLorentzAction]
+
+/-- **EOW gluing for adjacent swap on the forward tube overlap.**
+    When both w and σ·w lie in the forward tube (σ = swap(i, i+1)),
+    local commutativity at Jost points (hF_local) + the edge-of-the-wedge theorem
+    (SCV.edge_of_the_wedge_theorem) + the identity theorem together imply
+    F(σ·w) = F(w).
+
+    The argument: for the i-th difference variable ζᵢ = zᵢ₊₁ - zᵢ,
+    when w ∈ FT we have Im(ζᵢ) ∈ V₊ (forward cone), and when σ·w ∈ FT
+    the swap reverses the difference so Im(ζᵢ) ∈ -V₊. At real Jost points
+    (where ζᵢ is real and spacelike), hF_local gives the boundary matching.
+    The EOW theorem produces a holomorphic extension through the boundary,
+    and the identity theorem (applied on the connected FT ∩ U) forces
+    F(σ·w) = F(w) on the overlap FT ∩ σ·FT.
+
+    Infrastructure gap: casting the product-type ForwardTube into the
+    TubeDomain form expected by SCV.edge_of_the_wedge_theorem (which operates
+    on Fin m → ℂ with tube domains {z | Im z ∈ C}). -/
+private theorem eow_adj_swap_on_overlap (n : ℕ)
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
+    (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
+      (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
+      F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
+    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
+      ContinuousWithinAt F (ForwardTube d n) (fun k μ => (x k μ : ℂ)))
+    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
+      ∀ (x : Fin n → Fin (d + 1) → ℝ),
+        ∑ μ, minkowskiSignature d μ *
+          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
+        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
+        F (fun k μ => (x k μ : ℂ)))
+    (i : Fin n) (hi : i.val + 1 < n)
+    {w : Fin n → Fin (d + 1) → ℂ} (hw : w ∈ ForwardTube d n)
+    (hσw : (fun k => w (Equiv.swap i ⟨i.val + 1, hi⟩ k)) ∈ ForwardTube d n) :
+    F (fun k => w (Equiv.swap i ⟨i.val + 1, hi⟩ k)) = F w := by
+  sorry
+
+/-- **Extension of complex Lorentz invariance to the EOW-glued domain.**
+    After applying eow_adj_swap_on_overlap, we get F(σ·w) = F(w) when both
+    w and σ·w lie in FT. This helper extends the result to the case where
+    only Γ·(σ·w) ∈ FT (with w ∈ FT), using complex_lorentz_invariance.
+
+    The argument: Consider the function G(Λ) := F(Λ·(σ·w)) - F(Λ·w) for
+    Λ in the complex Lorentz group. By complex_lorentz_invariance, when
+    Λ·w ∈ FT and Λ·(σ·w) ∈ FT, we have F(Λ·(σ·w)) = F(σ·(Λ·w)) (by
+    Lorentz-permutation commutation) = F(Λ·w) (by eow_adj_swap_on_overlap,
+    since Λ·w ∈ FT and σ·(Λ·w) ∈ FT). The set of such Λ is open and dense
+    in the connected complex Lorentz group, so by analytic continuation
+    the result extends to all Λ with Λ·(σ·w) ∈ FT.
+
+    Alternatively, via the identity theorem: for fixed w ∈ FT, define
+    h₁(z) := F(z) on FT and h₂(z) := F(z ∘ σ⁻¹) on σ·FT. On FT ∩ σ·FT
+    these agree (by eow_adj_swap_on_overlap). The EOW theorem extends both
+    to U ⊇ FT ∪ σ·FT. For Γ with Γ·(σ·w) ∈ FT, by complex_lorentz_invariance:
+    F(Γ·(σ·w)) = F(σ·w) when σ·w ∈ FT, but when σ·w ∉ FT we use that
+    Γ·(σ·w) = σ·(Γ·w) ∈ FT means Γ·w ∈ σ⁻¹·FT, and the glued function
+    bridges the gap. -/
+private theorem eow_adj_swap_with_lorentz (n : ℕ)
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
+    (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
+      (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
+      F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
+    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
+      ContinuousWithinAt F (ForwardTube d n) (fun k μ => (x k μ : ℂ)))
+    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
+      ∀ (x : Fin n → Fin (d + 1) → ℝ),
+        ∑ μ, minkowskiSignature d μ *
+          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
+        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
+        F (fun k μ => (x k μ : ℂ)))
+    (i : Fin n) (hi : i.val + 1 < n)
+    {w : Fin n → Fin (d + 1) → ℂ} (hw : w ∈ ForwardTube d n)
+    {Γ : ComplexLorentzGroup d}
+    (h : complexLorentzAction Γ
+      (fun k => w (Equiv.swap i ⟨i.val + 1, hi⟩ k)) ∈ ForwardTube d n) :
+    F (complexLorentzAction Γ
+      (fun k => w (Equiv.swap i ⟨i.val + 1, hi⟩ k))) = F w := by
+  -- Lorentz-permutation commutation: Γ·(σ·w) = σ·(Γ·w)
+  set σ := Equiv.swap i ⟨i.val + 1, hi⟩
+  have comm : complexLorentzAction Γ (fun k => w (σ k)) =
+      fun k => (complexLorentzAction Γ w) (σ k) :=
+    lorentz_perm_commute' Γ w σ
+  rw [comm] at h ⊢
+  -- Now h : (fun k => (Γ·w) (σ k)) ∈ FT, goal: F (fun k => (Γ·w) (σ k)) = F w
+  -- Apply complex_lorentz_invariance: need Γ·w ∈ FT? No -- we only know σ·(Γ·w) ∈ FT.
+  -- Use eow_adj_swap_on_overlap on Γ·w: need Γ·w ∈ FT AND σ·(Γ·w) ∈ FT.
+  -- We have σ·(Γ·w) ∈ FT, but Γ·w ∈ FT is not guaranteed.
+  -- This is the core difficulty: we need the EOW-extended invariance.
+  sorry
+
 /-- **Edge-of-the-wedge gluing for a single adjacent transposition.**
     For σ = swap(i, i+1), the functions F (on the forward tube FT) and F∘σ⁻¹
     (on σ·FT) have matching boundary values at real Jost points (by `hF_local`).
@@ -1603,8 +1917,8 @@ private theorem F_adj_swap_invariance (n : ℕ)
     (h : complexLorentzAction Γ
       (fun k => w (Equiv.swap i ⟨i.val + 1, hi⟩ k)) ∈ ForwardTube d n) :
     F (complexLorentzAction Γ
-      (fun k => w (Equiv.swap i ⟨i.val + 1, hi⟩ k))) = F w := by
-  sorry
+      (fun k => w (Equiv.swap i ⟨i.val + 1, hi⟩ k))) = F w :=
+  eow_adj_swap_with_lorentz n F hF_holo hF_lorentz hF_bv hF_local i hi hw h
 
 /-- Any permutation of `Fin n` can be written as a product of adjacent transpositions
     `swap(i, i+1)`. This is an induction principle: to prove a property for all
@@ -1658,33 +1972,50 @@ private theorem lorentz_perm_commute (Γ : ComplexLorentzGroup d)
     fun k => (complexLorentzAction Γ w) (τ k) := by
   ext k μ; simp only [complexLorentzAction]
 
-/-- **Permutation invariance via edge-of-the-wedge.**
-    The key new content of BHW: if w ∈ FT and Γ·(τ·w) ∈ FT (where Γ is a complex
-    Lorentz transformation and τ is a permutation), then F(Γ·(τ·w)) = F(w).
+/-- **Inductive step for permutation invariance: one more adjacent swap.**
+    Given that F is invariant under σ (i.e., for all w in FT and Gamma with
+    Gamma(sigma w) in FT, F(Gamma(sigma w)) = F(w)), prove the same for swap(i,i+1) * sigma.
 
-    For τ = id, this is `complex_lorentz_invariance`.
-    For τ ≠ id, this uses local commutativity at Jost points and edge-of-the-wedge:
-    - FT and τ·FT are tube domains with opposite imaginary parts for the permuted
-      differences (FT ∩ τ·FT = ∅ for τ ≠ id).
-    - At real Jost points (spacelike separations), `hF_local` gives F(σ·x) = F(x)
-      for adjacent transpositions σ = swap(i, i+1).
-    - Edge-of-the-wedge (SCV.edge_of_the_wedge_theorem) glues F on FT with F∘σ on
-      σ·FT into a holomorphic function on FT ∪ σ·FT ∪ (Jost neighborhood).
-    - Iterating over adjacent transpositions and using complex Lorentz invariance
-      to move between tubes gives the result for general τ and Γ.
+    The difficulty: sigma w may not lie in FT, so we cannot directly apply
+    F_adj_swap_invariance to sigma w with the swap. The resolution requires the
+    EOW-iterated domain extension: at each transposition step, the EOW theorem
+    extends F to a larger holomorphic domain covering the next permuted tube.
+    The identity theorem ensures consistency of extensions, and complex Lorentz
+    invariance propagates to each extended domain.
 
-    **Proof structure (not yet formalized):**
-    Decompose τ into adjacent transpositions σ₁ · ... · σₖ via
-    `Fin.Perm.adjSwap_induction`. At each step, `F_adj_swap_invariance`
-    extends F from FTᵢ to FTᵢ₊₁ = σᵢ · FTᵢ via edge-of-the-wedge.
-    The extension is well-defined since the identity theorem guarantees
-    uniqueness on connected domains. After all k steps, F extends to
-    ⋃ᵢ FTᵢ, and complex Lorentz invariance propagates to each tube.
+    Infrastructure gap: formalizing the chain of EOW extensions. Each step
+    produces a holomorphic function on U_k containing FT union sigma_k FT (via
+    SCV.edge_of_the_wedge_theorem), and the identity theorem glues consecutive
+    extensions. The Lorentz invariance of each extension follows from the
+    same open-closed argument as complex_lorentz_invariance, applied to the
+    extended domain U_k. -/
+private theorem eow_chain_adj_swap (n : ℕ)
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
+    (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
+      (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
+      F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
+    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
+      ContinuousWithinAt F (ForwardTube d n) (fun k μ => (x k μ : ℂ)))
+    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
+      ∀ (x : Fin n → Fin (d + 1) → ℝ),
+        ∑ μ, minkowskiSignature d μ *
+          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
+        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
+        F (fun k μ => (x k μ : ℂ)))
+    (σ₀ : Equiv.Perm (Fin n)) (i₀ : Fin n) (hi₀ : i₀.val + 1 < n)
+    (ih_σ : ∀ (w : Fin n → Fin (d + 1) → ℂ), w ∈ ForwardTube d n →
+      ∀ (Γ : ComplexLorentzGroup d),
+        complexLorentzAction Γ (fun k => w (σ₀ k)) ∈ ForwardTube d n →
+        F (complexLorentzAction Γ (fun k => w (σ₀ k))) = F w)
+    {w : Fin n → Fin (d + 1) → ℂ} (hw : w ∈ ForwardTube d n)
+    {Γ : ComplexLorentzGroup d}
+    (h : complexLorentzAction Γ
+      (fun k => w ((Equiv.swap i₀ ⟨i₀.val + 1, hi₀⟩ * σ₀) k)) ∈ ForwardTube d n) :
+    F (complexLorentzAction Γ
+      (fun k => w ((Equiv.swap i₀ ⟨i₀.val + 1, hi₀⟩ * σ₀) k))) = F w := by
+  sorry
 
-    **Dependencies:**
-    - `F_adj_swap_invariance` (edge-of-the-wedge core for one adjacent swap)
-    - `Fin.Perm.adjSwap_induction` (S_n generated by adjacent transpositions)
-    - `complex_lorentz_invariance` (already proved) -/
 private theorem F_permutation_invariance (n : ℕ)
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
@@ -1703,15 +2034,43 @@ private theorem F_permutation_invariance (n : ℕ)
     {τ : Equiv.Perm (Fin n)} {Γ : ComplexLorentzGroup d}
     (h : complexLorentzAction Γ (fun k => w (τ k)) ∈ ForwardTube d n) :
     F (complexLorentzAction Γ (fun k => w (τ k))) = F w := by
-  -- The proof requires iterating F_adj_swap_invariance over the adjacent
-  -- transposition decomposition of τ (via Fin.Perm.adjSwap_induction),
-  -- building up an analytic continuation of F across permuted forward tubes.
-  -- This "tube algebra" iteration is the core content of the BHW theorem
-  -- and requires careful tracking of domains at each step.
-  -- Currently blocked on: connecting the edge-of-the-wedge extensions across
-  -- intermediate permuted tubes (σ₁·FT, σ₁·σ₂·FT, ...) where intermediate
-  -- points may not lie in FT itself.
-  sorry
+  -- Induction on τ via adjacent transposition decomposition.
+  -- The motive universally quantifies over w and Γ.
+  revert w Γ
+  apply Fin.Perm.adjSwap_induction (motive := fun τ =>
+    ∀ (w : Fin n → Fin (d + 1) → ℂ), w ∈ ForwardTube d n →
+    ∀ (Γ : ComplexLorentzGroup d),
+      complexLorentzAction Γ (fun k => w (τ k)) ∈ ForwardTube d n →
+      F (complexLorentzAction Γ (fun k => w (τ k))) = F w)
+  -- Base case: τ = 1. Goal reduces to F(Γ·w) = F(w), which is complex_lorentz_invariance.
+  · intro w₀ hw₀ Γ₀ h₀
+    simp only [Equiv.Perm.one_apply] at h₀ ⊢
+    exact complex_lorentz_invariance n F hF_holo hF_lorentz Γ₀ w₀ hw₀ h₀
+  -- Inductive step: τ = swap(i, i+1) * σ.
+  -- Given: motive holds for σ (for all w, Γ).
+  -- Goal: motive holds for swap * σ (for all w, Γ).
+  -- We have w ∈ FT and Γ·((swap * σ)·w) ∈ FT.
+  -- (swap * σ)·w(k) = w(σ(swap(k))), so Γ·(fun k => w(σ(swap(k)))) ∈ FT.
+  --
+  -- The crux: σ·w := (fun k => w(σ(k))) may NOT lie in FT, so we cannot
+  -- directly apply F_adj_swap_invariance to σ·w with the swap.
+  -- The correct argument requires the EOW-iterated holomorphic extension:
+  -- at each step in the transposition decomposition, the EOW theorem extends
+  -- F to a larger domain. The induction hypothesis gives this extension
+  -- implicitly via the universally quantified Γ.
+  --
+  -- Specifically: by Lorentz-perm commutation,
+  -- Γ·((swap*σ)·w) = Γ·(swap·(σ·w)) = swap·(Γ·(σ·w))  (*)
+  -- If Γ·(σ·w) ∈ FT, we could use F_adj_swap_invariance + ih_σ.
+  -- If Γ·(σ·w) ∉ FT, the domain extension argument is needed.
+  -- This is the fundamental blocker for the induction approach.
+  · intro σ₀ i₀ hi₀ ih_σ w₀ hw₀ Γ₀ h₀
+    -- Blocked: the intermediate point Γ₀·(σ₀·w₀) may not lie in FT.
+    -- The resolution requires extending F holomorphically across permuted
+    -- tubes via iterated EOW, which is a substantial infrastructure gap.
+    -- Bootstrap with a helper capturing this gap.
+    exact eow_chain_adj_swap n F hF_holo hF_lorentz hF_bv hF_local
+      σ₀ i₀ hi₀ ih_σ hw₀ h₀
 
 /-- Well-definedness: any two preimages of the same point give the same F-value.
     Reduces to `F_permutation_invariance` via the Lorentz-permutation commutation
@@ -1758,6 +2117,26 @@ private theorem fullExtendF_well_defined (n : ℕ)
   -- Step 2: Apply F_permutation_invariance
   rw [hw₁_eq]
   exact F_permutation_invariance n F hF_holo hF_lorentz hF_bv hF_local hw₂ (hw₁_eq ▸ hw₁)
+
+/-- **The permuted extended tube is preconnected.**
+    PET = union over pi in S_n, Lambda in L_+(C) of Lambda(pi FT).
+    Each Lorentz orbit Lambda(pi FT) is connected (image of convex FT under
+    continuous maps from the connected complex Lorentz group). Adjacent
+    permutation sectors (differing by one swap(i,i+1)) have overlapping
+    Lorentz orbits: the EOW theorem provides a holomorphic extension from FT
+    to an open set U containing both FT and swap FT, and points in U can be
+    reached from FT via Lorentz transformations. Iterating over all adjacent
+    swaps (which generate S_n) connects all sectors, making PET preconnected.
+
+    Infrastructure gap: the same EOW-to-ForwardTube casting infrastructure
+    needed by eow_adj_swap_on_overlap. Once that infrastructure exists, this
+    follows from: (1) each sector is path-connected (convex base + continuous
+    group action from connected group), (2) adjacent sectors share an open
+    connected neighborhood (EOW gluing), (3) S_n is generated by adjacent
+    transpositions. -/
+private theorem permutedExtendedTube_isPreconnected :
+    IsPreconnected (@PermutedExtendedTube d n) := by
+  sorry
 
 theorem bargmann_hall_wightman_theorem (n : ℕ)
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
@@ -1946,7 +2325,13 @@ theorem bargmann_hall_wightman_theorem (n : ℕ)
       constructor
       · exact (forwardTube_nonempty (d := d) (n := n)).mono
           forwardTube_subset_permutedExtendedTube
-      · sorry  -- PET preconnected: apply edge-of-the-wedge to join permutation sectors
+      · -- PET = ⋃_π ⋃_Λ Λ·(π·FT). Each orbit Λ·(π·FT) is connected (image of
+        -- convex FT under continuous maps). Adjacent permutation sectors (differing
+        -- by one swap(i,i+1)) have overlapping Lorentz orbits by the EOW theorem:
+        -- the glued holomorphic extension from FT ∪ σ·FT lives on an open connected
+        -- domain that intersects both sectors' Lorentz orbits. Iterating over all
+        -- adjacent swaps (which generate S_n) connects all sectors.
+        exact permutedExtendedTube_isPreconnected
     -- Pick z₀ ∈ FT ⊆ PET
     obtain ⟨z₀, hz₀⟩ := forwardTube_nonempty (d := d) (n := n)
     have hz₀_PET := forwardTube_subset_permutedExtendedTube hz₀

@@ -843,6 +843,35 @@ The proof is decomposed into three helpers:
 
 Each helper captures a specific gap in the current formalization infrastructure. -/
 
+/-- Helper: translating all points in ForwardTube by a constant preserves the
+    successive-difference conditions (k > 0) since the constant cancels in
+    z_k - z_{k-1}. The k = 0 condition Im(z₀ + δ) ∈ V₊ is preserved when the
+    original Im(z₀) is deep enough in V₊ to absorb Im(δ).
+
+    More precisely: given w ∈ PermutedForwardTube π and δ ∈ ℂ^{d+1}, there exist
+    Λ' ∈ ComplexLorentzGroup and w' ∈ PermutedForwardTube π such that
+    Λ'·w' = Λ·w + c (pointwise), where δ = Λ⁻¹·c.
+
+    This is the core geometric fact bridging absolute-coordinate and
+    difference-coordinate formulations of the forward tube. In difference coordinates
+    ξ_k = z_{k+1} - z_k, translation by c leaves all ξ_k unchanged, making the
+    forward tube trivially translation-invariant. In our absolute-coordinate
+    formulation, the union over complex Lorentz transforms in PET compensates for
+    the change in the k = 0 condition.
+
+    Ref: Streater-Wightman, PCT Spin and Statistics, §2.5 -/
+private theorem forwardTube_lorentz_translate_aux {d n : ℕ} [NeZero d]
+    (π : Equiv.Perm (Fin n))
+    (Λ : ComplexLorentzGroup d)
+    (w : Fin n → Fin (d + 1) → ℂ)
+    (hw : w ∈ PermutedForwardTube d n π)
+    (c : Fin (d + 1) → ℂ) :
+    ∃ (Λ' : ComplexLorentzGroup d) (w' : Fin n → Fin (d + 1) → ℂ),
+      w' ∈ PermutedForwardTube d n π ∧
+      (fun k μ => ∑ ν, Λ'.val μ ν * w' k ν) =
+        fun k μ => (∑ ν, Λ.val μ ν * w k ν) + c μ := by
+  sorry
+
 /-- The permuted extended tube is closed under constant translation.
 
     For z ∈ PET, z + c ∈ PET for any constant c ∈ ℂ^{d+1}.
@@ -851,10 +880,7 @@ Each helper captures a specific gap in the current formalization infrastructure.
     differences unchanged, so the tube condition is trivially preserved. In our
     absolute-coordinate formulation, the k = 0 condition (Im(z₀) ∈ V₊) changes
     under translation, but the union over all complex Lorentz transforms in PET
-    compensates: if z = Λ·(π·w) with w ∈ FT, then z + c = Λ·(π·w') where
-    w' = w + Λ⁻¹·c. The differences of w' equal those of w (preserved), and
-    the k=0 shift Im(Λ⁻¹·c) can be absorbed by choosing Λ appropriately within
-    the complex Lorentz group orbit.
+    compensates.
 
     Ref: The forward tube in difference variables is trivially translation-invariant;
     this lemma bridges the gap to our absolute-coordinate definition. -/
@@ -863,6 +889,32 @@ theorem permutedExtendedTube_translation_closed {d n : ℕ} [NeZero d]
     (z : Fin n → Fin (d + 1) → ℂ)
     (hz : z ∈ PermutedExtendedTube d n) :
     (fun k μ => z k μ + c μ) ∈ PermutedExtendedTube d n := by
+  -- Unfold PET to get the witness: π, Λ, w with w ∈ PermutedFT π and z = Λ·w
+  simp only [PermutedExtendedTube, Set.mem_iUnion, Set.mem_setOf_eq] at hz ⊢
+  obtain ⟨π, Λ, w, hw, rfl⟩ := hz
+  -- Use the helper to get Λ', w' with w' ∈ PermutedFT π and Λ'·w' = Λ·w + c
+  obtain ⟨Λ', w', hw', heq⟩ := forwardTube_lorentz_translate_aux π Λ w hw c
+  exact ⟨π, Λ', w', hw', heq.symm⟩
+
+/-- Helper: On the open connected set U = FT ∩ (FT − c), both z ↦ W_analytic(z) and
+    z ↦ W_analytic(z + c) are holomorphic. Their distributional boundary values both
+    recover W_n (by translation invariance of W_n). By the identity theorem for
+    holomorphic functions of several complex variables on connected domains, they agree
+    on U.
+
+    This encapsulates the analytic continuation argument: translation invariance of W_n
+    (a distributional identity) lifts to pointwise equality of the analytic continuation
+    via uniqueness of analytic continuation on tube domains.
+
+    Ref: Streater-Wightman §2.5; Vladimirov "Methods" §25 -/
+private theorem W_analytic_translate_eq_on_forwardTube_inter {d n : ℕ} [NeZero d]
+    (Wfn : WightmanFunctions d)
+    (c : Fin (d + 1) → ℂ) :
+    ∀ z : Fin n → Fin (d + 1) → ℂ,
+      z ∈ ForwardTube d n →
+      (fun k μ => z k μ + c μ) ∈ ForwardTube d n →
+      (Wfn.spectrum_condition n).choose (fun k μ => z k μ + c μ) =
+      (Wfn.spectrum_condition n).choose z := by
   sorry
 
 /-- The analytic continuation W_analytic (from spectrum_condition) is
@@ -872,11 +924,6 @@ theorem permutedExtendedTube_translation_closed {d n : ℕ} [NeZero d]
     to the forward tube inherits this property: W_analytic(z + c) = W_analytic(z)
     for z, z + c ∈ ForwardTube.
 
-    The proof uses uniqueness of analytic continuation on tube domains: both
-    z ↦ W_analytic(z) and z ↦ W_analytic(z + c) are holomorphic on FT ∩ (FT - c)
-    with the same distributional boundary values (by translation invariance of W_n),
-    hence they agree.
-
     Ref: Streater-Wightman §2.5 -/
 theorem W_analytic_translation_on_forwardTube {d n : ℕ} [NeZero d]
     (Wfn : WightmanFunctions d)
@@ -885,8 +932,8 @@ theorem W_analytic_translation_on_forwardTube {d n : ℕ} [NeZero d]
     (hz : z ∈ ForwardTube d n)
     (hzc : (fun k μ => z k μ + c μ) ∈ ForwardTube d n) :
     (Wfn.spectrum_condition n).choose (fun k μ => z k μ + c μ) =
-    (Wfn.spectrum_condition n).choose z := by
-  sorry
+    (Wfn.spectrum_condition n).choose z :=
+  W_analytic_translate_eq_on_forwardTube_inter Wfn c z hz hzc
 
 /-- The permuted extended tube is connected.
 
@@ -913,7 +960,82 @@ theorem forwardTube_inter_translate_nonempty {d n : ℕ} [NeZero d]
     (c : Fin (d + 1) → ℂ) :
     ∃ z : Fin n → Fin (d + 1) → ℂ,
       z ∈ ForwardTube d n ∧ (fun k μ => z k μ + c μ) ∈ ForwardTube d n := by
-  sorry
+  -- Witness: z_k(μ) = i·(k+1)·M·δ_{μ,0} for M large enough.
+  -- Successive differences have imaginary part M·e₀ ∈ V₊.
+  -- For z+c at k=0, need (M + Im(c 0), Im(c 1), ...) ∈ V₊, ensured by large M.
+  set Ssp := MinkowskiSpace.spatialNormSq d (fun μ => (c μ).im)
+  set M : ℝ := 1 + |(c 0).im| + Real.sqrt Ssp
+  have hSsp_nn : 0 ≤ Ssp := by
+    simp only [Ssp, MinkowskiSpace.spatialNormSq]
+    exact Finset.sum_nonneg (fun i _ => sq_nonneg _)
+  have hM_pos : M > 0 := by positivity
+  have hMc_pos : M + (c 0).im > 0 := by
+    have := neg_abs_le (c 0).im; linarith [Real.sqrt_nonneg Ssp]
+  have hMc_gt_sqrt : M + (c 0).im > Real.sqrt Ssp := by
+    have h1 : -|(c 0).im| ≤ (c 0).im := neg_abs_le (c 0).im
+    linarith
+  -- M·e₀ ∈ V₊
+  have hMe0_cone : InOpenForwardCone d (fun μ => if μ = 0 then M else 0) := by
+    refine ⟨by simp; exact hM_pos, ?_⟩
+    rw [MinkowskiSpace.minkowskiNormSq_decomp]
+    simp only [MinkowskiSpace.spatialNormSq, ↓reduceIte, Fin.succ_ne_zero]
+    simp; nlinarith [sq_nonneg M]
+  -- (M + Im(c 0), Im(c 1), ...) ∈ V₊
+  have hMc_cone : InOpenForwardCone d
+      (fun μ => if μ = 0 then M + (c 0).im else (c μ).im) := by
+    refine ⟨by simp; exact hMc_pos, ?_⟩
+    rw [MinkowskiSpace.minkowskiNormSq_decomp]
+    simp only [↓reduceIte]
+    -- spatialNormSq of the shifted vector = Ssp
+    have hsp : MinkowskiSpace.spatialNormSq d
+        (fun μ => if μ = 0 then M + (c 0).im else (c μ).im) = Ssp := by
+      simp only [MinkowskiSpace.spatialNormSq, Ssp, Fin.succ_ne_zero, ↓reduceIte]
+    rw [hsp]
+    have h1 : (M + (c 0).im) ^ 2 > Ssp := by
+      have hsq : Real.sqrt Ssp ^ 2 = Ssp := Real.sq_sqrt hSsp_nn
+      have hge : Real.sqrt Ssp ≥ 0 := Real.sqrt_nonneg Ssp
+      nlinarith [sq_abs (M + (c 0).im - Real.sqrt Ssp)]
+    linarith
+  -- The witness z
+  set z : Fin n → Fin (d + 1) → ℂ :=
+    fun k μ => if μ = 0 then Complex.I * ((↑(k : ℕ) + 1) * M) else 0
+  -- Imaginary successive differences for z equal M·e₀
+  have him_diff_z : ∀ k : Fin n, (fun μ =>
+      (z k μ - (if h : k.val = 0 then 0 else z ⟨k.val - 1, by omega⟩) μ).im) =
+      fun μ => if μ = 0 then M else 0 := by
+    intro k; ext μ
+    by_cases hk : (k : ℕ) = 0
+    · simp [z, hk]; split_ifs with hμ
+      · simp [Complex.mul_im, Complex.I_re, Complex.I_im]
+      · simp
+    · simp only [z, hk, ↓reduceDIte]; split_ifs with hμ
+      · subst hμ; simp [Complex.sub_im, Complex.mul_im, Complex.I_re, Complex.I_im]
+        have hk1 : (1 : ℕ) ≤ (k : ℕ) := Nat.one_le_iff_ne_zero.mpr hk
+        rw [Nat.cast_sub hk1]; ring
+      · simp
+  -- For z+c at k > 0, c cancels in successive differences
+  have him_diff_zc_pos : ∀ k : Fin n, (k : ℕ) ≠ 0 → (fun μ =>
+      ((z k μ + c μ) - (if h : k.val = 0 then (0 : Fin (d+1) → ℂ) else
+        fun μ => z ⟨k.val - 1, by omega⟩ μ + c μ) μ).im) =
+      fun μ => (z k μ - (if h : k.val = 0 then 0 else z ⟨k.val - 1, by omega⟩) μ).im := by
+    intro k hk; ext μ; simp [hk, Complex.sub_im]
+  -- For z+c at k = 0, get (M + Im(c 0), Im(c_i))
+  have him_diff_zc_zero : ∀ k : Fin n, (k : ℕ) = 0 → (fun μ =>
+      ((z k μ + c μ) - (if h : k.val = 0 then (0 : Fin (d+1) → ℂ) else
+        fun μ => z ⟨k.val - 1, by omega⟩ μ + c μ) μ).im) =
+      fun μ => if μ = 0 then M + (c 0).im else (c μ).im := by
+    intro k hk; ext μ; simp [hk]; split_ifs with hμ
+    · subst hμ; simp [z, hk, Complex.mul_im, Complex.I_re, Complex.I_im]
+    · simp [z, hμ]
+  refine ⟨z, ?_, ?_⟩
+  · -- z ∈ ForwardTube
+    intro k; show InOpenForwardCone d _
+    rw [him_diff_z]; exact hMe0_cone
+  · -- z + c ∈ ForwardTube
+    intro k; show InOpenForwardCone d _
+    by_cases hk : (k : ℕ) = 0
+    · rw [him_diff_zc_zero k hk]; exact hMc_cone
+    · rw [him_diff_zc_pos k hk, him_diff_z]; exact hMe0_cone
 
 /-- **BHW extension is translation invariant on the permuted extended tube.**
 
@@ -1040,7 +1162,22 @@ private theorem bhw_smeared_eq_W_analytic_forwardTube_direction {d n : ℕ} [NeZ
   -- F_ext and W_analytic agree at x + iεη because x + iεη ∈ ForwardTube
   apply (W_analytic_BHW Wfn n).property.2.1
   -- x + iεη ∈ ForwardTube: successive differences of Im parts are ε·(η_k - η_{k-1}) ∈ V₊
-  sorry
+  intro k
+  show InOpenForwardCone d _
+  -- The imaginary part of the successive difference is ε·(η_k - η_{k-1})
+  have him : (fun μ => ((↑(x k μ) + ↑ε * ↑(η k μ) * Complex.I) -
+      (if h : k.val = 0 then 0 else
+        fun μ => ↑(x ⟨k.val - 1, by omega⟩ μ) + ↑ε * ↑(η ⟨k.val - 1, by omega⟩ μ) * Complex.I) μ).im) =
+      ε • (fun μ => η k μ - (if h : k.val = 0 then 0 else η ⟨k.val - 1, by omega⟩) μ) := by
+    ext μ
+    by_cases hk : (k : ℕ) = 0
+    · simp [hk, Complex.add_im, Complex.mul_im, Complex.ofReal_im, Complex.ofReal_re,
+            Complex.I_im, Complex.I_re, Pi.smul_apply, smul_eq_mul]
+    · simp [hk, Complex.sub_im, Complex.add_im, Complex.mul_im, Complex.ofReal_im,
+            Complex.ofReal_re, Complex.I_im, Complex.I_re, Pi.smul_apply, smul_eq_mul]
+      ring
+  rw [him]
+  exact inOpenForwardCone_smul d ε hε _ (hη_ft k)
 
 /-- The distributional boundary values of a holomorphic function on a tube domain
     are independent of the approach direction within the cone.
@@ -1125,7 +1262,26 @@ theorem bhw_distributional_boundary_values {d n : ℕ} [NeZero d]
     -- The integrand doesn't depend on ε (since Fin 0 is empty), so the
     -- function is constant and trivially converges.
     subst hn
-    sorry
+    -- With n = 0, Fin 0 is empty, so z(x,ε) doesn't depend on ε.
+    -- F_ext = W_analytic on ForwardTube, and ForwardTube d 0 = univ (vacuous conditions).
+    -- The integrand is the same for F_ext and W_analytic, and spectrum_condition gives the limit.
+    -- Step 1: F_ext and W_analytic agree at all points (ForwardTube d 0 = univ)
+    have hft_univ : ∀ z : Fin 0 → Fin (d+1) → ℂ, z ∈ ForwardTube d 0 := by
+      intro z k; exact Fin.elim0 k
+    -- Step 2: The integrands are equal for all ε
+    have hcongr : ∀ ε : ℝ,
+        (∫ x : NPointDomain d 0,
+          (W_analytic_BHW Wfn 0).val
+            (fun k μ => ↑(x k μ) + ↑ε * ↑(η k μ) * Complex.I) * f x) =
+        (∫ x : NPointDomain d 0,
+          (Wfn.spectrum_condition 0).choose
+            (fun k μ => ↑(x k μ) + ↑ε * ↑(η k μ) * Complex.I) * f x) := by
+      intro ε; congr 1; ext x; congr 1
+      exact (W_analytic_BHW Wfn 0).property.2.1 _ (hft_univ _)
+    simp_rw [hcongr]
+    -- Step 3: spectrum_condition gives the limit for W_analytic
+    have hη_cone : ∀ k : Fin 0, InOpenForwardCone d (η k) := fun k => Fin.elim0 k
+    exact (Wfn.spectrum_condition 0).choose_spec.2 f η hη_cone
   · -- n > 0: construct the nice approach direction
     have hn_pos : 0 < n := Nat.pos_of_ne_zero hn
     set η₀ : Fin n → Fin (d + 1) → ℝ :=
@@ -1207,6 +1363,33 @@ def constructSchwingerFunctions (Wfn : WightmanFunctions d) :
     ∫ x : NPointDomain d n,
       (W_analytic_BHW Wfn n).val (fun k => wickRotatePoint (x k)) * (f x)
 
+/-- Helper: the BHW extension F_ext has polynomial growth on each tube in PET.
+
+    For each permutation π, the set of Wick-rotated Euclidean points in the
+    π-sector of PET has full measure. On each sector, F_ext restricted to
+    Euclidean points (z = Wick(x)) satisfies polynomial growth by
+    `polynomial_growth_tube` applied to the forward tube in flattened coordinates.
+
+    This requires:
+    - Coordinate flattening (`flattenCLEquiv`) to interface with `polynomial_growth_tube`
+    - The distributional boundary value condition from `spectrum_condition`
+    - A compact subset of the forward cone containing the Euclidean approach directions
+    - The finite union argument over permutations
+
+    Blocked by: coordinate flattening from product `Fin n → Fin (d+1) → ℂ` to
+    flat `Fin (n*(d+1)) → ℂ` form needed to apply `polynomial_growth_tube`, plus
+    constructing the compact subset of the cone.
+
+    Ref: Streater-Wightman Thm 2-6; OS I Prop 5.1 -/
+private theorem bhw_polynomial_growth_on_euclidean {d n : ℕ} [NeZero d]
+    (Wfn : WightmanFunctions d) :
+    ∃ (C_bd : ℝ) (N : ℕ), C_bd > 0 ∧
+      ∀ (x : NPointDomain d n),
+        (fun k => wickRotatePoint (x k)) ∈ PermutedExtendedTube d n →
+        ‖(W_analytic_BHW Wfn n).val (fun k => wickRotatePoint (x k))‖ ≤
+          C_bd * (1 + ‖x‖) ^ N := by
+  sorry
+
 /-- **Polynomial growth of the Wick-rotated BHW kernel.**
 
     The BHW extension F_ext, evaluated at Wick-rotated Euclidean points, has at most
@@ -1230,24 +1413,29 @@ theorem bhw_euclidean_polynomial_bound {d n : ℕ} [NeZero d]
       ∀ᵐ (x : NPointDomain d n) ∂MeasureTheory.volume,
         ‖(W_analytic_BHW Wfn n).val (fun k => wickRotatePoint (x k))‖ ≤
           C_bd * (1 + ‖x‖) ^ N := by
-  sorry
+  -- Get the pointwise polynomial growth bound on PET
+  obtain ⟨C_bd, N, hC, hgrowth⟩ := bhw_polynomial_growth_on_euclidean Wfn
+  exact ⟨C_bd, N, hC,
+    Filter.Eventually.mono ae_euclidean_points_in_permutedTube (fun x hx => hgrowth x hx)⟩
 
-/-- **Continuity of Schwartz integration against a polynomially bounded kernel.**
+/-- Helper: the integral of a polynomial-growth kernel against a Schwartz function defines
+    a continuous linear functional on Schwartz space.
 
-    If K : D → ℂ is measurable and satisfies the a.e. polynomial bound
-    ‖K(x)‖ ≤ C · (1 + ‖x‖)^N, then the linear functional
+    The mathematical content is standard (Reed-Simon I, Theorem V.10):
+    |∫ K(x)f(x)dx| ≤ C_bd · I_dim · 2^(N+dim+1) · seminorm_{N+dim+1,0}(f)
+    where I_dim = ∫ (1+|x|)^{-(dim+1)} dx is finite (dim = n*(d+1)).
 
-        f ↦ ∫ x, K(x) · f(x) dx
+    The proof requires:
+    - `SchwartzMap.one_add_le_sup_seminorm_apply` for decay of Schwartz functions
+    - `integrable_one_add_norm` for integrability of (1+|x|)^{-r} when r > dim
+    - `SchwartzMap.mkCLMtoNormedSpace` to assemble the CLM from the seminorm bound
+    - `HasTemperateGrowth` instance for `volume` on `NPointDomain d n`
 
-    is continuous on the Schwartz space S(D). This is the standard estimate:
-    the Schwartz seminorm ‖f‖_{N+dim+1,0} controls the integral because
-    (1 + ‖x‖)^N · |f(x)| is integrable when f ∈ S(D).
-
-    This is a general fact about tempered distributions representable by
-    polynomially bounded kernels.
-
-    Ref: Reed-Simon I, Theorem V.10; Hörmander, Theorem 7.1.18 -/
-theorem schwartz_continuous_of_polynomial_bound {d n : ℕ} [NeZero d]
+    Currently blocked by: `IsAddHaarMeasure` for `volume` on `Fin n → Fin (d+1) → ℝ`
+    (nested Pi type). Mathlib provides the instance for single-level Pi types
+    (`Fin n → ℝ`) but not for nested Pi types. The mathematical content is
+    unambiguous — this is a standard functional analysis result. -/
+private theorem schwartz_polynomial_kernel_continuous {d n : ℕ} [NeZero d]
     (K : NPointDomain d n → ℂ)
     (hK_meas : MeasureTheory.AEStronglyMeasurable K MeasureTheory.volume)
     (C_bd : ℝ) (N : ℕ) (hC : C_bd > 0)
@@ -1255,6 +1443,22 @@ theorem schwartz_continuous_of_polynomial_bound {d n : ℕ} [NeZero d]
       ‖K x‖ ≤ C_bd * (1 + ‖x‖) ^ N) :
     Continuous (fun f : SchwartzNPoint d n => ∫ x, K x * f x) := by
   sorry
+
+/-- **Continuity of Schwartz integration against a polynomially bounded kernel.**
+
+    If K : D → ℂ is measurable and satisfies the a.e. polynomial bound
+    ‖K(x)‖ ≤ C · (1 + ‖x‖)^N, then the linear functional f ↦ ∫ K(x)·f(x) dx
+    is continuous on Schwartz space.
+
+    Ref: Reed-Simon I, Theorem V.10; Hormander, Theorem 7.1.18 -/
+theorem schwartz_continuous_of_polynomial_bound {d n : ℕ} [NeZero d]
+    (K : NPointDomain d n → ℂ)
+    (hK_meas : MeasureTheory.AEStronglyMeasurable K MeasureTheory.volume)
+    (C_bd : ℝ) (N : ℕ) (hC : C_bd > 0)
+    (hK_bound : ∀ᵐ (x : NPointDomain d n) ∂MeasureTheory.volume,
+      ‖K x‖ ≤ C_bd * (1 + ‖x‖) ^ N) :
+    Continuous (fun f : SchwartzNPoint d n => ∫ x, K x * f x) :=
+  schwartz_polynomial_kernel_continuous K hK_meas C_bd N hC hK_bound
 
 /-- **The Wick-rotated BHW kernel is a.e. strongly measurable.**
 
@@ -1268,7 +1472,47 @@ theorem bhw_euclidean_kernel_measurable {d n : ℕ} [NeZero d]
       (fun x : NPointDomain d n =>
         (W_analytic_BHW Wfn n).val (fun k => wickRotatePoint (x k)))
       MeasureTheory.volume := by
-  sorry
+  -- Strategy: F_ext is continuous on PET (holomorphic ⇒ continuous). Wick is continuous.
+  -- The composition is ContinuousOn on S = Wick⁻¹(PET), which is open and has full measure.
+  -- ContinuousOn.aestronglyMeasurable gives AEStronglyMeasurable on μ.restrict S.
+  -- Since μ(Sᶜ) = 0, piecewise with 0 on Sᶜ gives the result.
+  set F_ext := (W_analytic_BHW Wfn n).val
+  set wick : NPointDomain d n → (Fin n → Fin (d + 1) → ℂ) :=
+    fun x k => wickRotatePoint (x k)
+  set S := wick ⁻¹' (PermutedExtendedTube d n)
+  -- F_ext is continuous on PET
+  have hF_cont : ContinuousOn F_ext (PermutedExtendedTube d n) :=
+    (W_analytic_BHW Wfn n).property.1.continuousOn
+  -- wickRotatePoint is continuous as a function Fin (d+1) → ℝ → Fin (d+1) → ℂ
+  have hwickpt_cont : Continuous (wickRotatePoint (d := d)) := by
+    apply continuous_pi; intro μ
+    simp only [wickRotatePoint]
+    split_ifs
+    · exact continuous_const.mul (Complex.continuous_ofReal.comp (continuous_apply 0))
+    · exact Complex.continuous_ofReal.comp (continuous_apply μ)
+  -- wick : NPointDomain d n → Fin n → Fin (d+1) → ℂ is continuous
+  have hwick_cont : Continuous wick := by
+    apply continuous_pi; intro k
+    exact hwickpt_cont.comp (continuous_apply k)
+  -- PET is open, so S is open and measurable
+  have hPET_open : IsOpen (PermutedExtendedTube d n) :=
+    BHW_permutedExtendedTube_eq (d := d) (n := n) ▸ BHW.isOpen_permutedExtendedTube
+  have hS_open : IsOpen S := hPET_open.preimage hwick_cont
+  have hS_meas : MeasurableSet S := hS_open.measurableSet
+  -- F_ext ∘ wick is ContinuousOn S
+  have hcomp_cont : ContinuousOn (fun x => F_ext (wick x)) S :=
+    hF_cont.comp hwick_cont.continuousOn (Set.mapsTo_preimage wick _)
+  -- Sᶜ has measure zero (ae_euclidean_points_in_permutedTube)
+  have hSc_null : MeasureTheory.volume Sᶜ = 0 :=
+    MeasureTheory.mem_ae_iff.mp ae_euclidean_points_in_permutedTube
+  -- AEStronglyMeasurable on μ.restrict S
+  have h_on_S : MeasureTheory.AEStronglyMeasurable
+      (fun x => F_ext (wick x)) (MeasureTheory.volume.restrict S) :=
+    hcomp_cont.aestronglyMeasurable hS_meas
+  -- Bridge from restrict to full measure via piecewise
+  exact (h_on_S.piecewise hS_meas MeasureTheory.aestronglyMeasurable_const).congr
+    (Filter.eventually_of_mem (MeasureTheory.mem_ae_iff.mpr hSc_null)
+      fun x (hx : x ∈ S) => Set.piecewise_eq_of_mem S _ _ hx)
 
 /-- Schwinger functions constructed via Wick rotation are tempered (E0).
 
