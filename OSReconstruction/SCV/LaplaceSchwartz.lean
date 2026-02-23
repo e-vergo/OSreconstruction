@@ -6,6 +6,8 @@ Authors: ModularPhysics Contributors
 import OSReconstruction.SCV.TubeDomainExtension
 import Mathlib.Analysis.Distribution.SchwartzSpace.Deriv
 import Mathlib.Analysis.Distribution.TemperedDistribution
+import Mathlib.Analysis.Distribution.AEEqOfIntegralContDiff
+import Mathlib.MeasureTheory.Measure.OpenPos
 
 /-!
 # Fourier-Laplace Representation of Holomorphic Functions on Tube Domains
@@ -106,25 +108,111 @@ theorem fourierLaplace_continuousWithinAt {m : ℕ}
     ContinuousWithinAt F (TubeDomain C) (realEmbed x) := by
   sorry
 
+/-- **Schwartz functions are integrable** (needed for dominated convergence applications).
+    Schwartz functions decay rapidly, so they are in every Lp space. -/
+theorem schwartzMap_integrable {m : ℕ} (f : SchwartzMap (Fin m → ℝ) ℂ) :
+    MeasureTheory.Integrable (fun x => f x) := by
+  have h := f.integrable_pow_mul MeasureTheory.MeasureSpace.volume 0
+  simp only [pow_zero, one_mul] at h
+  rw [← MeasureTheory.integrable_norm_iff (SchwartzMap.continuous f).aestronglyMeasurable]
+  exact h
+
+/-- **Pointwise convergence of boundary approach for FL functions.**
+    If F is holomorphic on T(C) with a FL representation, then for fixed x and η ∈ C,
+    F(x + iεη) → F(realEmbed x) as ε → 0⁺. This follows from
+    `fourierLaplace_continuousWithinAt` and the cone structure ensuring εη ∈ C
+    for all ε > 0. -/
+theorem fourierLaplace_pointwise_boundary_limit {m : ℕ}
+    {C : Set (Fin m → ℝ)} (hC : IsOpen C) (hconv : Convex ℝ C) (hne : C.Nonempty)
+    (hcone : ∀ (t : ℝ), 0 < t → ∀ y ∈ C, t • y ∈ C)
+    {F : (Fin m → ℂ) → ℂ} (hF : DifferentiableOn ℂ F (TubeDomain C))
+    (hRepr : HasFourierLaplaceRepr C F)
+    (x : Fin m → ℝ) (η : Fin m → ℝ) (hη : η ∈ C) :
+    Filter.Tendsto (fun ε : ℝ => F (fun i => ↑(x i) + ↑ε * ↑(η i) * I))
+      (nhdsWithin 0 (Set.Ioi 0))
+      (nhds (F (realEmbed x))) := by
+  -- ContinuousWithinAt gives F converges along nhdsWithin (TubeDomain C) (realEmbed x)
+  have hcwa := fourierLaplace_continuousWithinAt hC hconv hne hF hRepr x
+  -- The path ε ↦ x + iεη sends nhdsWithin 0 (Ioi 0) into nhdsWithin (TubeDomain C) (realEmbed x)
+  -- so we compose F with the path.
+  let path : ℝ → (Fin m → ℂ) := fun ε => fun i => ↑(x i) + ↑ε * ↑(η i) * I
+  -- path maps into TubeDomain C for ε > 0
+  have h_maps : ∀ ε : ℝ, ε > 0 → path ε ∈ TubeDomain C := by
+    intro ε hε
+    simp only [path, TubeDomain, Set.mem_setOf_eq]
+    have : (fun i => (↑(x i) + ↑ε * ↑(η i) * I).im) = ε • η := by
+      ext i; simp [Complex.add_im, Complex.ofReal_im, Complex.mul_im,
+        Complex.ofReal_re, Complex.I_re, Complex.I_im]
+    rw [this]; exact hcone ε hε η hη
+  -- path converges to realEmbed x as ε → 0⁺ and lands in TubeDomain C
+  have h_path_tendsto : Filter.Tendsto path (nhds 0) (nhds (realEmbed x)) := by
+    apply tendsto_pi_nhds.mpr; intro i
+    show Filter.Tendsto (fun ε : ℝ => ↑(x i) + ↑ε * ↑(η i) * I) (nhds 0) (nhds (realEmbed x i))
+    have : realEmbed x i = ↑(x i) + ↑(0 : ℝ) * ↑(η i) * I := by
+      simp [realEmbed]
+    rw [this]
+    exact ((continuous_const.add
+      (((Complex.continuous_ofReal.comp continuous_id').mul continuous_const).mul
+        continuous_const)).tendsto 0)
+  have h_path_in : ∀ᶠ ε in nhdsWithin 0 (Set.Ioi 0), path ε ∈ TubeDomain C :=
+    eventually_nhdsWithin_of_forall fun ε hε => h_maps ε (Set.mem_Ioi.mp hε)
+  have h_conv : Filter.Tendsto path (nhdsWithin 0 (Set.Ioi 0))
+      (nhdsWithin (realEmbed x) (TubeDomain C)) :=
+    tendsto_nhdsWithin_of_tendsto_nhds_of_eventually_within _
+      (h_path_tendsto.mono_left nhdsWithin_le_nhds) h_path_in
+  -- Compose: F . path converges to F(realEmbed x)
+  exact hcwa.tendsto.comp h_conv
+
+/-- **Uniform polynomial bound for FL functions near boundary.**
+    For F with a FL representation, there exist C_bd and N such that
+    ‖F(x + iεη)‖ ≤ C_bd * (1 + ‖x‖)^N for all small ε > 0 and x.
+    This is the key domination estimate for applying dominated convergence. -/
+theorem fourierLaplace_uniform_bound_near_boundary {m : ℕ}
+    {C : Set (Fin m → ℝ)} (hC : IsOpen C) (hconv : Convex ℝ C) (hne : C.Nonempty)
+    {F : (Fin m → ℂ) → ℂ} (hF : DifferentiableOn ℂ F (TubeDomain C))
+    (hRepr : HasFourierLaplaceRepr C F)
+    (η : Fin m → ℝ) (hη : η ∈ C) :
+    ∃ (C_bd : ℝ) (N : ℕ) (δ : ℝ), C_bd > 0 ∧ δ > 0 ∧
+      ∀ (x : Fin m → ℝ) (ε : ℝ), 0 < ε → ε < δ →
+        ‖F (fun i => ↑(x i) + ↑ε * ↑(η i) * I)‖ ≤ C_bd * (1 + ‖x‖) ^ N := by
+  sorry
+
+/-- **Integral convergence of FL functions against Schwartz functions.**
+    For F with a FL representation and η ∈ C, the Schwartz integral converges:
+    ∫ F(x+iεη)f(x)dx → ∫ F(realEmbed x)f(x)dx as ε → 0⁺.
+    This combines pointwise boundary convergence with dominated convergence
+    (using polynomial growth bounds and Schwartz decay). -/
+theorem fourierLaplace_schwartz_integral_convergence {m : ℕ}
+    {C : Set (Fin m → ℝ)} (hC : IsOpen C) (hconv : Convex ℝ C) (hne : C.Nonempty)
+    {F : (Fin m → ℂ) → ℂ} (hF : DifferentiableOn ℂ F (TubeDomain C))
+    (hRepr : HasFourierLaplaceRepr C F)
+    (f : SchwartzMap (Fin m → ℝ) ℂ) (η : Fin m → ℝ) (hη : η ∈ C) :
+    Filter.Tendsto (fun ε : ℝ =>
+      ∫ x : Fin m → ℝ, F (fun i => ↑(x i) + ↑ε * ↑(η i) * I) * f x)
+    (nhdsWithin 0 (Set.Ioi 0))
+    (nhds (∫ x, F (realEmbed x) * f x)) := by
+  sorry
+
 /-- **Boundary value recovery from Fourier-Laplace representation.**
 
     If F has a Fourier-Laplace representation with distributional boundary value T,
     then the continuous extension to the boundary integrates against test functions
     to give T: `T(f) = ∫ F(realEmbed x) · f(x) dx`.
 
-    The proof (Vladimirov §26.2) uses:
-    1. ContinuousWithinAt gives pointwise convergence F(x+iεη) → F(realEmbed x)
-    2. Dominated convergence (from polynomial growth) gives
-       ∫ F(x+iεη)f(x)dx → ∫ F(realEmbed x)f(x)dx
-    3. The distributional BV definition gives the LHS → T(f)
-    4. Uniqueness of limits identifies the RHS with T(f) -/
+    The proof uses:
+    1. The distributional BV definition gives: ∫ F(x+iεη)f(x)dx → T(f)
+    2. Dominated convergence gives: ∫ F(x+iεη)f(x)dx → ∫ F(realEmbed x)f(x)dx
+    3. Uniqueness of limits in ℂ (Hausdorff) identifies T(f) = ∫ F(realEmbed x)f(x)dx -/
 theorem fourierLaplace_boundary_recovery {m : ℕ}
     {C : Set (Fin m → ℝ)} (hC : IsOpen C) (hconv : Convex ℝ C) (hne : C.Nonempty)
     {F : (Fin m → ℂ) → ℂ} (hF : DifferentiableOn ℂ F (TubeDomain C))
     (hRepr : HasFourierLaplaceRepr C F)
     (f : SchwartzMap (Fin m → ℝ) ℂ) :
     hRepr.dist f = ∫ x : Fin m → ℝ, F (realEmbed x) * f x := by
-  sorry
+  obtain ⟨η, hη⟩ := hne
+  exact tendsto_nhds_unique
+    (hRepr.boundary_value f η hη)
+    (fourierLaplace_schwartz_integral_convergence hC hconv ⟨η, hη⟩ hF hRepr f η hη)
 
 /-- **Polynomial growth of Fourier-Laplace transforms.**
 
@@ -246,23 +334,67 @@ theorem eq_zero_of_schwartz_integral_zero {m : ℕ}
     (hint : ∀ f : SchwartzMap (Fin m → ℝ) ℂ,
       ∫ x : Fin m → ℝ, g x * f x = 0) :
     ∀ x : Fin m → ℝ, g x = 0 := by
-  sorry
+  -- Step 1: g is locally integrable (continuous implies locally integrable)
+  have hli : MeasureTheory.LocallyIntegrable g := hg.locallyIntegrable
+  -- Step 2: g =ᵐ[volume] 0 via ae_eq_zero_of_integral_contDiff_smul_eq_zero
+  have hae : ∀ᵐ x ∂MeasureTheory.MeasureSpace.volume, g x = 0 := by
+    have := ae_eq_zero_of_integral_contDiff_smul_eq_zero hli ?_
+    · exact this
+    · intro φ hφ_smooth hφ_compact
+      -- φ : (Fin m → ℝ) → ℝ smooth compactly supported
+      -- Need: ∫ x, φ x • g x = 0
+      -- Cast φ to complex: φ_C = Complex.ofReal ∘ φ
+      -- Then φ x • g x = (φ x : ℂ) * g x = g x * (φ x : ℂ)
+      -- And φ_C is a Schwartz map, so hint applies
+      have hφC_smooth : ContDiff ℝ ((⊤ : ENat) : WithTop ENat) (fun x => (φ x : ℂ)) := by
+        rw [contDiff_infty] at hφ_smooth
+        rw [contDiff_infty]
+        intro n
+        exact (Complex.ofRealCLM.contDiff.of_le le_top).comp (hφ_smooth n)
+      have hφC_compact : HasCompactSupport (fun x => (φ x : ℂ)) :=
+        hφ_compact.comp_left Complex.ofReal_zero
+      let φ_schwartz : SchwartzMap (Fin m → ℝ) ℂ :=
+        hφC_compact.toSchwartzMap hφC_smooth
+      have heval : ∀ x, φ_schwartz x = (φ x : ℂ) :=
+        HasCompactSupport.toSchwartzMap_toFun hφC_compact hφC_smooth
+      have h := hint φ_schwartz
+      rw [show (∫ x, φ x • g x) = ∫ x, g x * φ_schwartz x from ?_]
+      · exact h
+      · congr 1; ext x
+        rw [heval, Complex.real_smul, mul_comm]
+  -- Step 3: Upgrade ae to pointwise via continuity
+  have h_eq : g = fun _ => 0 :=
+    MeasureTheory.Measure.eq_of_ae_eq hae hg continuous_const
+  exact fun x => congr_fun h_eq x
 
-/-- **Boundary integral convergence from Fourier-Laplace representation.**
+/-- **AE strong measurability of FL integrand.**
+    The function x ↦ F(x + iεη) * f(x) is AE strongly measurable for each ε. -/
+theorem fourierLaplace_integrand_aestronglyMeasurable {m : ℕ}
+    {C : Set (Fin m → ℝ)}
+    {F : (Fin m → ℂ) → ℂ} (hF : DifferentiableOn ℂ F (TubeDomain C))
+    (η : Fin m → ℝ) (hη : η ∈ C)
+    (hcone : ∀ (t : ℝ), 0 < t → ∀ y ∈ C, t • y ∈ C)
+    (f : (Fin m → ℝ) → ℂ) (hf : MeasureTheory.Integrable f)
+    (ε : ℝ) (hε : 0 < ε) :
+    MeasureTheory.AEStronglyMeasurable
+      (fun x : Fin m → ℝ => F (fun i => ↑(x i) + ↑ε * ↑(η i) * I) * f x) := by
+  -- F . (x ↦ x + iεη) is continuous, hence AE strongly measurable
+  -- f is integrable, hence AE strongly measurable
+  -- Their product is AE strongly measurable
+  have h_embed : Continuous (fun x : Fin m → ℝ => (fun i => ↑(x i) + ↑ε * ↑(η i) * I : Fin m → ℂ)) :=
+    continuous_pi fun i => (Complex.continuous_ofReal.comp (continuous_apply i)).add continuous_const
+  have h_in_tube : ∀ x : Fin m → ℝ, (fun i => ↑(x i) + ↑ε * ↑(η i) * I) ∈ TubeDomain C := by
+    intro x
+    simp only [TubeDomain, Set.mem_setOf_eq]
+    have : (fun i => (↑(x i) + ↑ε * ↑(η i) * I).im) = ε • η := by
+      ext i; simp [Complex.add_im, Complex.ofReal_im, Complex.mul_im,
+        Complex.ofReal_re, Complex.I_re, Complex.I_im]
+    rw [this]; exact hcone ε hε η hη
+  have h_F_cont : Continuous (fun x : Fin m → ℝ => F (fun i => ↑(x i) + ↑ε * ↑(η i) * I)) := by
+    have hF_cont := hF.continuousOn
+    exact hF_cont.comp_continuous h_embed h_in_tube
+  exact h_F_cont.aestronglyMeasurable.mul hf.1
 
-    If F is holomorphic on T(C) with a Fourier-Laplace representation, C is a cone,
-    and η ∈ C, then for any integrable function f:
-      ∫ F(x+iεη) f(x) dx → ∫ F(realEmbed x) f(x) dx  as ε → 0⁺.
-
-    The proof uses dominated convergence:
-    1. Pointwise: F(x+iεη) → F(realEmbed x) from ContinuousWithinAt + cone approach
-    2. Domination: The Fourier-Laplace integral representation F(z) = ∫ e^{iz·ξ} dμ(ξ)
-       gives |F(x+iεη)| ≤ ∫ e^{-ε⟨η,ξ⟩} d|μ|(ξ) which is bounded by ∫ d|μ|(ξ) < ∞
-       (the total mass of the representing measure, finite by temperedness).
-       This bound is independent of x and ε, giving a constant dominating function.
-    3. MeasureTheory.tendsto_integral_of_dominated_convergence
-
-    Ref: Vladimirov §25-26 -/
 theorem fourierLaplace_boundary_integral_convergence {m : ℕ}
     {C : Set (Fin m → ℝ)} (hC : IsOpen C) (hconv : Convex ℝ C) (hne : C.Nonempty)
     (hcone : ∀ (t : ℝ), 0 < t → ∀ y ∈ C, t • y ∈ C)
@@ -274,6 +406,11 @@ theorem fourierLaplace_boundary_integral_convergence {m : ℕ}
       ∫ x : Fin m → ℝ, F (fun i => ↑(x i) + ↑ε * ↑(η i) * I) * f x)
     (nhdsWithin 0 (Set.Ioi 0))
     (nhds (∫ x, F (realEmbed x) * f x)) := by
+  -- Strategy: Apply MeasureTheory.tendsto_integral_filter_of_dominated_convergence
+  -- with bound(x) = C_bd * (1 + ‖x‖)^N * ‖f(x)‖
+  -- 1. Pointwise convergence: fourierLaplace_pointwise_boundary_limit
+  -- 2. Uniform bound: fourierLaplace_uniform_bound_near_boundary
+  -- 3. Integrability of bound: polynomial growth * integrable f is integrable
   sorry
 
 end SCV

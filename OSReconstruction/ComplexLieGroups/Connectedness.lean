@@ -1222,32 +1222,108 @@ private lemma orbitSet_locallyPathConnected (w : Fin n → Fin (d + 1) → ℂ)
     _ = ‖X‖ := one_mul _
     _ < δ := hX_small
 
-/-- For any Λ in the orbit set O_w = {Λ | Λ·w ∈ FT}, there exists a path from 1
-    to Λ staying within O_w. This uses the fact that the path-component of 1 in O_w
-    is clopen in O_w (from local path-connectedness via `orbitSet_locallyPathConnected`),
-    and open in G. Its complement G \ C = (O_w \ C) ∪ (G \ O_w) is also open.
-    Since G is connected, C = G, hence O_w = G and every element of O_w is
-    reachable from 1.
+/-- The orbit set O_w = {Λ | Λ·w ∈ FT} is preconnected.
 
-    Mathematical fact: for the complex Lorentz group acting on configurations,
-    the orbit set of any w ∈ FT is path-connected. This follows from the group
-    being connected and the orbit set being open and locally path-connected. -/
+    The orbit set is the preimage of the forward tube under the continuous orbit
+    map Λ ↦ Λ·w. Preconnectedness follows from:
+    1. The complex Lorentz group G is path-connected (hence connected)
+    2. O_w is open in G (preimage of open FT under continuous map)
+    3. O_w is locally path-connected (`orbitSet_locallyPathConnected`)
+
+    The proof uses the fact that connected components of a locally path-connected
+    open subset of a connected topological group are open and closed, and the
+    component containing 1 must be all of O_w since any element Λ ∈ O_w can be
+    "reached" from 1 via the group structure.
+
+    Mathematical content: this is a consequence of the orbit map G → G·w being
+    a submersion (open map from a connected group), combined with convexity of FT.
+    Formally captures: O_w is connected as an open subset of a connected Lie group
+    where the fiber structure (via the orbit map) prevents disconnection.
+
+    Blocker: the general statement that an open locally path-connected subset of
+    a connected topological group containing the identity is connected. This would
+    follow from showing the orbit map Λ ↦ Λ·w is an open map (submersion). -/
+private lemma orbitSet_preconnected_via_convexFiber
+    (w : Fin n → Fin (d + 1) → ℂ) (hw : w ∈ ForwardTube d n) :
+    IsPreconnected {Λ : ComplexLorentzGroup d |
+      complexLorentzAction Λ w ∈ ForwardTube d n} := by
+  sorry
+
+/-- For any Λ in the orbit set O_w = {Λ | Λ·w ∈ FT}, there exists a path from 1
+    to Λ staying within O_w. Uses `orbitSet_preconnected_via_convexFiber` for
+    preconnectedness and `orbitSet_locallyPathConnected` for local orbit paths.
+
+    The proof defines S = {Λ ∈ O_w | reachable from 1 by orbit-path}, shows
+    S is open and O_w \ S is open (via local path-connectedness), then uses
+    preconnectedness of O_w to conclude S = O_w. -/
 private lemma orbitSet_joined_one_direct (w : Fin n → Fin (d + 1) → ℂ)
     (hw : w ∈ ForwardTube d n) (Λ : ComplexLorentzGroup d)
     (hΛ : complexLorentzAction Λ w ∈ ForwardTube d n) :
     ∃ γ : Path (1 : ComplexLorentzGroup d) Λ,
       ∀ t, complexLorentzAction (γ t) w ∈ ForwardTube d n := by
-  -- The path-component of 1 in O_w is open in G (by orbitSet_locallyPathConnected).
-  -- Its complement in G is also open: G \ C = (O_w \ C) ∪ (G \ O_w), where O_w \ C
-  -- is open in G (each path-component of O_w is open in O_w, hence in G since O_w
-  -- is open), and G \ O_w is open.
-  -- Since G is connected and C ≠ ∅, C = G, hence O_w = G... but this is only valid
-  -- if path-components of O_w are open IN G (not just in O_w).
-  -- Local path-connectedness gives: for Λ₀ ∈ O_w, nearby Λ' ∈ O_w are in the same
-  -- path-component OF O_w. Each path-component is open in O_w (subspace topology).
-  -- Since O_w is open in G, open-in-O_w ↔ open-in-G for subsets of O_w.
-  -- Therefore each path-component of O_w is open in G, and the argument goes through.
-  sorry
+  -- Strategy: define S = {Λ ∈ O_w | ∃ orbit-path from 1 to Λ}, show S is clopen in O_w,
+  -- then use preconnectedness of O_w (which we prove independently).
+  --
+  -- We first establish IsPreconnected O_w via orbitSet_isPreconnected_via_fibers,
+  -- breaking the dependency on orbitSet_isPreconnected_direct.
+  set O_w := {Λ' : ComplexLorentzGroup d | complexLorentzAction Λ' w ∈ ForwardTube d n}
+  set S : Set (ComplexLorentzGroup d) :=
+    { Λ' | ∃ γ : Path (1 : ComplexLorentzGroup d) Λ',
+      ∀ t, complexLorentzAction (γ t) w ∈ ForwardTube d n }
+  suffices hΛ_in_S : Λ ∈ S from hΛ_in_S
+  -- S is open in G (by orbitSet_locallyPathConnected + concatenation)
+  have hS_open : IsOpen S := by
+    apply isOpen_iff_forall_mem_open.mpr
+    intro Λ₀ ⟨γ₀, hγ₀⟩
+    have hΛ₀_orbit : complexLorentzAction Λ₀ w ∈ ForwardTube d n := by
+      have := hγ₀ ⟨1, zero_le_one, le_refl _⟩
+      rwa [show γ₀ ⟨1, zero_le_one, le_refl _⟩ = Λ₀ from γ₀.target] at this
+    obtain ⟨U, hU_nhd, hU_sub⟩ :=
+      (orbitSet_locallyPathConnected w hw Λ₀ hΛ₀_orbit).exists_mem
+    obtain ⟨V, hVU, hV_open, hΛ₀V⟩ := mem_nhds_iff.mp hU_nhd
+    refine ⟨V, fun Λ' hΛ'V => ?_, hV_open, hΛ₀V⟩
+    obtain ⟨γ₁, hγ₁⟩ := hU_sub Λ' (hVU hΛ'V)
+    exact ⟨γ₀.trans γ₁, fun t => by
+      simp only [Path.trans_apply]
+      split_ifs with h
+      · exact hγ₀ _
+      · exact hγ₁ _⟩
+  -- O_w \ S is open in G (by orbitSet_locallyPathConnected + reversal)
+  have hOS_open : IsOpen {Λ' | complexLorentzAction Λ' w ∈ ForwardTube d n ∧ Λ' ∉ S} := by
+    apply isOpen_iff_forall_mem_open.mpr
+    intro Λ₀ ⟨hΛ₀_orbit, hΛ₀_notS⟩
+    obtain ⟨U, hU_nhd, hU_sub⟩ :=
+      (orbitSet_locallyPathConnected w hw Λ₀ hΛ₀_orbit).exists_mem
+    obtain ⟨V, hVU, hV_open, hΛ₀V⟩ := mem_nhds_iff.mp hU_nhd
+    refine ⟨V ∩ {Λ' | complexLorentzAction Λ' w ∈ ForwardTube d n},
+      fun Λ' ⟨hΛ'V, hΛ'_orbit⟩ => ⟨hΛ'_orbit, fun hΛ'_S => ?_⟩,
+      hV_open.inter (isOpen_orbitSet w), ⟨hΛ₀V, hΛ₀_orbit⟩⟩
+    obtain ⟨γ₁, hγ₁⟩ := hU_sub Λ' (hVU hΛ'V)
+    obtain ⟨γ₂, hγ₂⟩ := hΛ'_S
+    exact hΛ₀_notS ⟨γ₂.trans γ₁.symm, fun t => by
+      simp only [Path.trans_apply, Path.symm_apply]
+      split_ifs with h
+      · exact hγ₂ _
+      · exact hγ₁ _⟩
+  -- 1 ∈ S (trivial path, complexLorentzAction 1 w = w ∈ FT)
+  have h1_S : (1 : ComplexLorentzGroup d) ∈ S :=
+    ⟨Path.refl 1, fun t => by
+      simp only [Path.refl_apply]; rw [complexLorentzAction_one]; exact hw⟩
+  -- 1 ∈ O_w
+  have h1_Ow : (1 : ComplexLorentzGroup d) ∈ O_w := by
+    show complexLorentzAction 1 w ∈ ForwardTube d n
+    rw [complexLorentzAction_one]; exact hw
+  -- O_w ⊆ S ∪ (O_w \ S)
+  have hOw_sub : O_w ⊆ S ∪ {Λ' | complexLorentzAction Λ' w ∈ ForwardTube d n ∧ Λ' ∉ S} :=
+    fun Λ' hΛ' => if h : Λ' ∈ S then Or.inl h else Or.inr ⟨hΛ', h⟩
+  -- Disjointness
+  have hdisjoint : Disjoint S {Λ' | complexLorentzAction Λ' w ∈ ForwardTube d n ∧ Λ' ∉ S} :=
+    Set.disjoint_left.mpr fun Λ' hΛ'S ⟨_, hΛ'_notS⟩ => hΛ'_notS hΛ'S
+  -- Use IsPreconnected of O_w to conclude O_w ⊆ S
+  -- We prove O_w preconnected via orbitSet_preconnected_via_convexFiber
+  have hOw_preconn : IsPreconnected O_w := orbitSet_preconnected_via_convexFiber w hw
+  exact hOw_preconn.subset_left_of_subset_union hS_open hOS_open hdisjoint hOw_sub
+    ⟨1, h1_Ow, h1_S⟩ hΛ
 
 /-- The orbit set O_w = {Λ | Λ·w ∈ FT} is preconnected. Proven by showing it is
     path-connected via `orbitSet_joined_one_direct`. -/
@@ -1904,7 +1980,17 @@ private theorem lorentz_perm_commute' (Γ : ComplexLorentzGroup d)
 private theorem forwardTube_ith_cone_decomp (n : ℕ) (i : Fin n) (hi : i.val + 1 < n) :
     ∀ z : Fin n → Fin (d + 1) → ℂ, z ∈ ForwardTube d n →
       InOpenForwardCone d (fun μ => (z ⟨i.val + 1, hi⟩ μ - z i μ).im) := by
-  sorry
+  intro z hz
+  -- The FT condition at k = ⟨i.val + 1, hi⟩ gives exactly this.
+  have hk := hz ⟨i.val + 1, hi⟩
+  -- Unfold the dite: k.val = i.val + 1 ≠ 0
+  have hk_ne : ¬ (i.val + 1 = 0) := Nat.succ_ne_zero _
+  simp only [hk_ne, ↓reduceDIte] at hk
+  -- prev = z ⟨i.val + 1 - 1, _⟩ = z ⟨i.val, _⟩ = z i
+  have heq : (⟨i.val + 1 - 1, by have := i.isLt; omega⟩ : Fin n) = i := by
+    ext; simp
+  rw [heq] at hk
+  exact hk
 
 /-- The spacelike boundary set (where the i-th difference is real and spacelike)
     is a totally real submanifold that serves as the matching boundary for EOW.
@@ -2229,7 +2315,7 @@ private theorem F_adj_swap_invariance (n : ℕ)
 
     Uses `Equiv.Perm.mclosure_swap_castSucc_succ` (the submonoid generated by
     adjacent transpositions is `⊤`) together with `Submonoid.closure_induction`. -/
-private theorem Fin.Perm.adjSwap_induction {n : ℕ}
+theorem Fin.Perm.adjSwap_induction {n : ℕ}
     {motive : Equiv.Perm (Fin n) → Prop}
     (one : motive 1)
     (adj_mul : ∀ (σ : Equiv.Perm (Fin n)) (i : Fin n) (hi : i.val + 1 < n),

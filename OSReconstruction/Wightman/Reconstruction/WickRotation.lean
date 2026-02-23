@@ -400,17 +400,66 @@ private theorem polynomial_growth_on_slice {d n : ℕ} [NeZero d]
     then g · f is integrable, because Schwartz functions decay faster than
     any polynomial.
 
-    Blocked by: The proof requires the Schwartz decay estimate
-    ‖f(x)‖ ≤ C_f · (1 + ‖x‖)^{-(N+dim+1)} (from SchwartzMap.seminorm bounds)
-    combined with the fact that (1+‖x‖)^{-dim-1} is integrable over ℝ^m
-    for m = dim. Neither the Schwartz seminorm-to-pointwise bound in the
-    needed form nor the integrability of polynomial weights is in Mathlib. -/
+    Proof uses `add_pow_le` to bound (1+‖x‖)^N ≤ 2^(N-1) * (1 + ‖x‖^N),
+    then `SchwartzMap.integrable` and `SchwartzMap.integrable_pow_mul` from Mathlib
+    (via `HasTemperateGrowth` for volume on finite-dimensional Pi types). -/
 private theorem polynomial_growth_mul_schwartz_integrable {d n : ℕ} [NeZero d]
     (g : NPointDomain d n → ℂ)
+    (hg_meas : MeasureTheory.AEStronglyMeasurable g MeasureTheory.volume)
     (C_bd : ℝ) (N : ℕ) (hC : C_bd > 0)
     (hg : ∀ x, ‖g x‖ ≤ C_bd * (1 + ‖x‖) ^ N)
     (f : SchwartzNPoint d n) :
     MeasureTheory.Integrable (fun x => g x * f x) MeasureTheory.volume := by
+  -- Provide instances for Schwartz integrability
+  haveI : MeasureTheory.Measure.IsAddHaarMeasure
+      (MeasureTheory.volume : MeasureTheory.Measure (NPointDomain d n)) :=
+    MeasureTheory.Measure.instIsAddHaarMeasureForallVolumeOfMeasurableAddOfSigmaFinite
+  haveI : (MeasureTheory.volume : MeasureTheory.Measure (NPointDomain d n)).HasTemperateGrowth :=
+    inferInstance
+  have hf_int := f.integrable (μ := MeasureTheory.volume)
+  have hpow_int := SchwartzMap.integrable_pow_mul MeasureTheory.volume f N
+  -- The dominating function: C_bd * 2^(N-1) * (‖f x‖ + ‖x‖^N * ‖f x‖)
+  have hg_dom_int : MeasureTheory.Integrable
+      (fun x => C_bd * 2 ^ (N - 1) * (‖f x‖ + ‖x‖ ^ N * ‖f x‖))
+      MeasureTheory.volume :=
+    (hf_int.norm.add hpow_int).const_mul _
+  -- Measurability of g * f
+  have hmeas : MeasureTheory.AEStronglyMeasurable (fun x => g x * f x)
+      MeasureTheory.volume :=
+    hg_meas.mul f.continuous.aestronglyMeasurable
+  -- Pointwise bound using add_pow_le
+  have hbound : ∀ x : NPointDomain d n,
+      ‖g x * f x‖ ≤ C_bd * 2 ^ (N - 1) * (‖f x‖ + ‖x‖ ^ N * ‖f x‖) := by
+    intro x
+    rw [norm_mul]
+    have h1 := hg x
+    have hnf : (0 : ℝ) ≤ ‖f x‖ := norm_nonneg _
+    have h2 : (1 + ‖x‖) ^ N ≤ 2 ^ (N - 1) * (1 ^ N + ‖x‖ ^ N) :=
+      add_pow_le (by positivity) (norm_nonneg x) N
+    have step1 : ‖g x‖ * ‖f x‖ ≤ C_bd * (1 + ‖x‖) ^ N * ‖f x‖ :=
+      mul_le_mul_of_nonneg_right h1 hnf
+    have step2 : C_bd * (1 + ‖x‖) ^ N * ‖f x‖ ≤
+        C_bd * (2 ^ (N - 1) * (1 ^ N + ‖x‖ ^ N)) * ‖f x‖ :=
+      mul_le_mul_of_nonneg_right (mul_le_mul_of_nonneg_left h2 (le_of_lt hC)) hnf
+    have step3 : C_bd * (2 ^ (N - 1) * (1 ^ N + ‖x‖ ^ N)) * ‖f x‖ =
+        C_bd * 2 ^ (N - 1) * (‖f x‖ + ‖x‖ ^ N * ‖f x‖) := by
+      simp only [one_pow]; ring
+    linarith
+  exact hg_dom_int.mono' hmeas (Filter.Eventually.of_forall hbound)
+
+/-- The slice map x ↦ F(x + εηi) is AEStronglyMeasurable when F is holomorphic
+    on the forward tube and εη has forward cone components.
+    Follows from: the affine embedding x ↦ x + εηi maps into the forward tube,
+    F is continuous there (holomorphic → continuous), and composition with
+    the continuous affine map is continuous, hence measurable. -/
+private theorem forward_tube_slice_aestrongly_measurable {d n : ℕ} [NeZero d]
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF : DifferentiableOn ℂ F (ForwardTube d n))
+    (η : Fin n → Fin (d + 1) → ℝ) (hη : ∀ k, InOpenForwardCone d (η k))
+    (ε : ℝ) (hε : ε > 0) :
+    MeasureTheory.AEStronglyMeasurable
+      (fun x : NPointDomain d n => F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I))
+      MeasureTheory.volume := by
   sorry
 
 theorem forward_tube_bv_integrable {d n : ℕ} [NeZero d]
@@ -425,9 +474,15 @@ theorem forward_tube_bv_integrable {d n : ℕ} [NeZero d]
       MeasureTheory.volume := by
   -- Decompose via polynomial growth on the slice + Schwartz decay
   obtain ⟨C_bd, N, hC, hgrowth⟩ := polynomial_growth_on_slice F hF η hη ε hε
+  -- Measurability: the slice map x ↦ F(x + εηi) is continuous since F is holomorphic
+  -- on the forward tube and the affine embedding maps into it
+  have hg_meas : MeasureTheory.AEStronglyMeasurable
+      (fun x : NPointDomain d n => F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I))
+      MeasureTheory.volume :=
+    forward_tube_slice_aestrongly_measurable F hF η hη ε hε
   exact polynomial_growth_mul_schwartz_integrable
-    (fun x => F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I))
-    C_bd N hC hgrowth f
+    (fun x : NPointDomain d n => F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I))
+    hg_meas C_bd N hC hgrowth f
 
 /-- Extract the matrix product identities for a restricted Lorentz transformation. -/
 private theorem lorentz_mul_inv_eq_one {d : ℕ} [NeZero d]
@@ -1190,16 +1245,32 @@ private theorem W_analytic_translated_bv_eq {d n : ℕ} [NeZero d]
       (nhds (Wfn.W n f)) := by
   sorry
 
+/-- Integrability of the translated holomorphic integrand.
+
+    The function x ↦ W_a(x + iεη + c) * f(x) is integrable when W_a is holomorphic
+    on ForwardTube and f is Schwartz. This requires polynomial growth of the translated
+    slice, which follows from `polynomial_growth_on_slice` applied to z ↦ W_a(z + c).
+
+    Blocked by: showing z ↦ W_a(z + c) is holomorphic on ForwardTube (requires c
+    purely imaginary with small enough imaginary part, or translation-covariance
+    of ForwardTube membership). More precisely, the translated function has polynomial
+    growth on slices via the same Cauchy integral argument. -/
+private theorem forward_tube_bv_integrable_translated {d n : ℕ} [NeZero d]
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF : DifferentiableOn ℂ F (ForwardTube d n))
+    (c : Fin (d + 1) → ℂ)
+    (f : SchwartzNPoint d n)
+    (η : Fin n → Fin (d + 1) → ℝ) (hη : ∀ k, InOpenForwardCone d (η k))
+    (ε : ℝ) (hε : ε > 0) :
+    MeasureTheory.Integrable
+      (fun x : NPointDomain d n =>
+        F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I + c μ) * (f x))
+      MeasureTheory.volume := by
+  sorry
+
 /-- The difference ∫ (W_a(x+iεη+c) - W_a(x+iεη)) * f(x) dx splits into the difference
     of integrals, given integrability of each term. This is a routine consequence of
-    linearity of the Bochner integral.
-
-    Blocked by: Proving integrability of x ↦ W_a(x + iεη + c) · f(x). This requires
-    showing that the translated holomorphic function also has polynomial growth on slices,
-    which follows from `polynomial_growth_on_slice` applied to the translated function.
-    The translation-covariance of ForwardTube membership is needed.
-
-    Ref: Standard property of Bochner integrals. -/
+    linearity of the Bochner integral. -/
 private theorem translate_bv_integral_split {d n : ℕ} [NeZero d]
     (Wfn : WightmanFunctions d)
     (c : Fin (d + 1) → ℂ)
@@ -1216,7 +1287,24 @@ private theorem translate_bv_integral_split {d n : ℕ} [NeZero d]
     (∫ x : NPointDomain d n,
       (Wfn.spectrum_condition n).choose (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) *
       (f x)) := by
-  sorry
+  have heq : ∀ x : NPointDomain d n,
+      ((Wfn.spectrum_condition n).choose (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I + c μ) -
+       (Wfn.spectrum_condition n).choose (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I)) *
+      (f x) =
+      (Wfn.spectrum_condition n).choose (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I + c μ) *
+      (f x) -
+      (Wfn.spectrum_condition n).choose (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) *
+      (f x) := fun x => by ring
+  simp_rw [heq]
+  exact MeasureTheory.integral_sub
+    (forward_tube_bv_integrable_translated
+      (Wfn.spectrum_condition n).choose
+      (Wfn.spectrum_condition n).choose_spec.1
+      c f η hη ε hε)
+    (forward_tube_bv_integrable
+      (Wfn.spectrum_condition n).choose
+      (Wfn.spectrum_condition n).choose_spec.1
+      f η hη ε hε)
 
 private theorem W_analytic_translate_same_bv {d n : ℕ} [NeZero d]
     (Wfn : WightmanFunctions d)
@@ -2885,81 +2973,292 @@ private def bvt_W (OS : OsterwalderSchraderAxioms d)
     SchwartzNPoint d n → ℂ :=
   (boundary_values_tempered OS lgc n).choose
 
+-- Abbreviation for the F_analytic extracted from boundary_values_tempered
+private def bvt_F (OS : OsterwalderSchraderAxioms d)
+    (lgc : OSLinearGrowthCondition d OS) (n : ℕ) :
+    (Fin n → Fin (d + 1) → ℂ) → ℂ :=
+  (boundary_values_tempered OS lgc n).choose_spec.choose
+
+private theorem bvt_F_holomorphic (OS : OsterwalderSchraderAxioms d)
+    (lgc : OSLinearGrowthCondition d OS) (n : ℕ) :
+    DifferentiableOn ℂ (bvt_F OS lgc n) (ForwardTube d n) :=
+  (boundary_values_tempered OS lgc n).choose_spec.choose_spec.2.2.1
+
+private theorem bvt_boundary_values (OS : OsterwalderSchraderAxioms d)
+    (lgc : OSLinearGrowthCondition d OS) (n : ℕ) :
+    ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      (∀ k, InOpenForwardCone d (η k)) →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          bvt_F OS lgc n (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (bvt_W OS lgc n f)) :=
+  (boundary_values_tempered OS lgc n).choose_spec.choose_spec.2.2.2.1
+
+private theorem bvt_euclidean_restriction (OS : OsterwalderSchraderAxioms d)
+    (lgc : OSLinearGrowthCondition d OS) (n : ℕ) :
+    ∀ (f : SchwartzNPoint d n),
+      OS.S n f = ∫ x : NPointDomain d n,
+        bvt_F OS lgc n (fun k => wickRotatePoint (x k)) * (f x) :=
+  (boundary_values_tempered OS lgc n).choose_spec.choose_spec.2.2.2.2.1
+
+/-! #### Helper lemmas for property transfer: OS axiom → F_analytic → W_n
+
+Each bvt_* property follows a three-step transfer:
+1. OS axiom (E0-E4) gives a property of S_n
+2. S_n = F_analytic ∘ wickRotate (Euclidean restriction) transfers to F_analytic
+3. W_n = BV(F_analytic) (boundary value) transfers to W_n
+
+The following helpers isolate the transfer steps as smaller sorry targets. -/
+
+/-- E2R normalization: The 0-point BV is evaluation at the origin.
+
+    For n = 0, the domain Fin 0 → Fin (d+1) → ℝ is a zero-dimensional space
+    (a single point). The forward tube ForwardTube d 0 is all of the (trivial)
+    domain. The analytic function F_analytic is a constant. The BV condition
+    reduces to: the constant value times f(0) = W_0(f), so W_0(f) = c * f(0).
+    Combining with the OS normalization (S_0 is normalized by the Euclidean
+    restriction), we get c = 1, hence W_0(f) = f(0).
+
+    This requires: (1) identifying the integral over the zero-dimensional space,
+    (2) the OS normalization condition S_0(f) = f(0). -/
+private theorem bv_zero_point_is_evaluation (OS : OsterwalderSchraderAxioms d)
+    (lgc : OSLinearGrowthCondition d OS)
+    (W_0 : SchwartzNPoint d 0 → ℂ)
+    (F_0 : (Fin 0 → Fin (d + 1) → ℂ) → ℂ)
+    (hW_cont : Continuous W_0)
+    (hW_lin : IsLinearMap ℂ W_0)
+    (hBV : ∀ (f : SchwartzNPoint d 0) (η : Fin 0 → Fin (d + 1) → ℝ),
+      (∀ k, InOpenForwardCone d (η k)) →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : Fin 0 → Fin (d + 1) → ℝ,
+          F_0 (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W_0 f)))
+    (hEuclid : ∀ (f : SchwartzNPoint d 0),
+      OS.S 0 f = ∫ x : Fin 0 → Fin (d + 1) → ℝ,
+        F_0 (fun k => wickRotatePoint (x k)) * (f x)) :
+    ∀ f : SchwartzNPoint d 0, W_0 f = f 0 := by
+  sorry
+
+/-- E2R translation: Translation invariance transfers from S_n (via E1) through
+    the analytic continuation to the BV.
+
+    The argument: E1 says S_n is translation-invariant. The Euclidean restriction
+    shows F_analytic is translation-invariant at Euclidean points. By analytic
+    continuation, F_analytic is translation-invariant on the forward tube. The BV
+    limit preserves translation invariance. -/
+private theorem bv_translation_invariance_transfer (OS : OsterwalderSchraderAxioms d)
+    (lgc : OSLinearGrowthCondition d OS) (n : ℕ)
+    (W_n : SchwartzNPoint d n → ℂ)
+    (F_n : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF_hol : DifferentiableOn ℂ F_n (ForwardTube d n))
+    (hBV : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      (∀ k, InOpenForwardCone d (η k)) →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          F_n (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W_n f)))
+    (hEuclid : ∀ (f : SchwartzNPoint d n),
+      OS.S n f = ∫ x : NPointDomain d n,
+        F_n (fun k => wickRotatePoint (x k)) * (f x))
+    (hE1 : ∀ (a : SpacetimeDim d) (f g : SchwartzNPoint d n),
+      (∀ x, g.toFun x = f.toFun (fun i => x i + a)) →
+      OS.S n f = OS.S n g) :
+    ∀ (a : SpacetimeDim d) (f g : SchwartzNPoint d n),
+      (∀ x, g.toFun x = f.toFun (fun i => x i + a)) →
+      W_n f = W_n g := by
+  sorry
+
+/-- E2R Lorentz: Lorentz covariance transfers from E1 (Euclidean rotation
+    invariance) through BHW to the BV.
+
+    The argument: E1 gives SO(d+1)-invariance of S_n. The analytic continuation
+    extends this to SO(d+1,C)-invariance of F_analytic. The restricted Lorentz
+    group SO+(1,d) embeds in SO(d+1,C) (Bargmann-Hall-Wightman), giving
+    real Lorentz invariance of F_analytic. The BV preserves this invariance. -/
+private theorem bv_lorentz_covariance_transfer (OS : OsterwalderSchraderAxioms d)
+    (lgc : OSLinearGrowthCondition d OS) (n : ℕ)
+    (W_n : SchwartzNPoint d n → ℂ)
+    (F_n : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF_hol : DifferentiableOn ℂ F_n (ForwardTube d n))
+    (hBV : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      (∀ k, InOpenForwardCone d (η k)) →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          F_n (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W_n f)))
+    (hEuclid : ∀ (f : SchwartzNPoint d n),
+      OS.S n f = ∫ x : NPointDomain d n,
+        F_n (fun k => wickRotatePoint (x k)) * (f x))
+    (hE1_rot : ∀ (R : Matrix (Fin (d + 1)) (Fin (d + 1)) ℝ),
+      R.transpose * R = 1 → R.det = 1 →
+      ∀ (f g : SchwartzNPoint d n),
+      (∀ x, g.toFun x = f.toFun (fun i => R.mulVec (x i))) →
+      OS.S n f = OS.S n g) :
+    ∀ (Λ : LorentzGroup d) (f g : SchwartzNPoint d n),
+      (∀ x, g.toFun x = f.toFun (fun i => Matrix.mulVec Λ⁻¹.val (x i))) →
+      W_n f = W_n g := by
+  sorry
+
+/-- E2R locality: Local commutativity transfers from E3 (permutation symmetry)
+    + edge-of-the-wedge to the BV.
+
+    The argument: E3 says S_n is permutation-symmetric. The Euclidean restriction
+    shows F_analytic is permutation-symmetric at Euclidean points. By analytic
+    continuation (Jost's theorem), this extends to the permuted extended tube.
+    Edge-of-the-wedge at the boundary gives local commutativity of W_n. -/
+private theorem bv_local_commutativity_transfer (OS : OsterwalderSchraderAxioms d)
+    (lgc : OSLinearGrowthCondition d OS) (n : ℕ)
+    (W_n : SchwartzNPoint d n → ℂ)
+    (F_n : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF_hol : DifferentiableOn ℂ F_n (ForwardTube d n))
+    (hBV : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      (∀ k, InOpenForwardCone d (η k)) →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          F_n (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W_n f)))
+    (hE3 : ∀ (σ : Equiv.Perm (Fin n)) (f g : SchwartzNPoint d n),
+      (∀ x, g.toFun x = f.toFun (fun i => x (σ i))) →
+      OS.S n f = OS.S n g) :
+    ∀ (i j : Fin n) (f g : SchwartzNPoint d n),
+      (∀ x, f.toFun x ≠ 0 →
+        MinkowskiSpace.AreSpacelikeSeparated d (x i) (x j)) →
+      (∀ x, g.toFun x = f.toFun (fun k => x (Equiv.swap i j k))) →
+      W_n f = W_n g := by
+  sorry
+
+/-- E2R positivity: Positive definiteness transfers from E2 (reflection positivity)
+    through the Wick rotation.
+
+    The argument: The Wightman inner product sum_{n,m} W_{n+m}(f*_n x f_m) is
+    related to the OS inner product sum_{n,m} S_{n+m}(theta(f*_n) x f_m) by
+    analytic continuation. E2 ensures the OS inner product is non-negative,
+    hence the Wightman inner product is non-negative. -/
+private theorem bv_positive_definiteness_transfer (OS : OsterwalderSchraderAxioms d)
+    (lgc : OSLinearGrowthCondition d OS)
+    (W : (n : ℕ) → SchwartzNPoint d n → ℂ)
+    (hW_eq : ∀ n, W n = bvt_W OS lgc n)
+    (hE2 : ∀ (F : BorchersSequence d),
+      (∀ n, ∀ x : NPointDomain d n, (F.funcs n).toFun x ≠ 0 →
+        x ∈ PositiveTimeRegion d n) →
+      (OSInnerProduct d OS.S F F).re ≥ 0) :
+    ∀ F : BorchersSequence d, (WightmanInnerProduct d W F F).re ≥ 0 := by
+  sorry
+
+/-- E2R Hermiticity: Hermiticity of W_n from reality of Schwinger functions.
+
+    The Schwinger functions are real-valued on real configurations. Under
+    analytic continuation, this gives a Schwarz reflection principle for
+    F_analytic. Taking BV, this yields the Hermiticity condition
+    W_n(f~) = conj(W_n(f)). -/
+private theorem bv_hermiticity_transfer (OS : OsterwalderSchraderAxioms d)
+    (lgc : OSLinearGrowthCondition d OS) (n : ℕ)
+    (W_n : SchwartzNPoint d n → ℂ)
+    (F_n : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF_hol : DifferentiableOn ℂ F_n (ForwardTube d n))
+    (hBV : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      (∀ k, InOpenForwardCone d (η k)) →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          F_n (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W_n f)))
+    (hEuclid : ∀ (f : SchwartzNPoint d n),
+      OS.S n f = ∫ x : NPointDomain d n,
+        F_n (fun k => wickRotatePoint (x k)) * (f x)) :
+    ∀ (f g : SchwartzNPoint d n),
+      (∀ x : NPointDomain d n,
+        g.toFun x = starRingEnd ℂ (f.toFun (fun i => x (Fin.rev i)))) →
+      W_n g = starRingEnd ℂ (W_n f) := by
+  sorry
+
 /-- S44: W_0 = 1 (normalization).
     The 0-point Schwinger function S_0 = 1 (OS normalization). Its analytic
     continuation is the constant function 1 on the (trivial) forward tube.
-    The distributional BV of 1 is evaluation: W_0(f) = f(0).
-
-    Blocked by: identifying the 0-point BV with evaluation at 0. -/
+    The distributional BV of 1 is evaluation: W_0(f) = f(0). -/
 private theorem bvt_normalized (OS : OsterwalderSchraderAxioms d)
     (lgc : OSLinearGrowthCondition d OS) :
     IsNormalized d (bvt_W OS lgc) := by
-  sorry
+  intro f
+  exact bv_zero_point_is_evaluation OS lgc
+    (bvt_W OS lgc 0)
+    (bvt_F OS lgc 0)
+    (boundary_values_tempered OS lgc 0).choose_spec.choose_spec.1
+    (boundary_values_tempered OS lgc 0).choose_spec.choose_spec.2.1
+    (bvt_boundary_values OS lgc 0)
+    (bvt_euclidean_restriction OS lgc 0)
+    f
 
-/-- S45: Translation invariance of W_n from E1.
-    E1 implies Schwinger functions are translation-invariant. Analytic continuation
-    preserves this: F_analytic(z+c) = F_analytic(z) on the forward tube. The BV
-    inherits translation invariance.
-
-    Blocked by: showing translation invariance passes from the analytic function
-    to its distributional boundary values. -/
+/-- S45: Translation invariance of W_n from E1. -/
 private theorem bvt_translation_invariant (OS : OsterwalderSchraderAxioms d)
     (lgc : OSLinearGrowthCondition d OS) :
     IsTranslationInvariantWeak d (bvt_W OS lgc) := by
-  sorry
+  intro n a f g hfg
+  exact bv_translation_invariance_transfer OS lgc n
+    (bvt_W OS lgc n)
+    (bvt_F OS lgc n)
+    (bvt_F_holomorphic OS lgc n)
+    (bvt_boundary_values OS lgc n)
+    (bvt_euclidean_restriction OS lgc n)
+    (OS.E1_translation_invariant n)
+    a f g hfg
 
-/-- S46: Lorentz covariance of W_n from E1 via BHW.
-    E1 (Euclidean rotation invariance) + analytic continuation gives invariance
-    under the complexified rotation group SO(d+1,C). The restricted Lorentz group
-    SO(1,d) embeds in SO(d+1,C) (Bargmann-Hall-Wightman), so the BV inherits
-    Lorentz covariance.
-
-    Blocked by: the embedding SO(1,d) -> SO(d+1,C) and showing BV inherits
-    the invariance. -/
+/-- S46: Lorentz covariance of W_n from E1 via BHW. -/
 private theorem bvt_lorentz_covariant (OS : OsterwalderSchraderAxioms d)
     (lgc : OSLinearGrowthCondition d OS) :
     IsLorentzCovariantWeak d (bvt_W OS lgc) := by
-  sorry
+  intro n Λ f g hfg
+  exact bv_lorentz_covariance_transfer OS lgc n
+    (bvt_W OS lgc n)
+    (bvt_F OS lgc n)
+    (bvt_F_holomorphic OS lgc n)
+    (bvt_boundary_values OS lgc n)
+    (bvt_euclidean_restriction OS lgc n)
+    (OS.E1_rotation_invariant n)
+    Λ f g hfg
 
-/-- S47: Local commutativity of W_n from E3 + edge-of-the-wedge.
-    E3 (permutation symmetry of Schwinger functions) implies F_analytic is
-    symmetric under permutations of its arguments (on the forward tube).
-    By the edge-of-the-wedge theorem, this extends to the real boundary,
-    giving local commutativity of W_n for spacelike-separated arguments.
-
-    Blocked by: edge-of-the-wedge at the distributional level (connecting
-    permutation symmetry on the tube to commutativity on the boundary). -/
+/-- S47: Local commutativity of W_n from E3 + edge-of-the-wedge. -/
 private theorem bvt_locally_commutative (OS : OsterwalderSchraderAxioms d)
     (lgc : OSLinearGrowthCondition d OS) :
     IsLocallyCommutativeWeak d (bvt_W OS lgc) := by
-  sorry
+  intro n i j f g hsupp hswap
+  exact bv_local_commutativity_transfer OS lgc n
+    (bvt_W OS lgc n)
+    (bvt_F OS lgc n)
+    (bvt_F_holomorphic OS lgc n)
+    (bvt_boundary_values OS lgc n)
+    (OS.E3_symmetric n)
+    i j f g hsupp hswap
 
-/-- S48: Positive definiteness of W_n from E2 (reflection positivity).
-    The Wightman inner product sum_nm W_{n+m}(f*_n x f_m) >= 0 follows from
-    E2 after Wick rotation: the OS inner product equals the Wightman inner
-    product under the rotation.
-
-    Blocked by: identifying the Wightman inner product with the OS inner product
-    after Wick rotation (same computation as S38 but in the reverse direction). -/
+/-- S48: Positive definiteness of W_n from E2 (reflection positivity). -/
 private theorem bvt_positive_definite (OS : OsterwalderSchraderAxioms d)
     (lgc : OSLinearGrowthCondition d OS) :
     IsPositiveDefinite d (bvt_W OS lgc) := by
-  sorry
+  exact bv_positive_definiteness_transfer OS lgc
+    (bvt_W OS lgc)
+    (fun _ => rfl)
+    OS.E2_reflection_positive
 
-/-- S49: Hermiticity of W_n from reality of Schwinger functions.
-    The Schwinger functions S_n are real (they are the Euclidean restriction of
-    the analytic continuation). This implies W_n(f~) = conj(W_n(f)) where
-    f~(x) = conj(f(x_n,...,x_1)).
-
-    Blocked by: connecting reality of S_n to the Hermiticity condition on W_n
-    through analytic continuation. -/
+/-- S49: Hermiticity of W_n from reality of Schwinger functions. -/
 private theorem bvt_hermitian (OS : OsterwalderSchraderAxioms d)
     (lgc : OSLinearGrowthCondition d OS) :
     ∀ (n : ℕ) (f g : SchwartzNPoint d n),
       (∀ x : NPointDomain d n,
         g.toFun x = starRingEnd ℂ (f.toFun (fun i => x (Fin.rev i)))) →
       bvt_W OS lgc n g = starRingEnd ℂ (bvt_W OS lgc n f) := by
-  sorry
+  intro n f g hfg
+  exact bv_hermiticity_transfer OS lgc n
+    (bvt_W OS lgc n)
+    (bvt_F OS lgc n)
+    (bvt_F_holomorphic OS lgc n)
+    (bvt_boundary_values OS lgc n)
+    (bvt_euclidean_restriction OS lgc n)
+    f g hfg
 
 /-- Given OS axioms with linear growth condition, construct the full collection
     of Wightman functions from the analytic continuation boundary values. -/
