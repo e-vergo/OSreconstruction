@@ -5,6 +5,7 @@ Authors: ModularPhysics Contributors
 -/
 import OSReconstruction.SCV.TubeDomainExtension
 import OSReconstruction.SCV.IdentityTheorem
+import OSReconstruction.SCV.LaplaceSchwartz
 import Mathlib.Analysis.Distribution.SchwartzSpace.Deriv
 
 /-!
@@ -104,7 +105,13 @@ theorem continuous_boundary_tube {m : ℕ}
         (nhds (T f)))
     (x : Fin m → ℝ) :
     ContinuousWithinAt F (TubeDomain C) (realEmbed x) := by
-  sorry
+  -- Extract the tempered distribution from the BV hypothesis
+  obtain ⟨T, hT⟩ := h_bv
+  -- Build the Fourier-Laplace representation
+  have hRepr : HasFourierLaplaceRepr C F :=
+    exists_fourierLaplaceRepr hC hconv hne hF hT
+  -- Apply the core Fourier-Laplace continuous boundary result
+  exact fourierLaplace_continuousWithinAt hC hconv hne hF hRepr x
 
 /-- **Boundary value recovery for tube-domain holomorphic functions.**
 
@@ -129,7 +136,11 @@ theorem boundary_value_recovery {m : ℕ}
       (nhds (T f)))
     (f : SchwartzMap (Fin m → ℝ) ℂ) :
     T f = ∫ x : Fin m → ℝ, F (realEmbed x) * f x := by
-  sorry
+  -- Build the Fourier-Laplace representation from the BV data
+  let hRepr : HasFourierLaplaceRepr C F :=
+    exists_fourierLaplaceRepr hC hconv hne hF h_bv
+  -- hRepr.dist = T by construction, so the result follows directly
+  exact fourierLaplace_boundary_recovery hC hconv hne hF hRepr f
 
 /-- **Zero distributional boundary value implies zero boundary function.**
 
@@ -152,7 +163,24 @@ theorem boundary_value_zero {m : ℕ}
       (nhdsWithin 0 (Set.Ioi 0))
       (nhds 0))
     (x : Fin m → ℝ) : F (realEmbed x) = 0 := by
-  sorry
+  -- Step 1: Package T = 0 as a distributional BV for boundary_value_recovery
+  -- h_bv says: for all f η, η ∈ C → tendsto (∫ F(x+iεη)f(x)dx) → 0
+  -- This is the same as the zero distribution T = 0 acting as T(f) = 0 for all f.
+  -- Step 2: Apply boundary_value_recovery with T = 0 to get
+  --   0 = ∫ F(realEmbed x) * f(x) dx for all Schwartz f
+  have hint : ∀ f : SchwartzMap (Fin m → ℝ) ℂ,
+      ∫ x : Fin m → ℝ, F (realEmbed x) * f x = 0 := by
+    intro f
+    have h := boundary_value_recovery hC hconv hne hF h_bv f
+    simp at h
+    exact h.symm
+  -- Step 3: Build Fourier-Laplace representation to get continuity
+  let hRepr : HasFourierLaplaceRepr C F :=
+    exists_fourierLaplaceRepr hC hconv hne hF h_bv
+  have hcont : Continuous (fun x : Fin m → ℝ => F (realEmbed x)) :=
+    fourierLaplace_boundary_continuous hC hconv hne hF hRepr
+  -- Step 4: Apply fundamental lemma: continuous + integrates to 0 against all Schwartz => 0
+  exact eq_zero_of_schwartz_integral_zero hcont hint x
 
 /-- **Distributional uniqueness for tube-domain holomorphic functions.**
 
@@ -354,7 +382,7 @@ theorem polynomial_growth_tube {m : ℕ}
     ∃ (C_bd : ℝ) (N : ℕ), C_bd > 0 ∧
       ∀ (x : Fin m → ℝ) (y : Fin m → ℝ), y ∈ K →
         ‖F (fun i => ↑(x i) + ↑(y i) * I)‖ ≤ C_bd * (1 + ‖x‖) ^ N := by
-  sorry
+  exact polynomial_growth_of_continuous_bv hC hconv hne hF h_bv K hK hK_sub
 
 /-! ### Axiom 3: Bochner Tube Theorem -/
 
