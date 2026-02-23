@@ -657,4 +657,144 @@ theorem distributional_uniqueness_forwardTube {d n : ℕ} [NeZero d]
   simp only [G₁, G₂, Function.comp, e.symm_apply_apply] at this
   exact this
 
+/-! ### Norm Preservation under Flattening -/
+
+/-- The real flattening preserves norms.
+    Both sides are the sup norm over all components `|x i j|`, just indexed differently.
+    Proof uses `Finset.sup_product_left` to relate `sup_{(i,j)} = sup_i (sup_j ...)`. -/
+theorem flattenCLEquivReal_norm_eq (n d : ℕ) (x : Fin n → Fin d → ℝ) :
+    ‖flattenCLEquivReal n d x‖ = ‖x‖ := by
+  simp only [Pi.norm_def]
+  congr 1
+  -- Goal: sup_{k : Fin (n*d)} ‖eR x k‖₊ = sup_{i : Fin n} ‖x i‖₊
+  simp only [Pi.nnnorm_def, flattenCLEquivReal_apply]
+  -- Goal: sup_{k : Fin (n*d)} ‖x (k.divNat) (k.modNat)‖₊ =
+  --       sup_{i : Fin n} sup_{j : Fin d} ‖x i j‖₊
+  apply le_antisymm
+  · apply Finset.sup_le
+    intro b _
+    exact Finset.le_sup_of_le (Finset.mem_univ (finProdFinEquiv.symm b).1)
+      (Finset.le_sup_of_le (Finset.mem_univ (finProdFinEquiv.symm b).2) (by simp))
+  · apply Finset.sup_le
+    intro i _
+    apply Finset.sup_le
+    intro j _
+    exact Finset.le_sup_of_le (Finset.mem_univ (finProdFinEquiv (i, j))) (by simp)
+
+/-! ### Polynomial Growth for the Forward Tube -/
+
+/-- **Polynomial growth of holomorphic functions on the forward tube.**
+
+    Derived from `SCV.polynomial_growth_tube` via the flattening equivalence.
+    A holomorphic function on `ForwardTube d n` with tempered distributional boundary
+    values satisfies polynomial growth estimates: for any compact K ⊆ ForwardConeAbs,
+    there exist C > 0 and N such that
+
+        ‖F(x + iy)‖ ≤ C · (1 + ‖x‖)^N
+
+    for all real x and imaginary part y ∈ K.
+
+    The boundary value condition is stated in the flat (Fin m → ℂ) coordinates
+    because that is the form required by `polynomial_growth_tube`. The caller
+    (typically `bhw_polynomial_growth_on_euclidean`) must convert from the
+    product-coordinate BV condition to this flat form.
+
+    Ref: Streater-Wightman, Theorem 2-6; Vladimirov §25.3 -/
+theorem polynomial_growth_forwardTube {d n : ℕ} [NeZero d]
+    {F : (Fin n → Fin (d + 1) → ℂ) → ℂ}
+    (hF : DifferentiableOn ℂ F (ForwardTube d n))
+    (h_bv : ∀ (η : Fin (n * (d + 1)) → ℝ), η ∈ ForwardConeFlat d n →
+      ∃ (T : (Fin (n * (d + 1)) → ℝ) → ℂ), ContinuousOn T Set.univ ∧
+        ∀ (f : (Fin (n * (d + 1)) → ℝ) → ℂ), MeasureTheory.Integrable f →
+          Filter.Tendsto (fun ε : ℝ =>
+            ∫ x : Fin (n * (d + 1)) → ℝ,
+              (F ∘ (flattenCLEquiv n (d + 1)).symm)
+                (fun i => ↑(x i) + ↑ε * ↑(η i) * Complex.I) * f x)
+          (nhdsWithin 0 (Set.Ioi 0))
+          (nhds (∫ x, T x * f x)))
+    (K : Set (Fin n → Fin (d + 1) → ℝ)) (hK : IsCompact K)
+    (hK_sub : K ⊆ ForwardConeAbs d n) :
+    ∃ (C_bd : ℝ) (N : ℕ), C_bd > 0 ∧
+      ∀ (x : Fin n → Fin (d + 1) → ℝ) (y : Fin n → Fin (d + 1) → ℝ), y ∈ K →
+        ‖F (fun k μ => ↑(x k μ) + ↑(y k μ) * Complex.I)‖ ≤
+          C_bd * (1 + ‖x‖) ^ N := by
+  let e := flattenCLEquiv n (d + 1)
+  let eR := flattenCLEquivReal n (d + 1)
+  let G : (Fin (n * (d + 1)) → ℂ) → ℂ := F ∘ e.symm
+  have hG_diff : DifferentiableOn ℂ G (SCV.TubeDomain (ForwardConeFlat d n)) :=
+    differentiableOn_flatten hF
+  -- The compact subset in flat coordinates
+  let K_flat : Set (Fin (n * (d + 1)) → ℝ) := eR '' K
+  have hK_flat_compact : IsCompact K_flat := hK.image eR.continuous
+  have hK_flat_sub : K_flat ⊆ ForwardConeFlat d n :=
+    Set.image_mono hK_sub
+  -- Apply polynomial_growth_tube to G on the flattened tube
+  obtain ⟨C_bd, N, hC_pos, hgrowth_flat⟩ :=
+    SCV.polynomial_growth_tube
+      (forwardConeFlat_isOpen d n)
+      (forwardConeFlat_convex d n)
+      (forwardConeFlat_nonempty d n)
+      hG_diff h_bv K_flat hK_flat_compact hK_flat_sub
+  -- Transfer back to product coordinates
+  refine ⟨C_bd, N, hC_pos, fun x y hy => ?_⟩
+  -- The key: F(x + iy) = G(eR(x) + i·eR(y))
+  have harg : G (fun i => ↑(eR x i) + ↑(eR y i) * Complex.I) =
+      F (fun k μ => ↑(x k μ) + ↑(y k μ) * Complex.I) := by
+    show F (e.symm (fun i => ↑(eR x i) + ↑(eR y i) * Complex.I)) =
+      F (fun k μ => ↑(x k μ) + ↑(y k μ) * Complex.I)
+    congr 1; ext k μ
+    simp only [e, eR, flattenCLEquiv_symm_apply, flattenCLEquivReal_apply,
+      Equiv.symm_apply_apply]
+  -- Apply the flat bound
+  have h_flat := hgrowth_flat (eR x) (eR y) ⟨y, hy, rfl⟩
+  rw [harg] at h_flat
+  -- The flattening preserves the sup norm: ‖eR x‖ = ‖x‖
+  -- Both are sup norms over finite index sets, and flattening just reindexes:
+  -- ‖x‖ = sup_i ‖x i‖ = sup_i (sup_j |x i j|) = sup_{(i,j)} |x i j| = ‖eR x‖
+  have h_norm : ‖eR x‖ = ‖x‖ := flattenCLEquivReal_norm_eq n (d + 1) x
+  rw [h_norm] at h_flat
+  exact h_flat
+
+/-- Helper: convert Schwartz-based boundary values on the forward tube to the
+    flat-coordinate integrable-function form needed by `polynomial_growth_tube`.
+
+    Given: distributional boundary values in the sense of Schwartz test functions
+    (as in `WightmanFunctions.spectrum_condition`).
+    Produces: the continuous boundary value function T and convergence against
+    all integrable functions.
+
+    This is a deep result from distribution theory: if a holomorphic function
+    on a tube domain has distributional boundary values (convergence against
+    all Schwartz test functions), then the boundary value is a tempered distribution,
+    and in particular it is given by integration against a function of at most
+    polynomial growth (the continuous BV function from `continuous_boundary_tube`).
+
+    The proof uses:
+    1. `continuous_boundary_tube` to get the continuous extension to the boundary
+    2. `boundary_value_recovery` to identify it with the distributional BV
+    3. Dominated convergence to extend from Schwartz to integrable test functions
+
+    Ref: Vladimirov §26.2-26.3 -/
+theorem schwartz_bv_to_flat_bv {d n : ℕ} [NeZero d]
+    {F : (Fin n → Fin (d + 1) → ℂ) → ℂ}
+    (hF : DifferentiableOn ℂ F (ForwardTube d n))
+    (h_bv : ∃ (T : SchwartzNPoint d n → ℂ),
+      ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+        (∀ k, InOpenForwardCone d (η k)) →
+        Filter.Tendsto
+          (fun ε : ℝ => ∫ x : NPointDomain d n,
+            F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
+          (nhdsWithin 0 (Set.Ioi 0))
+          (nhds (T f))) :
+    ∀ (η : Fin (n * (d + 1)) → ℝ), η ∈ ForwardConeFlat d n →
+      ∃ (T : (Fin (n * (d + 1)) → ℝ) → ℂ), ContinuousOn T Set.univ ∧
+        ∀ (f : (Fin (n * (d + 1)) → ℝ) → ℂ), MeasureTheory.Integrable f →
+          Filter.Tendsto (fun ε : ℝ =>
+            ∫ x : Fin (n * (d + 1)) → ℝ,
+              (F ∘ (flattenCLEquiv n (d + 1)).symm)
+                (fun i => ↑(x i) + ↑ε * ↑(η i) * Complex.I) * f x)
+          (nhdsWithin 0 (Set.Ioi 0))
+          (nhds (∫ x, T x * f x)) := by
+  sorry
+
 end

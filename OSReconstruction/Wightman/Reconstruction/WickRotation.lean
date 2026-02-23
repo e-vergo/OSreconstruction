@@ -7,6 +7,8 @@ import OSReconstruction.Wightman.Reconstruction
 import OSReconstruction.Wightman.Reconstruction.AnalyticContinuation
 import OSReconstruction.Wightman.Reconstruction.ForwardTubeDistributions
 
+open scoped Classical
+
 /-!
 # Wick Rotation and the OS Bridge Theorems
 
@@ -1363,24 +1365,92 @@ def constructSchwingerFunctions (Wfn : WightmanFunctions d) :
     ∫ x : NPointDomain d n,
       (W_analytic_BHW Wfn n).val (fun k => wickRotatePoint (x k)) * (f x)
 
-/-- Helper: the BHW extension F_ext has polynomial growth on each tube in PET.
+/-- Polynomial growth of holomorphic functions on the permuted extended tube.
 
-    For each permutation π, the set of Wick-rotated Euclidean points in the
-    π-sector of PET has full measure. On each sector, F_ext restricted to
-    Euclidean points (z = Wick(x)) satisfies polynomial growth by
-    `polynomial_growth_tube` applied to the forward tube in flattened coordinates.
+    A holomorphic function F on PET with tempered distributional boundary values
+    satisfies polynomial growth: there exist C > 0, N, M such that for all z ∈ PET,
 
-    This requires:
-    - Coordinate flattening (`flattenCLEquiv`) to interface with `polynomial_growth_tube`
-    - The distributional boundary value condition from `spectrum_condition`
-    - A compact subset of the forward cone containing the Euclidean approach directions
-    - The finite union argument over permutations
+        ‖F(z)‖ ≤ C · (1 + ‖z‖)^N
 
-    Blocked by: coordinate flattening from product `Fin n → Fin (d+1) → ℂ` to
-    flat `Fin (n*(d+1)) → ℂ` form needed to apply `polynomial_growth_tube`, plus
-    constructing the compact subset of the cone.
+    This follows from Vladimirov's estimate on each tube sector. On a single tube
+    T(C) = ℝ^m + iC, the bound is:
 
-    Ref: Streater-Wightman Thm 2-6; OS I Prop 5.1 -/
+        ‖F(x + iy)‖ ≤ C · (1 + ‖x‖ + ‖y‖)^N · dist(y, ∂C)^{-M}
+
+    (Vladimirov, Theorem 25.5). The full PET has finitely many sectors (|S_n| = n!
+    permutations), and on each sector the BHW symmetries reduce to the forward tube.
+    The maximum over sectors gives a uniform bound.
+
+    This is strictly more general than `polynomial_growth_forwardTube` (which requires
+    imaginary part in a fixed compact K) because here the imaginary part can approach
+    the cone boundary. The Vladimirov estimate controls the blowup near ∂C via the
+    dist(y, ∂C)^{-M} factor.
+
+    Blocked by: the full Vladimirov estimate (Theorem 25.5 in "Methods of the Theory
+    of Generalized Functions") which gives polynomial growth with inverse-distance-to-
+    boundary factor. The existing formalized `polynomial_growth_tube` axiom only handles
+    fixed compact subsets of the cone. Formalizing Vladimirov 25.5 requires the Fourier-
+    Laplace representation of holomorphic functions on tube domains, which in turn requires
+    the Paley-Wiener-Schwartz theorem.
+
+    Ref: Vladimirov, "Methods of the Theory of Generalized Functions", Theorem 25.5;
+         Streater-Wightman Thm 2-6 -/
+private theorem polynomial_growth_on_PET {d n : ℕ} [NeZero d]
+    (Wfn : WightmanFunctions d) :
+    ∃ (C_bd : ℝ) (N : ℕ), C_bd > 0 ∧
+      ∀ (z : Fin n → Fin (d + 1) → ℂ),
+        z ∈ PermutedExtendedTube d n →
+        ‖(W_analytic_BHW Wfn n).val z‖ ≤ C_bd * (1 + ‖z‖) ^ N := by
+  sorry
+
+/-- Wick rotation of a single point preserves each component norm:
+    `‖wickRotatePoint x i‖ = ‖x i‖` for each i.
+    - i = 0: `‖I * ↑(x 0)‖ = |x 0|` since `‖I‖ = 1`
+    - i > 0: `‖↑(x i)‖ = |x i|` since `Complex.norm_real` -/
+private theorem wickRotatePoint_component_norm_eq {d : ℕ}
+    (x : Fin (d + 1) → ℝ) (i : Fin (d + 1)) :
+    ‖wickRotatePoint x i‖ = ‖x i‖ := by
+  simp only [wickRotatePoint]; split_ifs with h
+  · subst h; rw [Complex.norm_mul, Complex.norm_I, one_mul, Complex.norm_real]
+  · rw [Complex.norm_real]
+
+/-- The norm of a Wick-rotated Euclidean configuration is at most the original norm.
+
+    Since `‖wickRotatePoint(x k) i‖ = ‖x k i‖` componentwise, and the Pi norm
+    is the sup over all components, the Wick-rotated norm equals the original.
+    We prove ≤ which suffices for the polynomial growth argument. -/
+private theorem wickRotate_norm_le {d n : ℕ}
+    (x : Fin n → Fin (d + 1) → ℝ) :
+    ‖fun k => wickRotatePoint (x k)‖ ≤ ‖x‖ := by
+  -- Both norms are Pi sup norms. We bound each component.
+  -- Step 1: ∀ k i, ‖wickRotatePoint(x k) i‖ ≤ ‖x‖
+  have hcomp : ∀ (k : Fin n) (i : Fin (d + 1)),
+      ‖wickRotatePoint (x k) i‖ ≤ ‖x‖ := by
+    intro k i
+    rw [wickRotatePoint_component_norm_eq]
+    exact (norm_le_pi_norm (x k) i).trans (norm_le_pi_norm x k)
+  -- Step 2: ∀ k, ‖wickRotatePoint(x k)‖ ≤ ‖x‖
+  have hk : ∀ k : Fin n, ‖wickRotatePoint (x k)‖ ≤ ‖x‖ := by
+    intro k
+    -- Component bound → pi norm bound (manual, to avoid norm instance issues)
+    simp only [Pi.norm_def, Pi.nnnorm_def]
+    rw [NNReal.coe_le_coe]
+    apply Finset.sup_le
+    intro i _
+    have := hcomp k i
+    -- ‖wickRotatePoint(x k) i‖ ≤ ‖x‖ is in terms of ℂ norm and ℝ nested pi norm
+    -- We need: ‖wickRotatePoint(x k) i‖₊ ≤ sup_j sup_μ ‖x j μ‖₊
+    simp only [Pi.norm_def, Pi.nnnorm_def] at this
+    exact_mod_cast this
+  -- Step 3: ‖fun k => wickRotatePoint(x k)‖ ≤ ‖x‖
+  simp only [Pi.norm_def, Pi.nnnorm_def]
+  rw [NNReal.coe_le_coe]
+  apply Finset.sup_le
+  intro k _
+  have := hk k
+  simp only [Pi.norm_def, Pi.nnnorm_def] at this
+  exact_mod_cast this
+
 private theorem bhw_polynomial_growth_on_euclidean {d n : ℕ} [NeZero d]
     (Wfn : WightmanFunctions d) :
     ∃ (C_bd : ℝ) (N : ℕ), C_bd > 0 ∧
@@ -1388,7 +1458,18 @@ private theorem bhw_polynomial_growth_on_euclidean {d n : ℕ} [NeZero d]
         (fun k => wickRotatePoint (x k)) ∈ PermutedExtendedTube d n →
         ‖(W_analytic_BHW Wfn n).val (fun k => wickRotatePoint (x k))‖ ≤
           C_bd * (1 + ‖x‖) ^ N := by
-  sorry
+  -- Get the polynomial growth bound on PET
+  obtain ⟨C_bd, N, hC, hgrowth⟩ := polynomial_growth_on_PET Wfn
+  refine ⟨C_bd, N, hC, fun x hx_pet => ?_⟩
+  -- Apply the PET growth bound: ‖F_ext(z)‖ ≤ C * (1 + ‖z‖)^N
+  have hz := hgrowth (fun k => wickRotatePoint (x k)) hx_pet
+  -- Relate ‖z‖ to ‖x‖: ‖wickRotate(x)‖ ≤ ‖x‖
+  calc ‖(W_analytic_BHW Wfn n).val (fun k => wickRotatePoint (x k))‖
+      ≤ C_bd * (1 + ‖fun k => wickRotatePoint (x k)‖) ^ N := hz
+    _ ≤ C_bd * (1 + ‖x‖) ^ N := by
+        apply mul_le_mul_of_nonneg_left _ hC.le
+        apply pow_le_pow_left₀ (by positivity)
+        linarith [wickRotate_norm_le x]
 
 /-- **Polynomial growth of the Wick-rotated BHW kernel.**
 
@@ -1442,7 +1523,131 @@ private theorem schwartz_polynomial_kernel_continuous {d n : ℕ} [NeZero d]
     (hK_bound : ∀ᵐ (x : NPointDomain d n) ∂MeasureTheory.volume,
       ‖K x‖ ≤ C_bd * (1 + ‖x‖) ^ N) :
     Continuous (fun f : SchwartzNPoint d n => ∫ x, K x * f x) := by
-  sorry
+  -- Provide the IsAddHaarMeasure instance for the nested pi type (not found by inferInstance)
+  haveI : MeasureTheory.Measure.IsAddHaarMeasure
+      (MeasureTheory.volume : MeasureTheory.Measure (NPointDomain d n)) :=
+    MeasureTheory.Measure.instIsAddHaarMeasureForallVolumeOfMeasurableAddOfSigmaFinite
+  -- Strategy: construct a CLM via mkCLMtoNormedSpace and extract continuity
+  suffices h : ∃ (A : SchwartzNPoint d n →L[ℂ] ℂ), ∀ f, A f = ∫ x, K x * f x by
+    obtain ⟨A, hA⟩ := h; simp_rw [← hA]; exact A.continuous
+  -- Key: (1+t)^N ≤ 2^N * (1 + t^N) for t ≥ 0
+  have h_binom_ineq : ∀ (t : ℝ), 0 ≤ t → (1 + t) ^ N ≤ 2 ^ N * (1 + t ^ N) := by
+    intro t ht
+    have h2t : 1 + t ≤ 2 * max 1 t :=
+      calc 1 + t ≤ max 1 t + max 1 t := add_le_add (le_max_left _ _) (le_max_right _ _)
+        _ = 2 * max 1 t := by ring
+    calc (1 + t) ^ N
+        ≤ (2 * max 1 t) ^ N := pow_le_pow_left₀ (by positivity) h2t N
+      _ = 2 ^ N * (max 1 t) ^ N := by rw [mul_pow]
+      _ ≤ 2 ^ N * (1 + t ^ N) := by
+          apply mul_le_mul_of_nonneg_left _ (by positivity)
+          rcases le_total t 1 with h | h
+          · rw [max_eq_left h]; simp [one_pow]; linarith [pow_nonneg ht N]
+          · rw [max_eq_right h]; linarith [show (1 : ℝ) ^ N = 1 from one_pow N]
+  -- Helper: K*f is integrable for any Schwartz f
+  have hKf_int : ∀ f : SchwartzNPoint d n,
+      MeasureTheory.Integrable (fun x => K x * f x) MeasureTheory.volume := by
+    intro f
+    have hf_int := f.integrable (μ := MeasureTheory.volume)
+    have hf_pow_int := f.integrable_pow_mul MeasureTheory.volume N
+    -- Majorant: g(x) = C_bd * 2^N * (‖f(x)‖ + ‖x‖^N * ‖f(x)‖) is integrable
+    have hg_int : MeasureTheory.Integrable
+        (fun x => C_bd * 2 ^ N * (‖(f : NPointDomain d n → ℂ) x‖ +
+          ‖x‖ ^ N * ‖(f : NPointDomain d n → ℂ) x‖)) MeasureTheory.volume :=
+      (hf_int.norm.add hf_pow_int).const_mul (C_bd * 2 ^ N)
+    apply hg_int.mono' (hK_meas.mul f.integrable.aestronglyMeasurable)
+    filter_upwards [hK_bound] with x hx
+    simp only [Pi.mul_apply, norm_mul]
+    calc ‖K x‖ * ‖(f : NPointDomain d n → ℂ) x‖
+        ≤ C_bd * (1 + ‖x‖) ^ N * ‖(f : NPointDomain d n → ℂ) x‖ :=
+          mul_le_mul_of_nonneg_right hx (norm_nonneg _)
+      _ ≤ C_bd * (2 ^ N * (1 + ‖x‖ ^ N)) * ‖(f : NPointDomain d n → ℂ) x‖ := by
+          apply mul_le_mul_of_nonneg_right _ (norm_nonneg _)
+          exact mul_le_mul_of_nonneg_left (h_binom_ineq ‖x‖ (norm_nonneg _)) (le_of_lt hC)
+      _ = C_bd * 2 ^ N * (‖(f : NPointDomain d n → ℂ) x‖ +
+            ‖x‖ ^ N * ‖(f : NPointDomain d n → ℂ) x‖) := by ring
+  refine ⟨SchwartzMap.mkCLMtoNormedSpace (𝕜 := ℂ) (fun f => ∫ x, K x * f x) ?_ ?_ ?_,
+    fun f => rfl⟩
+  · -- Additivity: ∫ K*(f+g) = ∫ K*f + ∫ K*g
+    intro f g; simp only [SchwartzMap.add_apply, mul_add]
+    exact MeasureTheory.integral_add (hKf_int f) (hKf_int g)
+  · -- Scalar: ∫ K*(a•f) = a • ∫ K*f
+    intro a f; simp only [SchwartzMap.smul_apply, smul_eq_mul, RingHom.id_apply]
+    simp_rw [show ∀ x : NPointDomain d n, K x * (a * f x) = a * (K x * f x) from
+      fun x => by ring]
+    exact MeasureTheory.integral_const_mul a _
+  · -- Seminorm bound: ∃ s C, 0 ≤ C ∧ ∀ f, ‖∫ K*f‖ ≤ C * (s.sup seminormFamily) f
+    -- Let D = finrank, M = N + D + 1
+    set D := Module.finrank ℝ (NPointDomain d n)
+    set M := N + D + 1
+    -- I_D = ∫ (1+‖x‖)^(-(D+1)) < ∞
+    have hD_lt : (D : ℝ) < ↑(D + 1) := by push_cast; linarith
+    have hI_int : MeasureTheory.Integrable
+        (fun x : NPointDomain d n => (1 + ‖x‖) ^ (-(↑(D + 1) : ℝ)))
+        MeasureTheory.volume :=
+      integrable_one_add_norm hD_lt
+    set I_D := ∫ x : NPointDomain d n, (1 + ‖x‖) ^ (-(↑(D + 1) : ℝ))
+    -- The constant
+    set C_sem := C_bd * 2 ^ M * I_D
+    refine ⟨Finset.Iic (M, 0), C_sem, ?_, ?_⟩
+    · -- 0 ≤ C_sem
+      apply mul_nonneg (mul_nonneg (le_of_lt hC) (by positivity))
+      apply MeasureTheory.integral_nonneg
+      intro x; apply Real.rpow_nonneg; linarith [norm_nonneg x]
+    · -- The bound: ‖∫ K*f‖ ≤ C_sem * (s.sup seminormFamily) f
+      intro f
+      -- Abbreviate the seminorm
+      set sem := (Finset.Iic (M, 0)).sup (schwartzSeminormFamily ℂ (NPointDomain d n) ℂ)
+      -- From one_add_le_sup_seminorm_apply: (1+‖x‖)^M * ‖f(x)‖ ≤ 2^M * sem(f)
+      have hsem_bound : ∀ x : NPointDomain d n,
+          (1 + ‖x‖) ^ M * ‖(f : NPointDomain d n → ℂ) x‖ ≤ 2 ^ M * sem f := by
+        intro x
+        have h := SchwartzMap.one_add_le_sup_seminorm_apply (𝕜 := ℂ) (m := (M, 0))
+          (le_refl M) (le_refl 0) f x
+        rwa [norm_iteratedFDeriv_zero] at h
+      -- Pointwise bound: ‖K x * f x‖ ≤ C_bd * 2^M * sem(f) * (1+‖x‖)^(-(D+1))
+      have hpointwise : ∀ᵐ (x : NPointDomain d n) ∂MeasureTheory.volume,
+          ‖K x * (f : NPointDomain d n → ℂ) x‖ ≤
+            C_bd * 2 ^ M * sem f * (1 + ‖x‖) ^ (-(↑(D + 1) : ℝ)) := by
+        filter_upwards [hK_bound] with x hx
+        have h1x_pos : (0 : ℝ) < 1 + ‖x‖ := by linarith [norm_nonneg x]
+        have h1xD1_pos : (0 : ℝ) < (1 + ‖x‖) ^ (D + 1) := pow_pos h1x_pos _
+        -- Rewrite rpow as inverse of natural power
+        rw [Real.rpow_neg (le_of_lt h1x_pos), Real.rpow_natCast]
+        rw [norm_mul]
+        -- ‖K x‖ * ‖f x‖ ≤ C_bd * (1+‖x‖)^N * ‖f x‖
+        have step1 : ‖K x‖ * ‖(f : NPointDomain d n → ℂ) x‖ ≤
+            C_bd * (1 + ‖x‖) ^ N * ‖(f : NPointDomain d n → ℂ) x‖ :=
+          mul_le_mul_of_nonneg_right hx (norm_nonneg _)
+        -- (1+‖x‖)^N * ‖f x‖ ≤ 2^M * sem(f) / (1+‖x‖)^(D+1)
+        -- From: (1+‖x‖)^M * ‖f x‖ ≤ 2^M * sem(f) and M = N + D + 1
+        have step2 : (1 + ‖x‖) ^ N * ‖(f : NPointDomain d n → ℂ) x‖ ≤
+            2 ^ M * sem f * ((1 + ‖x‖) ^ (D + 1))⁻¹ := by
+          rw [le_mul_inv_iff₀ h1xD1_pos]
+          calc (1 + ‖x‖) ^ N * ‖(f : NPointDomain d n → ℂ) x‖ * (1 + ‖x‖) ^ (D + 1)
+              = (1 + ‖x‖) ^ (N + (D + 1)) * ‖(f : NPointDomain d n → ℂ) x‖ := by
+                rw [pow_add]; ring
+            _ = (1 + ‖x‖) ^ M * ‖(f : NPointDomain d n → ℂ) x‖ := by
+                congr 1
+            _ ≤ 2 ^ M * sem f := hsem_bound x
+        calc ‖K x‖ * ‖(f : NPointDomain d n → ℂ) x‖
+            ≤ C_bd * (1 + ‖x‖) ^ N * ‖(f : NPointDomain d n → ℂ) x‖ := step1
+          _ = C_bd * ((1 + ‖x‖) ^ N * ‖(f : NPointDomain d n → ℂ) x‖) := by ring
+          _ ≤ C_bd * (2 ^ M * sem f * ((1 + ‖x‖) ^ (D + 1))⁻¹) :=
+              mul_le_mul_of_nonneg_left step2 (le_of_lt hC)
+          _ = C_bd * 2 ^ M * sem f * ((1 + ‖x‖) ^ (D + 1))⁻¹ := by ring
+      -- Integrate the pointwise bound
+      calc ‖(fun f => ∫ x, K x * f x) f‖
+          = ‖∫ x, K x * (f : NPointDomain d n → ℂ) x‖ := by rfl
+        _ ≤ ∫ x, ‖K x * (f : NPointDomain d n → ℂ) x‖ :=
+            MeasureTheory.norm_integral_le_integral_norm _
+        _ ≤ ∫ x, C_bd * 2 ^ M * sem f * (1 + ‖x‖) ^ (-(↑(D + 1) : ℝ)) :=
+            MeasureTheory.integral_mono_ae (hKf_int f).norm
+              (hI_int.const_mul (C_bd * 2 ^ M * sem f)) hpointwise
+        _ = C_bd * 2 ^ M * sem f * I_D := by
+            rw [MeasureTheory.integral_const_mul]
+        _ = C_bd * 2 ^ M * I_D * sem f := by ring
+        _ = C_sem * sem f := by rfl
 
 /-- **Continuity of Schwartz integration against a polynomially bounded kernel.**
 
@@ -1509,10 +1714,14 @@ theorem bhw_euclidean_kernel_measurable {d n : ℕ} [NeZero d]
   have h_on_S : MeasureTheory.AEStronglyMeasurable
       (fun x => F_ext (wick x)) (MeasureTheory.volume.restrict S) :=
     hcomp_cont.aestronglyMeasurable hS_meas
-  -- Bridge from restrict to full measure via piecewise
-  exact (h_on_S.piecewise hS_meas MeasureTheory.aestronglyMeasurable_const).congr
-    (Filter.eventually_of_mem (MeasureTheory.mem_ae_iff.mpr hSc_null)
-      fun x (hx : x ∈ S) => Set.piecewise_eq_of_mem S _ _ hx)
+  -- Since Sᶜ has measure zero, volume.restrict S = volume
+  have hrestr : MeasureTheory.volume.restrict S = MeasureTheory.volume :=
+    MeasureTheory.Measure.restrict_eq_self_of_ae_mem
+      (MeasureTheory.mem_ae_iff.mpr hSc_null)
+  change MeasureTheory.AEStronglyMeasurable (fun x => F_ext (wick x))
+    MeasureTheory.volume
+  rw [← hrestr]
+  exact h_on_S
 
 /-- Schwinger functions constructed via Wick rotation are tempered (E0).
 
