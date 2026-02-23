@@ -6,6 +6,8 @@ Authors: Michael Douglas, ModularPhysics Contributors
 import OSReconstruction.Wightman.Reconstruction
 import OSReconstruction.Wightman.Reconstruction.AnalyticContinuation
 import OSReconstruction.Wightman.Reconstruction.ForwardTubeDistributions
+import OSReconstruction.SCV.PaleyWiener
+import OSReconstruction.SCV.BochnerTubeTheorem
 
 open scoped Classical
 
@@ -647,17 +649,16 @@ theorem lorentz_covariant_distributional_bv {d n : ℕ} [NeZero d]
 /-- The set of Euclidean configurations whose Wick rotation does NOT lie in the
     permuted extended tube has Lebesgue measure zero.
 
-    Mathematically, this set consists of "degenerate" configurations: those where
-    no permutation and complex Lorentz transformation can place the Wick-rotated
-    points in the forward tube. By Jost's theorem, all configurations with pairwise
-    distinct non-coincident points are in the permuted extended tube (via complex
-    Lorentz boosts with imaginary rapidity parameters). The complement is contained
-    in a finite union of proper algebraic subvarieties (coincident points, collinear
-    configurations), each of which has codimension >= 1 and hence measure zero.
+    **Proof strategy (Jost's theorem):** A Wick-rotated configuration lies in
+    the PET whenever some permutation σ makes the consecutive differences satisfy
+    the Jost condition (spacelike with sufficient spatial spread for a complex
+    Lorentz boost). The complement — configurations where NO permutation works —
+    is contained in a finite union of proper algebraic subvarieties (coincident
+    or collinear point configurations). Each such subvariety has codimension >= 1
+    in ℝ^{n(d+1)}, hence Lebesgue measure zero (by induction on dimension + Fubini).
 
-    This replaces the previous false universal statement `euclidean_points_in_permutedTube`
-    which claimed PET membership for ALL configurations. The a.e. version suffices
-    for all downstream uses (integral identities for Schwinger function properties).
+    Blocked by: (1) Jost characterization of PET membership (`swap_jost_set_exists`),
+    and (2) Mathlib's algebraic-subvariety-measure-zero pipeline (not yet available).
 
     Ref: Jost, "The General Theory of Quantized Fields" §IV.4, Theorem IV.4;
     Streater-Wightman, Theorem 2-12 -/
@@ -665,11 +666,6 @@ theorem wickRotation_not_in_PET_null {d n : ℕ} [NeZero d] :
     MeasureTheory.volume
       {x : NPointDomain d n |
         (fun k => wickRotatePoint (x k)) ∉ PermutedExtendedTube d n} = 0 := by
-  -- The "bad" set is contained in a finite union of algebraic subvarieties
-  -- of codimension >= 1 in R^{n(d+1)}, hence has Lebesgue measure zero.
-  -- Full proof requires: (1) characterizing PET membership via complex Lorentz
-  -- orbits (Jost's theorem), (2) showing the complement is algebraic,
-  -- (3) algebraic subvarieties of codim >= 1 have measure zero.
   sorry
 
 /-- **Almost every Euclidean Wick-rotated configuration lies in the permuted extended tube.**
@@ -782,23 +778,47 @@ private theorem W_analytic_continuous_boundary (Wfn : WightmanFunctions d) (n : 
     (Wfn.spectrum_condition n).choose_spec.1
     ⟨Wfn.W n, (Wfn.spectrum_condition n).choose_spec.2⟩ x
 
-/-- Analytic continuation satisfies pointwise local commutativity at spacelike boundary.
+/-- The distributional boundary values of W_analytic and W_analytic composed with
+    swap(i, i+1) agree when evaluated against test functions supported on configurations
+    where x_{i+1} - x_i is spacelike. This is the distributional form of local
+    commutativity, combining `hLC` with `hBV`.
 
-    At real boundary points where consecutive arguments are spacelike separated,
-    swapping those arguments doesn't change the value. This follows from the
-    distributional local commutativity of W_n via the Jost-Lehmann-Dyson
-    representation and the edge-of-the-wedge theorem in several complex variables.
+    Blocked by: verifying that swapping indices in the forward tube approximation
+    yields an approximation from the correct direction (the i-th cone direction
+    flips sign under swap, requiring the backward cone). -/
+private theorem W_analytic_swap_distributional_agree {d n : ℕ} [NeZero d]
+    (W_analytic : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hW_hol : DifferentiableOn ℂ W_analytic (ForwardTube d n))
+    (W : (n' : ℕ) → SchwartzNPoint d n' → ℂ)
+    (hBV : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      (∀ k, InOpenForwardCone d (η k)) →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          W_analytic (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
+        (nhdsWithin 0 (Set.Ioi 0)) (nhds (W n f)))
+    (hLC : IsLocallyCommutativeWeak d W)
+    (i : Fin n) (hi : i.val + 1 < n) :
+    ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      (∀ k, InOpenForwardCone d (η k)) →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          (W_analytic (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ) +
+              ε * ↑(η (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ) * Complex.I) -
+           W_analytic (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I)) * (f x))
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds 0) := by
+  sorry
 
-    **Why this is an axiom:** The proof requires the multi-tube edge-of-the-wedge
-    theorem (Jost-Lehmann-Dyson) to pass from distributional to pointwise identity.
-    This is a deep result in several complex variables not yet in Mathlib.
+/-- Pointwise local commutativity of the analytic continuation at spacelike boundary.
 
-    **Domain note:** `W_analytic` is a total function `(Fin n → Fin (d+1) → ℂ) → ℂ`,
-    so evaluation at real points `x` is well-typed. The hypotheses (`hW_hol` + `hBV`)
-    imply `ContinuousWithinAt` at real boundary points (via `continuous_boundary_forwardTube`),
-    ensuring the function value at real `x` equals the limit from within the forward tube.
-    The conclusion only requires spacelike separation of the *swapped pair* (i, i+1),
-    not all pairs — this is local commutativity, not the Jost point condition.
+    g(z) = W_analytic(swap(z)) - W_analytic(z) is holomorphic where defined.
+    By `W_analytic_swap_distributional_agree`, g has zero distributional boundary
+    values at real spacelike points. By the edge-of-the-wedge theorem (sorry-free
+    in `EdgeOfWedge.lean`), g extends holomorphically across the boundary.
+    Since g = 0 distributionally on an open real set, the identity theorem gives g = 0.
+
+    Blocked by: multi-tube EOW application (expressing the forward and swapped tubes
+    as tube domains) and the distributional-to-pointwise bridge via `eow_adj_swap_extension`.
 
     Ref: Streater-Wightman Thm 3-5; Jost §IV.3 -/
 theorem analytic_boundary_local_commutativity {d n : ℕ} [NeZero d]
@@ -1358,7 +1378,8 @@ theorem W_analytic_translation_on_forwardTube {d n : ℕ} [NeZero d]
     Ref: Jost, "The General Theory of Quantized Fields" Ch. IV -/
 theorem permutedExtendedTube_isConnected (d n : ℕ) [NeZero d] :
     IsConnected (PermutedExtendedTube d n) := by
-  sorry
+  rw [← BHW_permutedExtendedTube_eq]
+  exact @BHW.isConnected_permutedExtendedTube d n
 
 /-- The forward tube intersected with its c-translate is nonempty.
 
@@ -2406,19 +2427,32 @@ theorem constructedSchwinger_rotation_invariant (Wfn : WightmanFunctions d)
         integral_orthogonal_eq_self R hR
           (fun x => K x * (f : NPointDomain d n → ℂ) x)
 
-/-- The Schwinger functions satisfy reflection positivity (E2).
+/-- The OS inner product for Wick-rotated Schwinger functions reduces to
+    the Wightman positivity form after the rotation.
 
-    Proof: For test functions supported in τ > 0, the Wick-rotated quadratic form
-    reduces to the Wightman positivity condition.
-    Specifically, if F is supported in {τ > 0}, then the OS inner product
-    Σ S_{n+m}((θf̄)_n ⊗ f_m) reduces to Σ W_{n+m}(f*_n ⊗ f_m)
-    after Wick rotation, and the latter is ≥ 0 by Wightman positivity (R2). -/
-theorem constructedSchwinger_reflection_positive (Wfn : WightmanFunctions d)
+    For test functions F supported in τ > 0, the time-reflection θ sends
+    τ to -τ, which under Wick rotation corresponds to complex conjugation
+    of the time variables. The resulting quadratic form equals the Wightman
+    inner product, which is non-negative by R2.
+
+    Blocked by: the explicit computation showing that time-reflection + Wick rotation
+    = complex conjugation of the analytic continuation, and the identification of
+    the OS inner product with the Wightman inner product after this substitution.
+
+    Ref: OS I, Section 5 (proof that E2 follows from R2); Glimm-Jaffe Ch. 19 -/
+private theorem os_inner_product_eq_wightman_positivity (Wfn : WightmanFunctions d)
     (F : BorchersSequence d)
     (hsupp : ∀ n, ∀ x : NPointDomain d n, (F.funcs n).toFun x ≠ 0 →
       x ∈ PositiveTimeRegion d n) :
     (OSInnerProduct d (constructSchwingerFunctions Wfn) F F).re ≥ 0 := by
   sorry
+
+theorem constructedSchwinger_reflection_positive (Wfn : WightmanFunctions d)
+    (F : BorchersSequence d)
+    (hsupp : ∀ n, ∀ x : NPointDomain d n, (F.funcs n).toFun x ≠ 0 →
+      x ∈ PositiveTimeRegion d n) :
+    (OSInnerProduct d (constructSchwingerFunctions Wfn) F F).re ≥ 0 :=
+  os_inner_product_eq_wightman_positivity Wfn F hsupp
 
 /-- F_ext is invariant under permutations of arguments at all Euclidean points.
 
@@ -2665,55 +2699,146 @@ theorem inductive_analytic_continuation {d : ℕ} [NeZero d]
     ∃ (S_ext : (Fin k → Fin (d + 1) → ℂ) → ℂ),
       DifferentiableOn ℂ S_ext (AnalyticContinuationRegion d k (r + 1)) ∧
       ∀ z ∈ AnalyticContinuationRegion d k r, S_ext z = S_prev z := by
+  -- The proof uses Paley-Wiener to extend one spacetime coordinate at a time.
+  -- Key mathematical inputs (extracted as atomic helpers):
+  -- 1. One-sided Fourier support from E0' + E2 (spectral condition from
+  --    reflection positivity + linear growth)
+  -- 2. Polynomial growth in each variable from E0'
+  -- Given these, the Paley-Wiener theorem (paley_wiener_one_step_simple in
+  -- PaleyWiener.lean) extends holomorphicity from the real line to the upper
+  -- half-plane in the (r+1)-th spacetime coordinate.
+  -- Joint holomorphicity then follows from Osgood's lemma.
+  --
+  -- The assembly of paley_wiener_one_step + Osgood into the region extension
+  -- is a routine but technically involved plumbing exercise. We decompose:
+  -- Step 1: For each fixed z' in C_k^(r), the r-th coordinate slice satisfies PW
+  -- Step 2: The PW extension gives holomorphicity in the new coordinate
+  -- Step 3: Osgood's lemma gives joint holomorphicity on C_k^(r+1)
+  -- Step 4: Agreement on C_k^(r) follows from PW agreement on the real line
+  --
+  -- Each step depends on infrastructure from PaleyWiener.lean (which has sorry
+  -- for paley_wiener_one_step_simple but is correctly typed).
   sorry
 
-/-- **Full analytic continuation from Euclidean to forward tube.**
+/-! ### Full analytic continuation from Euclidean to forward tube
 
-    After d+1 applications of `inductive_analytic_continuation`, we reach
-    C_k^(d+1), a tube over the positive orthant (0,∞)^{d+1}. To reach the
-    full forward tube T_k (tube over V₊), two additional steps are needed:
+After d+1 applications of `inductive_analytic_continuation`, we reach C_k^(d+1),
+a tube over the positive orthant. To reach the full forward tube, we use:
+1. Euclidean rotation invariance (E1) to extend to rotated copies
+2. Bochner's tube theorem to extend to the convex hull = forward tube
 
-    1. **Euclidean rotation invariance** (E1): The Schwinger functions are
-       SO(d+1)-invariant, so the analytically continued function extends to
-       SO(d+1)-rotated copies of the positive-orthant tube.
-    2. **Bochner's tube theorem** (`bochner_tube_theorem`): The function extends
-       to the convex hull of the union of rotated tubes. Since V₊ is convex and
-       equals the convex hull of the SO(d+1)-orbit of (0,∞)^{d+1}, this gives
-       holomorphicity on T(V₊) = ForwardTube.
+Ref: OS II, Sections IV-V; Bochner (1938); Vladimirov Section 20.2 -/
 
-    The Euclidean restriction condition (Wick rotation recovers S_k) is
-    preserved because Euclidean points lie in C_k^(0) ⊂ C_k^(d+1) ⊂ ForwardTube.
+/-- Iterate `inductive_analytic_continuation` d+1 times: from C_k^(0) to C_k^(d+1).
+    Blocked by: formal iteration + composing agreement conditions.
+    Ref: OS II, Theorem 4.1 -/
+private theorem iterated_analytic_continuation
+    (OS : OsterwalderSchraderAxioms d)
+    (lgc : OSLinearGrowthCondition d OS) (k : ℕ)
+    (S_base : (Fin k → Fin (d + 1) → ℂ) → ℂ)
+    (hS_base : DifferentiableOn ℂ S_base (AnalyticContinuationRegion d k 0)) :
+    ∃ (S_ext : (Fin k → Fin (d + 1) → ℂ) → ℂ),
+      DifferentiableOn ℂ S_ext (AnalyticContinuationRegion d k (d + 1)) ∧
+      ∀ z ∈ AnalyticContinuationRegion d k 0, S_ext z = S_base z := by
+  sorry
 
-    Ref: OS II, Sections IV-V; Bochner (1938); Vladimirov §20.2 -/
+/-- Schwinger functions on C_k^(0), recovering S_k via integration.
+    Blocked by: pointwise extraction from S_k and smoothness in positive-time region.
+    Ref: OS II, Section IV (base case) -/
+private theorem schwinger_holomorphic_on_base_region
+    (OS : OsterwalderSchraderAxioms d)
+    (lgc : OSLinearGrowthCondition d OS) (k : ℕ) :
+    ∃ (S_base : (Fin k → Fin (d + 1) → ℂ) → ℂ),
+      DifferentiableOn ℂ S_base (AnalyticContinuationRegion d k 0) ∧
+      (∀ (f : SchwartzNPoint d k),
+        OS.S k f = ∫ x : NPointDomain d k,
+          S_base (fun j => wickRotatePoint (x j)) * (f x)) := by
+  sorry
+
+/-- Extend from C_k^(d+1) to the forward tube via E1 + Bochner.
+    Blocked by: tube domain identification and `bochner_tube_extension`.
+    Ref: OS II, Section V; Bochner (1938) -/
+private theorem extend_to_forward_tube_via_bochner (k : ℕ)
+    (S_ext : (Fin k → Fin (d + 1) → ℂ) → ℂ)
+    (hS_ext : DifferentiableOn ℂ S_ext (AnalyticContinuationRegion d k (d + 1)))
+    (h_rot : ∀ (R : Matrix (Fin (d + 1)) (Fin (d + 1)) ℝ),
+      R.transpose * R = 1 → R.det = 1 →
+      ∀ z ∈ AnalyticContinuationRegion d k (d + 1),
+        S_ext (fun i μ => ∑ ν, (R μ ν : ℂ) * z i ν) = S_ext z) :
+    ∃ (W : (Fin k → Fin (d + 1) → ℂ) → ℂ),
+      DifferentiableOn ℂ W (ForwardTube d k) ∧
+      ∀ z ∈ AnalyticContinuationRegion d k (d + 1), W z = S_ext z := by
+  sorry
+
 theorem full_analytic_continuation
     (OS : OsterwalderSchraderAxioms d)
     (lgc : OSLinearGrowthCondition d OS)
     (k : ℕ) :
     ∃ (W_analytic : (Fin k → Fin (d + 1) → ℂ) → ℂ),
       DifferentiableOn ℂ W_analytic (ForwardTube d k) ∧
-      -- Euclidean restriction recovers S_k
       (∀ (f : SchwartzNPoint d k),
         OS.S k f = ∫ x : NPointDomain d k,
           W_analytic (fun j => wickRotatePoint (x j)) * (f x)) := by
-  -- Step 1: Iterate inductive_analytic_continuation d+1 times to reach C_k^(d+1)
-  -- Step 2: Use E1 (Euclidean rotation invariance) to extend to rotated tubes
-  -- Step 3: Apply bochner_tube_theorem to extend to convex hull = forward tube
-  -- The Euclidean restriction condition is preserved through all steps.
+  -- Step 1: Base case
+  obtain ⟨S_base, hS_base_hol, hS_base_euclid⟩ :=
+    schwinger_holomorphic_on_base_region OS lgc k
+  -- Step 2: Iterate d+1 times
+  obtain ⟨S_ext, hS_ext_hol, hS_ext_agree⟩ :=
+    iterated_analytic_continuation OS lgc k S_base hS_base_hol
+  -- Step 3: Rotation invariance from E1 + analytic continuation uniqueness
+  have h_rot : ∀ (R : Matrix (Fin (d + 1)) (Fin (d + 1)) ℝ),
+      R.transpose * R = 1 → R.det = 1 →
+      ∀ z ∈ AnalyticContinuationRegion d k (d + 1),
+        S_ext (fun i μ => ∑ ν, (R μ ν : ℂ) * z i ν) = S_ext z := by
+    sorry
+  -- Step 4: E1 + Bochner to extend to forward tube
+  obtain ⟨W, hW_hol, hW_agree⟩ := extend_to_forward_tube_via_bochner k S_ext hS_ext_hol h_rot
+  refine ⟨W, hW_hol, fun f => ?_⟩
+  -- Step 5: Euclidean restriction chain
+  -- W(wick(x)) = S_ext(wick(x)) = S_base(wick(x)) for wick(x) in C_k^(0)
   sorry
 
-/-- Phase 4: The boundary values of the analytic continuation are tempered distributions.
+/-! ### Phase 4: Tempered boundary values
 
-    **Critical**: This is where E0' (linear growth condition) is essential!
-    Without growth control, the boundary values might fail to be tempered.
-    This is exactly the gap in OS I Lemma 8.8.
+**Critical**: E0' (linear growth condition) is essential for temperedness.
+Without growth control, boundary values might fail to be tempered
+(the gap in OS I Lemma 8.8). E0' gives |W_n(f)| <= C_n * ||f||_{s,n}
+where C_n has at most factorial growth.
 
-    The estimate (OS II, Section VI): the boundary values satisfy
-    |W_n(f)| ≤ C_n · ‖f‖_{s,n} where C_n has at most factorial growth in n.
-    This factorial growth comes from E0'.
+Ref: OS II, Section VI -/
 
-    The connection to OS data: W_n is the distributional boundary value of
-    the analytic continuation F_analytic of S_n. The Euclidean restriction
-    of F_analytic recovers S_n, and its boundary values give W_n. -/
+/-- Distributional boundary values of the forward tube analytic continuation
+    exist and are tempered.
+
+    Given F holomorphic on ForwardTube d n with polynomial growth (from E0'),
+    the distributional BV ∫ F(x + iεη) f(x) dx converges as ε → 0+ for
+    all Schwartz f and approach directions η ∈ V₊^n.
+
+    Blocked by: Vladimirov's distributional boundary value theorem for tube
+    domains (Theorem 26.1 in Vladimirov's "Methods of Generalized Functions"),
+    which requires polynomial growth estimates from E0'.
+
+    Ref: Vladimirov Section 26; Streater-Wightman Theorem 2-9 -/
+private theorem forward_tube_bv_tempered
+    (OS : OsterwalderSchraderAxioms d)
+    (lgc : OSLinearGrowthCondition d OS) (n : ℕ)
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF : DifferentiableOn ℂ F (ForwardTube d n)) :
+    ∃ (W_n : SchwartzNPoint d n → ℂ),
+      Continuous W_n ∧ IsLinearMap ℂ W_n ∧
+      (∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+        (∀ k, InOpenForwardCone d (η k)) →
+        Filter.Tendsto
+          (fun ε : ℝ => ∫ x : NPointDomain d n,
+            F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
+          (nhdsWithin 0 (Set.Ioi 0))
+          (nhds (W_n f))) ∧
+      ∃ (C : ℝ) (s : ℕ), C > 0 ∧
+        ∀ f : SchwartzNPoint d n,
+          ‖W_n f‖ ≤ C * lgc.alpha * lgc.beta ^ n * (n.factorial : ℝ) ^ lgc.gamma *
+            SchwartzMap.seminorm ℝ s s f := by
+  sorry
+
 theorem boundary_values_tempered
     (OS : OsterwalderSchraderAxioms d)
     (lgc : OSLinearGrowthCondition d OS)
@@ -2742,45 +2867,119 @@ theorem boundary_values_tempered
         ∀ f : SchwartzNPoint d n,
           ‖W_n f‖ ≤ C * lgc.alpha * lgc.beta ^ n * (n.factorial : ℝ) ^ lgc.gamma *
             SchwartzMap.seminorm ℝ s s f := by
+  -- Step 1: Get the analytic continuation from full_analytic_continuation
+  obtain ⟨F_analytic, hF_hol, hF_euclid⟩ := full_analytic_continuation OS lgc n
+  -- Step 2: Get tempered boundary values from forward_tube_bv_tempered
+  obtain ⟨W_n, hW_cont, hW_lin, hW_bv, hW_growth⟩ :=
+    forward_tube_bv_tempered OS lgc n F_analytic hF_hol
+  exact ⟨W_n, F_analytic, hW_cont, hW_lin, hF_hol, hW_bv, hF_euclid, hW_growth⟩
+
+/-! ### Constructing WightmanFunctions from OS Data
+
+Each Wightman axiom is derived from the corresponding OS axiom via analytic
+continuation. The helper lemmas below capture each derivation. -/
+
+-- Abbreviation for the W_n extracted from boundary_values_tempered
+private def bvt_W (OS : OsterwalderSchraderAxioms d)
+    (lgc : OSLinearGrowthCondition d OS) (n : ℕ) :
+    SchwartzNPoint d n → ℂ :=
+  (boundary_values_tempered OS lgc n).choose
+
+/-- S44: W_0 = 1 (normalization).
+    The 0-point Schwinger function S_0 = 1 (OS normalization). Its analytic
+    continuation is the constant function 1 on the (trivial) forward tube.
+    The distributional BV of 1 is evaluation: W_0(f) = f(0).
+
+    Blocked by: identifying the 0-point BV with evaluation at 0. -/
+private theorem bvt_normalized (OS : OsterwalderSchraderAxioms d)
+    (lgc : OSLinearGrowthCondition d OS) :
+    IsNormalized d (bvt_W OS lgc) := by
   sorry
 
-/-! ### Constructing WightmanFunctions from OS Data -/
+/-- S45: Translation invariance of W_n from E1.
+    E1 implies Schwinger functions are translation-invariant. Analytic continuation
+    preserves this: F_analytic(z+c) = F_analytic(z) on the forward tube. The BV
+    inherits translation invariance.
+
+    Blocked by: showing translation invariance passes from the analytic function
+    to its distributional boundary values. -/
+private theorem bvt_translation_invariant (OS : OsterwalderSchraderAxioms d)
+    (lgc : OSLinearGrowthCondition d OS) :
+    IsTranslationInvariantWeak d (bvt_W OS lgc) := by
+  sorry
+
+/-- S46: Lorentz covariance of W_n from E1 via BHW.
+    E1 (Euclidean rotation invariance) + analytic continuation gives invariance
+    under the complexified rotation group SO(d+1,C). The restricted Lorentz group
+    SO(1,d) embeds in SO(d+1,C) (Bargmann-Hall-Wightman), so the BV inherits
+    Lorentz covariance.
+
+    Blocked by: the embedding SO(1,d) -> SO(d+1,C) and showing BV inherits
+    the invariance. -/
+private theorem bvt_lorentz_covariant (OS : OsterwalderSchraderAxioms d)
+    (lgc : OSLinearGrowthCondition d OS) :
+    IsLorentzCovariantWeak d (bvt_W OS lgc) := by
+  sorry
+
+/-- S47: Local commutativity of W_n from E3 + edge-of-the-wedge.
+    E3 (permutation symmetry of Schwinger functions) implies F_analytic is
+    symmetric under permutations of its arguments (on the forward tube).
+    By the edge-of-the-wedge theorem, this extends to the real boundary,
+    giving local commutativity of W_n for spacelike-separated arguments.
+
+    Blocked by: edge-of-the-wedge at the distributional level (connecting
+    permutation symmetry on the tube to commutativity on the boundary). -/
+private theorem bvt_locally_commutative (OS : OsterwalderSchraderAxioms d)
+    (lgc : OSLinearGrowthCondition d OS) :
+    IsLocallyCommutativeWeak d (bvt_W OS lgc) := by
+  sorry
+
+/-- S48: Positive definiteness of W_n from E2 (reflection positivity).
+    The Wightman inner product sum_nm W_{n+m}(f*_n x f_m) >= 0 follows from
+    E2 after Wick rotation: the OS inner product equals the Wightman inner
+    product under the rotation.
+
+    Blocked by: identifying the Wightman inner product with the OS inner product
+    after Wick rotation (same computation as S38 but in the reverse direction). -/
+private theorem bvt_positive_definite (OS : OsterwalderSchraderAxioms d)
+    (lgc : OSLinearGrowthCondition d OS) :
+    IsPositiveDefinite d (bvt_W OS lgc) := by
+  sorry
+
+/-- S49: Hermiticity of W_n from reality of Schwinger functions.
+    The Schwinger functions S_n are real (they are the Euclidean restriction of
+    the analytic continuation). This implies W_n(f~) = conj(W_n(f)) where
+    f~(x) = conj(f(x_n,...,x_1)).
+
+    Blocked by: connecting reality of S_n to the Hermiticity condition on W_n
+    through analytic continuation. -/
+private theorem bvt_hermitian (OS : OsterwalderSchraderAxioms d)
+    (lgc : OSLinearGrowthCondition d OS) :
+    ∀ (n : ℕ) (f g : SchwartzNPoint d n),
+      (∀ x : NPointDomain d n,
+        g.toFun x = starRingEnd ℂ (f.toFun (fun i => x (Fin.rev i)))) →
+      bvt_W OS lgc n g = starRingEnd ℂ (bvt_W OS lgc n f) := by
+  sorry
 
 /-- Given OS axioms with linear growth condition, construct the full collection
     of Wightman functions from the analytic continuation boundary values. -/
 def constructWightmanFunctions (OS : OsterwalderSchraderAxioms d)
     (lgc : OSLinearGrowthCondition d OS) :
     WightmanFunctions d where
-  W := fun n => (boundary_values_tempered OS lgc n).choose
+  W := bvt_W OS lgc
   linear := fun n => (boundary_values_tempered OS lgc n).choose_spec.choose_spec.2.1
   tempered := fun n => (boundary_values_tempered OS lgc n).choose_spec.choose_spec.1
-  normalized := by
-    -- The boundary value of S_0 = 1 gives W_0 = evaluation at the unique point
-    sorry
-  translation_invariant := by
-    -- Translation invariance follows from E1 (Euclidean covariance) restricted
-    -- to time-preserving translations
-    sorry
-  lorentz_covariant := by
-    -- Lorentz covariance follows from E1 via BHW theorem
-    -- SO(1,d) acts on the forward tube; the analytically continued function
-    -- inherits Lorentz covariance from Euclidean covariance
-    sorry
+  normalized := bvt_normalized OS lgc
+  translation_invariant := bvt_translation_invariant OS lgc
+  lorentz_covariant := bvt_lorentz_covariant OS lgc
   spectrum_condition := by
-    -- Use the F_analytic witness from boundary_values_tempered
     intro n
     have h := (boundary_values_tempered OS lgc n).choose_spec.choose_spec
     exact ⟨(boundary_values_tempered OS lgc n).choose_spec.choose,
       h.2.2.1, h.2.2.2.1⟩
-  locally_commutative := by
-    -- From E3 (permutation symmetry) + edge-of-the-wedge
-    sorry
-  positive_definite := by
-    -- From E2 (reflection positivity)
-    sorry
-  hermitian := by
-    -- From the reality of Schwinger functions and their analytic continuation
-    sorry
+  locally_commutative := bvt_locally_commutative OS lgc
+  positive_definite := bvt_positive_definite OS lgc
+  hermitian := bvt_hermitian OS lgc
 
 /-- The OS pre-Hilbert space constructed from the Wightman functions obtained
     via analytic continuation of Schwinger functions.
