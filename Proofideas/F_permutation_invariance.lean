@@ -1,7 +1,29 @@
 /-
 # Proof Strategy: F_permutation_invariance
 
-## Status (2026-02-22)
+## Status (2026-02-22, updated)
+
+### CRITICAL FINDING: JostSet definition issue
+
+**The current `JostSet` (pairwise spacelike) is INSUFFICIENT for Jost's lemma.**
+
+The theorem `jostSet_subset_extendedTube` as stated is FALSE. Counterexample:
+  x_0 = (0, 1), x_1 = (0, -1) in 1+1 dimensions.
+  Both spacelike ✓. x_1 - x_0 = (0, -2) spacelike ✓.
+  But ζ_0 = (0,1), ζ_1 = (0,-2). Linear combination 2ζ_0 + ζ_1 = 0.
+  Any complex Lorentz Λ with Im(Λ⁻¹·ζ_k) ∈ V⁺ for all k requires Im(2v_0 + v_1) ∈ V⁺,
+  but 2v_0 + v_1 = 0 ∉ V⁺. Contradiction.
+
+**Reason**: Jost's lemma requires the "Jost condition" (S-W eq. 2-92):
+  ∀ λ_k ≥ 0 with Σλ > 0 : (Σ λ_k ζ_k)² < 0
+where ζ_k are consecutive differences. This is STRONGER than pairwise spacelike.
+
+Pairwise spacelike allows anti-parallel spacelike vectors whose positive combinations
+can vanish, violating the Jost condition.
+
+**Fix**: Use the Jost condition (positive independence of consecutive differences)
+instead of pairwise spacelike. Equivalently: ∃ direction w ∈ ℝ^{d+1} such that
+w · ζ_k > 0 for all k (positive half-space condition).
 
 ### Key insight from Gemini consultation:
 **The standard BHW proof does NOT use the edge-of-the-wedge theorem for the
@@ -26,6 +48,107 @@ The mixing at positions i and i+2 means:
 - No choice of "subcone" works because V⁺ is unbounded and the constraint is
   parameter-dependent, not scale-invariant.
 
+## Complex boost construction (Jost's lemma proof)
+
+### Single vector case
+
+For a purely spatial spacelike vector ζ = (0, a, 0, ..., 0) with a > 0:
+
+The boost generator K₁ has entries:
+  K₁[0,1] = K₁[1,0] = 1, all others 0.
+K₁ ∈ so(1,d;ℝ) (satisfies K₁ᵀ η + η K₁ = 0).
+
+Matrix exponential:
+  K₁² = diag(1,1,0,...,0)
+  exp(iα K₁) = I + i sin(α) K₁ + (cos(α) - 1) K₁²
+
+Explicit entries:
+  [0,0] = cos α,  [0,1] = i sin α
+  [1,0] = i sin α, [1,1] = cos α
+  [j,j] = 1 for j ≥ 2
+
+Action on ζ = (0, a, 0, ...):
+  exp(iα K₁) · ζ = (ia sin α, a cos α, 0, ...)
+  Im part = (a sin α, 0, ..., 0) ∈ V⁺ for α ∈ (0, π), a > 0 ✓
+
+So: set Λ = exp(-iα K₁), then w = Λ⁻¹ · ζ = exp(iα K₁) · ζ has Im(w) ∈ V⁺.
+And Λ ∈ SO⁺(1,d;ℂ) via `expLieAlg`.
+
+### Multiple vectors — positive half-space condition
+
+For n consecutive differences ζ_k with spatial parts v_k ∈ ℝ^d:
+
+If ∃ w ∈ ℝ^d with w · v_k > 0 for all k, then:
+1. Apply real spatial rotation R ∈ SO(d) to align w with e₁.
+   After rotation: (R v_k)₁ = w · v_k / |w| > 0.
+2. Apply complex boost exp(-iα K₁).
+   Result: Im(Λ⁻¹ · ζ_k) = ((R v_k)₁ sin α, 0, ..., 0) ∈ V⁺.
+
+The direction w exists iff the v_k are "positively independent":
+no nonneg linear combination Σ λ_k v_k = 0 with Σλ > 0.
+This is exactly the Jost condition (for purely spatial vectors).
+
+The real spatial rotation R_Lor ∈ SO(1,d;ℝ) ⊂ SO⁺(1,d;ℂ) just acts on spatial
+indices. The full complex Lorentz transformation is Λ = R_Lor · exp(-iα K₁).
+
+### Swap-compatible configurations
+
+For swap(i, i+1), the permuted consecutive differences are:
+  ζ'_k = ζ_k for k ∉ {i, i+1, i+2}
+  ζ'_i = ζ_i + ζ_{i+1}
+  ζ'_{i+1} = -ζ_{i+1}
+  ζ'_{i+2} = ζ_{i+1} + ζ_{i+2}  (if exists)
+
+Key issue: -ζ_{i+1} appears, so the original direction w (with w·v_{i+1} > 0)
+gives w·(-v_{i+1}) < 0. Need a DIFFERENT direction w' for the permuted ordering.
+
+**Construction that works for BOTH orderings** (d ≥ 2):
+
+Take x_k = (0, k+1, 0, ..., 0) for k ≠ i+1
+     x_{i+1} = (0, i+2, ε, 0, ..., 0)  for small ε > 0
+
+Consecutive differences:
+  ζ_k = (0, 1, 0, ...) for k ≠ i+1, i+2
+  ζ_{i+1} = (0, 1, ε, ...)
+  ζ_{i+2} = (0, 1, -ε, ...)
+
+Original ordering: w = (1, 0) works (all first components = 1 > 0). ✓
+
+Permuted ordering: ζ'_{i+1} = (0, -1, -ε, ...).
+Direction w' = (1, -3/(2ε)):
+  w'·(1, 0) = 1 > 0 ✓  (for k ≠ i, i+1, i+2)
+  w'·(2, ε) = 2 - 3/2 = 1/2 > 0 ✓  (ζ'_i)
+  w'·(-1, -ε) = -1 + 3/2 = 1/2 > 0 ✓  (ζ'_{i+1})
+  w'·(2, -ε) = 2 + 3/2 = 7/2 > 0 ✓  (ζ'_{i+2}, if v_{i+2} = (1,-ε) + (1,0) = (2,-ε))
+    Wait: ζ'_{i+2} = ζ_{i+1} + ζ_{i+2}. ζ_{i+1} = (0,1,ε), ζ_{i+2} = (0,1,-ε).
+    So ζ'_{i+2} = (0, 2, 0). w'·(2, 0) = 2 > 0 ✓
+
+Locality: ζ_{i+1} = (0, 1, ε) is spacelike (1 + ε² > 0), so hF_local applies. ✓
+
+This configuration has an open neighborhood with the same properties (strict inequalities).
+
+### Connectivity of T'_n ∩ σ⁻¹(T'_n)
+
+This is needed for the identity theorem step.
+
+**Path-connection argument**:
+For z ∈ T'_n ∩ σ⁻¹(T'_n):
+  z ∈ T'_n means z = Λ₁·w₁ with w₁ ∈ FT.
+  σ·z ∈ T'_n means σ·z = Λ₂·w₂ with w₂ ∈ FT.
+  Then σ·w₁ = Λ₁⁻¹·Λ₂·w₂ =: Λ₃·w₂ ∈ T'_n.
+
+Path from z to w₁ ∈ FT:
+  t ↦ Λ₁(t)·w₁ where Λ₁(t) deforms Λ₁ to Id in SO⁺(1,d;ℂ).
+  Stays in T'_n: ✓ (each point is Λ₁(t)·w₁ ∈ T'_n).
+  σ·(Λ₁(t)·w₁) = Λ₁(t)·(σ·w₁) = Λ₁(t)·Λ₃·w₂ ∈ T'_n: ✓
+
+This path connects z to w₁ ∈ FT while staying in T'_n ∩ σ⁻¹(T'_n).
+But we also need to connect w₁ to a Jost point through T'_n ∩ σ⁻¹(T'_n).
+This part is harder and requires SO⁺(1,d;ℂ) connected (orbitSet sorry).
+
+**Alternative**: Sorry connectivity; it depends on the same Lie group connectivity
+as `orbitSet_isPreconnected`. This does NOT introduce a genuinely new sorry.
+
 ## Proof strategy: Jost point approach (NO EOW needed)
 
 ### Setup
@@ -36,212 +159,66 @@ The mixing at positions i and i+2 means:
   (PROVED: `extendF_eq_on_forwardTube`, `extendF_preimage_eq`)
 
 ### Step 1: Holomorphicity of extendF on T'_n
-**Status: Needs proof (straightforward from existing infrastructure)**
+**Status: PROVED** (`extendF_holomorphicOn` in JostPoints.lean)
 
-Use the same inverse chart argument as BHW Property 1:
-For z ∈ T'_n, write z = Λ₀·w₀ with w₀ ∈ FT.
-Set ψ(z) = Λ₀⁻¹·z (so ψ(z₀) = w₀ ∈ FT).
-Then extendF(z) = F(ψ(z)) near z₀ (by well-definedness of extendF).
-Since F is holomorphic on FT and ψ is holomorphic, extendF is holomorphic near z₀.
+### Step 2: Jost's lemma — Jost-condition configurations lie in T'_n
+**Status: PARTIALLY FORMALIZED (sorry on complex boost computation)**
 
-### Step 2: Jost's lemma — totally spacelike configurations lie in T'_n
-**Status: KEY NEW INFRASTRUCTURE NEEDED**
+Correct definition: `JostCondition` requires consecutive differences to be
+positively independent (∃ direction w with w · v_k > 0 for all k).
 
-**Definition (Jost set)**:
-  J = {x ∈ ℝ^{n(d+1)} : all pairwise differences x_a - x_b are spacelike}
-    = {x : ∀ a b, a ≠ b → ∑_μ η_μ (x_a^μ - x_b^μ)² < 0}
+Proof via complex boost: R_Lor · exp(-iα K₁) maps real Jost-condition configs
+to ForwardTube. Needs matrix exponential computation (~200 LOC).
 
-Equivalently (for the consecutive-difference formulation):
-  J = {x : ∀ λ ∈ ℝ^n with λ ≥ 0, ∑λ > 0, (∑_k λ_k ζ_k)² < 0}
-where ζ_k = x_k - x_{k-1}.
+### Step 3: Boundary value agreement — extendF(x) = F(x_ℂ) on Jost set
+**Status: PROVED** (`extendF_eq_boundary_value` in JostPoints.lean)
 
-**Jost's lemma**: J ⊆ T'_n.
+### Step 4: Locality on Jost set
+**Status: Straightforward from hF_local (to be formalized)**
 
-**Proof sketch (Jost 1965, Streater-Wightman Theorem 2-10)**:
-For x ∈ J, all difference vectors ζ_k are spacelike. There exists a complex Lorentz
-transformation Λ ∈ SO⁺(1,d;ℂ) that "rotates" the spacelike vectors into the
-forward light cone.
+### Step 5: Identity theorem on T'_n ∩ σ⁻¹(T'_n)
+**Status: Identity theorem PROVED; connectivity SORRY (same dependency as orbitSet)**
 
-Specifically, for a single spacelike vector ζ with ζ² < 0:
-- There exists a real Lorentz boost that makes ζ purely spatial: ζ = (0, ξ_1, ..., ξ_d).
-- Then exp(iθ J₀₁) with tan(θ) = ξ₁/|ξ| (a complex rotation in the 01-plane)
-  maps ζ to a vector with Im in V⁺.
+### Step 6: Conclude extendF_permutation_invariant_swap
+**Status: To be formalized (structure clear)**
 
-For n-1 difference vectors simultaneously:
-- Use complex Lorentz transformations to rotate ALL differences ζ_1, ..., ζ_{n-1}
-  so that each Im(Λ·ζ_k) ∈ V⁺.
-- The key constraint is that Λ is a SINGLE complex Lorentz transformation
-  (not different ones for each k).
-- This works because the totally spacelike condition ensures no "interference"
-  between the rotations.
-
-**Infrastructure needed for Jost's lemma**:
-- Pure imaginary rotations (complex boosts): exp(iθ · J_μν) for real θ
-- The forward light cone condition in terms of Minkowski inner products
-- Matrix exponential properties for so(1,d;ℂ)
-
-### Step 3: Boundary value agreement — extendF(x) = F(x_ℂ) on J
-**Status: Straightforward from continuity**
-
-For x ∈ J, x is a real point on the boundary of FT.
-- x is a limit point of FT: take z_n = x + iε_n η where η has all differences in V⁺.
-  Then z_n ∈ FT and z_n → x as ε_n → 0.
-- extendF is holomorphic (hence continuous) on T'_n and J ⊆ T'_n (by Jost's lemma).
-- extendF = F on FT, so lim extendF(z_n) = lim F(z_n) = F(x_ℂ) (by hF_bv).
-- By continuity of extendF at x: extendF(x) = lim extendF(z_n) = F(x_ℂ).
-
-### Step 4: Locality on J — extendF(σ·x) = extendF(x)
-**Status: Straightforward from hF_local**
-
-For x ∈ J and σ = swap(i, i+1):
-- x has (x_{i+1} - x_i)² < 0 (spacelike), so hF_local gives F(σ·x_ℂ) = F(x_ℂ).
-- σ·x ∈ J (J is permutation-invariant since "all pairs spacelike" is symmetric).
-- extendF(σ·x) = F(σ·x_ℂ) (by Step 3 applied to σ·x).
-- extendF(x) = F(x_ℂ) (by Step 3).
-- Therefore extendF(σ·x) = F(σ·x_ℂ) = F(x_ℂ) = extendF(x). ✓
-
-### Step 5: Gluing — define H on T'_n ∪ σ(T'_n)
-**Status: Needs identity theorem on totally real submanifolds**
-
-Define:
-  H(z) = extendF(z)          for z ∈ T'_n
-  H(z) = extendF(σ⁻¹·z)     for z ∈ σ(T'_n)
-
-For this to be well-defined, we need:
-On T'_n ∩ σ(T'_n): extendF(z) = extendF(σ⁻¹·z).
-Equivalently: extendF(σ·z) = extendF(z) for z ∈ T'_n ∩ σ⁻¹(T'_n).
-
-Proof:
-- On J ⊂ T'_n ∩ σ⁻¹(T'_n): this is Step 4. ✓
-- The function f(z) = extendF(z) - extendF(σ·z) is holomorphic on T'_n ∩ σ⁻¹(T'_n).
-- f = 0 on J, which is an open subset of ℝ^{n(d+1)} (a totally real submanifold).
-- By the identity theorem for totally real submanifolds: f = 0 on the connected
-  component of T'_n ∩ σ⁻¹(T'_n) containing J.
-
-**Identity theorem for totally real submanifolds**:
-If g is holomorphic on open connected D ⊂ ℂ^m and g = 0 on an open subset
-V ⊂ D ∩ ℝ^m, then g = 0 on D.
-
-Proof: At x₀ ∈ V, g is analytic with Taylor expansion g(z) = Σ_α c_α (z - x₀)^α.
-For real z near x₀: g(z) = 0, so all c_α = 0 (uniqueness of real power series).
-Hence g = 0 in a complex neighborhood of x₀. By the standard identity theorem
-(for functions vanishing on an open set), g = 0 on the connected component.
-
-### Step 6: Lorentz invariance of H
-**Status: Same T-set argument as complex_lorentz_invariance (modulo orbitSet sorry)**
-
-H is holomorphic on D = T'_n ∪ σ(T'_n), which is:
-- Open (union of open sets) ✓
-- Connected (T'_n and σ(T'_n) are connected, their intersection T'_n ∩ σ(T'_n) ⊃ J ≠ ∅) ✓
-
-H is real Lorentz invariant on D:
-- On T'_n: H = extendF, which is real Lorentz invariant (real Lorentz preserves FT,
-  hence T'_n, and extendF is defined via complex_lorentz_invariance which implies
-  real Lorentz invariance).
-- On σ(T'_n): H = extendF∘σ⁻¹. Real Lorentz Λ commutes with σ:
-  H(Λ·z) = extendF(σ⁻¹·(Λ·z)) = extendF(Λ·(σ⁻¹·z)) = extendF(σ⁻¹·z) = H(z). ✓
-
-Apply the T-set argument (same as complex_lorentz_invariance) to H on D:
-- T = {Λ : ∀ z ∈ D, Λ·z ∈ D → H(Λ·z) = H(z)}
-- 1 ∈ T (trivial)
-- T closed, T ∩ U open, T^c ⊆ U
-- U connected (modulo orbit set sorry for D, which follows from orbit set sorry for FT
-  since FT ⊆ D and orbit sets of D ⊇ orbit sets of FT)
-- Therefore T = G.
-
-**This step requires the orbit set sorry (same as complex_lorentz_invariance).
-It does NOT introduce any new sorry.**
-
-### Step 7: Conclude F_permutation_invariance
-**Status: Straightforward**
-
-Given w ∈ FT and Γ·(σ·w) ∈ FT:
-1. Set u = σ·w.
-2. Γ·u ∈ FT ⊂ T'_n ⊂ D.
-3. σ·w = u. We need u ∈ D. Since Γ·u ∈ FT ⊂ T'_n, and u = Γ⁻¹·(Γ·u):
-   u ∈ Γ⁻¹·T'_n = T'_n (since T'_n is Lorentz-invariant). So u ∈ T'_n ⊂ D. ✓
-   Also u = σ·w, and w ∈ FT ⊂ T'_n ⊂ σ(T'_n) [NO! w ∈ T'_n does NOT imply w ∈ σ(T'_n)].
-   But u ∈ σ(FT) ⊂ σ(T'_n) ⊂ D. ✓
-
-4. By Lorentz invariance of H (Step 6): H(Γ·u) = H(u).
-5. H(Γ·u) = extendF(Γ·u) = F(Γ·u) = F(Γ·(σ·w))
-   [since Γ·u ∈ FT ⊂ T'_n and H = extendF on T'_n and extendF = F on FT].
-6. H(u) = extendF(σ⁻¹·u) = extendF(w) = F(w)
-   [since u ∈ σ(T'_n) and H = extendF∘σ⁻¹ on σ(T'_n), and σ⁻¹·u = σ·(σ·w) = w ∈ FT].
-7. Therefore F(Γ·(σ·w)) = F(w). ✓
-
-For general τ (product of adjacent transpositions): induction. Decompose τ = σ_m ∘ ... ∘ σ_1,
-extend one transposition at a time (each step adds one more σ(T'_n) to the domain D).
+### Step 7: Wire into F_permutation_invariance
+**Status: Structure clear; needs Steps 5-6**
 
 ## Required infrastructure (ordered by priority)
 
-### Priority 1: Jost's lemma
-- Define Jost set J (totally spacelike real configurations)
-- Prove J ⊆ ExtendedTube
-- This requires: complex boosts exp(iθ J_{μν}) mapping spacelike → forward timelike
-- Estimated: 200-400 LOC
+### Priority 1: Complex boost computation (for Jost's lemma)
+- Define K₁ (boost generator) as a matrix
+- Verify K₁ ∈ so(1,d;ℝ) (IsInLieAlgebra)
+- Use expLieAlg to get exp(iα K₁) ∈ SO⁺(1,d;ℂ)
+- Compute action formula: exp(iα K₁)·(0,a,0,...) = (ia sin α, a cos α, 0,...)
+- Estimated: 200-300 LOC
+- Alternative: sorry the action formula, focus on proof structure
 
-### Priority 2: Identity theorem for totally real submanifolds
-- If f holomorphic on connected open D ⊂ ℂ^m and f = 0 on open V ⊂ D ∩ ℝ^m, then f = 0 on D.
-- Follows from: f analytic at x₀ ∈ V, f|_ℝ = 0 near x₀ ⟹ Taylor coefficients = 0 ⟹ f = 0 near x₀.
-- We may already have enough in SCV/IdentityTheorem.lean (analytic functions vanishing on thick sets).
-- Estimated: 50-100 LOC
+### Priority 2: JostCondition definition + basic properties
+- Define JostCondition (positive half-space condition on consecutive diffs)
+- Prove: open set, nonempty, swap-compatible configs exist
+- Estimated: 100-150 LOC
 
-### Priority 3: Holomorphicity of extendF on ExtendedTube
-- Same chart argument as BHW Property 1 but for extendF (not fullExtendF).
-- Uses complex_lorentz_invariance for well-definedness.
-- Estimated: 50-80 LOC
+### Priority 3: Swap-compatible set construction
+- For each swap(i,i+1): construct explicit open set in T'_n ∩ σ⁻¹(T'_n)
+- Uses 2D perturbation (ε in second spatial direction)
+- Estimated: 100-200 LOC
 
-### Priority 4: Boundary value agreement
-- extendF(x) = F(x_ℂ) for x ∈ J (Jost point, limit of FT)
-- Continuity argument: extendF is continuous on T'_n, F is continuous at boundary (hF_bv).
-- Estimated: 30-50 LOC
+### Priority 4: Connectivity (or sorry)
+- T'_n ∩ σ⁻¹(T'_n) connected — reduces to SO⁺(1,d;ℂ) connected
+- Same dependency as orbitSet sorry; not a genuinely new obstacle
+- Estimated: sorry for now, ~50 LOC
 
-### Priority 5: Connectedness of T'_n ∩ σ⁻¹(T'_n)
-- Needed for the identity theorem step (Step 5).
-- T'_n ∩ σ⁻¹(T'_n) is open and contains J (nonempty).
-- Need: the connected component containing J also contains FT ∩ σ⁻¹(T'_n).
-- This may follow from T'_n being path-connected + J being "reachable" from FT.
-- NOTE: Even if this connectivity is hard, we only need it for the SPECIFIC points
-  appearing in the F_permutation_invariance hypothesis (where Γ·(σ·w) ∈ FT).
-  These points ARE in T'_n ∩ σ⁻¹(T'_n) by the argument in Step 7.
-- Estimated: 50-150 LOC (depending on approach)
+## Remaining sorrys after this work
 
-## Dependency summary
+1. `orbitSet_isPreconnected` — SO⁺(1,d;ℂ) orbit sets connected (Lie group theory)
+2. `jostCondition_subset_extendedTube` — complex boost computation (matrix exp)
+3. Connectivity of T'_n ∩ σ⁻¹(T'_n) — reduces to #1
+4. PET preconnected — follows from #2 + #1
 
-```
-Jost's lemma (Priority 1, main new work)
-    │
-    ├── J ⊆ ExtendedTube
-    │
-    ├── Locality on J (Step 4, easy from hF_local)
-    │
-    └── Boundary value agreement (Priority 4, continuity)
-            │
-            ▼
-Identity theorem for totally real (Priority 2)
-    │
-    ▼
-Gluing (Step 5): extendF∘σ = extendF on T'_n ∩ σ⁻¹(T'_n)
-    │
-    ▼
-Lorentz invariance of H (Step 6, reuses T-set argument, modulo orbitSet sorry)
-    │
-    ▼
-F_permutation_invariance (Step 7, conclusion)
-```
-
-## Key difference from previous approach
-
-**Previous approach** (abandoned): Apply edge-of-the-wedge directly to F and F∘σ on
-the forward and permuted tubes. BLOCKED because the permuted tube is NOT T(-C).
-
-**New approach** (Jost point): Use complex Lorentz invariance to reach Jost points
-(real, spacelike), where locality gives F = F∘σ. Propagate by identity theorem.
-NO edge-of-the-wedge needed for this step!
-
-The EOW theorem is still used elsewhere (e.g., the proved `edge_of_the_wedge` axiom
-replacement), but NOT for the BHW permutation step.
+All reduce to: (a) complex boost computation, (b) Lie group connectivity.
+These are the IRREDUCIBLE CORE of the BHW theorem.
 
 ## Impact on PET preconnected (sorry #3)
 
@@ -250,13 +227,6 @@ PET = T''_n = ⋃_τ ⋃_Λ Λ·(τ·FT).
 The same Jost point argument shows: J ⊂ T'_n ∩ σ(T'_n) for each σ. So the
 different "sectors" σ_k(T'_n) all contain J. Since T'_n ∪ σ(T'_n) is connected
 (sharing J), iterating gives T''_n is connected.
-
-More precisely: PET = T'_n ∪ ⋃_σ σ(T'_n). Each σ(T'_n) is connected, and
-T'_n ∩ σ(T'_n) ⊃ J ≠ ∅. So the union is connected.
-
-This means PET preconnected follows from:
-1. T'_n is connected (equivalent to SO⁺(1,d;ℂ) × FT connected).
-2. Jost's lemma: J ⊂ T'_n ∩ σ(T'_n) for each σ.
 
 So **Jost's lemma is the key infrastructure for BOTH F_permutation_invariance AND
 PET preconnected**. Proving Jost's lemma would reduce all 3 Connectedness.lean sorrys

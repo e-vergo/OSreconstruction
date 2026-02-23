@@ -12,6 +12,10 @@ This project formalizes the mathematical bridge between Euclidean and relativist
 
 - **`OSReconstruction.vNA`** — Von Neumann algebra foundations: cyclic/separating vectors, predual theory, Tomita-Takesaki modular theory, modular automorphism groups, KMS condition, spectral theory via Riesz-Markov-Kakutani, unbounded self-adjoint operators, and Stone's theorem.
 
+- **`OSReconstruction.SCV`** — Several complex variables infrastructure (sorry-free): polydiscs, iterated Cauchy integrals, Osgood's lemma, separately holomorphic implies jointly analytic (Hartogs), tube domain extension, and identity theorems for product types and totally real submanifolds.
+
+- **`OSReconstruction.ComplexLieGroups`** — Complex Lie group theory for the Bargmann-Hall-Wightman theorem: GL(n;C)/SL(n;C)/SO(n;C) path-connectedness, complex Lorentz group and its path-connectedness via Wick rotation, Jost's lemma (Wick rotation maps spacelike configurations into the extended tube), and the BHW theorem structure (extended tube, complex Lorentz invariance, permutation symmetry, uniqueness).
+
 ### Dependencies
 
 - [**gaussian-field**](https://github.com/mrdouglasny/gaussian-field) — Sorry-free Hermite function basis, Schwartz-Hermite expansion, Dynin-Mityagin and Pietsch nuclear space definitions, spectral theorem for compact self-adjoint operators, nuclear SVD, and Gaussian measure construction on weak duals.
@@ -43,11 +47,15 @@ Remaining work is tracked via `sorry` placeholders (~86 total across 27 files):
 | GNS construction | Inner product, field operators, reproducing property | 0 |
 | 1D edge-of-the-wedge | Via Morera's theorem | 0 |
 | Spacetime geometry | Minkowski metric, Lorentz/Poincaré groups | 0 |
+| SCV infrastructure | Polydiscs, Osgood, Hartogs, identity theorems | 0 |
+| Complex Lie groups | GL, SL, SO path-connectedness; complex Lorentz group | 0 (in MatrixLieGroup, SOConnected, Complexification) |
+| Jost's lemma | Wick rotation maps spacelike configs into extended tube | 2 (swap existence, permutation invariance) |
+| BHW theorem | Extended tube, properties 1-5, complex Lorentz invariance | 3 (orbit set, F permutation invariance, PET connected) |
 | Modular theory | Tomita operator, modular operator/conjugation | ~9 |
 | Modular automorphisms | σ_t, Connes cocycle | ~14 |
 | KMS condition | Equilibrium states | ~11 |
 
-See [`PROGRESS_REPORT.md`](PROGRESS_REPORT.md) for a detailed breakdown of axioms, sorry census, and proof strategies. See also [`OSReconstruction/vNA/TODO.md`](OSReconstruction/vNA/TODO.md) and [`OSReconstruction/Wightman/TODO.md`](OSReconstruction/Wightman/TODO.md) for execution plans.
+See [`PROGRESS_REPORT.md`](PROGRESS_REPORT.md) for a detailed breakdown of axioms, sorry census, and proof strategies. See also [`OSReconstruction/vNA/TODO.md`](OSReconstruction/vNA/TODO.md), [`OSReconstruction/Wightman/TODO.md`](OSReconstruction/Wightman/TODO.md), and [`OSReconstruction/ComplexLieGroups/TODO.md`](OSReconstruction/ComplexLieGroups/TODO.md) for execution plans.
 
 ## File Structure
 
@@ -72,12 +80,26 @@ OSReconstruction/
 │   ├── Groups/                   # Lorentz and Poincaré groups
 │   ├── Spacetime/                # Minkowski geometry
 │   ├── NuclearSpaces/            # Nuclear spaces, gaussian-field bridge
-│   ├── SCV/                      # Several complex variables infrastructure
+│   ├── SCV/                      # SCV helpers (bridges to top-level SCV/)
 │   └── Reconstruction/           # The reconstruction theorems
 │       ├── GNSConstruction.lean  # GNS construction (sorry-free)
 │       ├── AnalyticContinuation.lean  # Tube domains, BHW, edge-of-wedge
 │       ├── WickRotation.lean     # OS ↔ Wightman bridge
 │       └── Helpers/              # EdgeOfWedge, SeparatelyAnalytic
+├── SCV/                          # Several complex variables (sorry-free)
+│   ├── Polydisc.lean             # Polydisc definitions and properties
+│   ├── IteratedCauchyIntegral.lean  # Multi-variable Cauchy integrals
+│   ├── Osgood.lean               # Osgood's lemma
+│   ├── Analyticity.lean          # Hartogs: separately → jointly analytic
+│   ├── TubeDomainExtension.lean  # Tube domain extension theorems
+│   └── IdentityTheorem.lean      # Identity theorems (product types, totally real)
+├── ComplexLieGroups/              # Complex Lie groups for BHW theorem
+│   ├── MatrixLieGroup.lean       # GL(n;C), SL(n;C) path-connectedness
+│   ├── SOConnected.lean          # SO(n;C) path-connectedness
+│   ├── Complexification.lean     # Complex Lorentz group SO+(1,d;C)
+│   ├── LorentzLieGroup.lean      # Real Lorentz group infrastructure
+│   ├── JostPoints.lean           # Jost's lemma, Wick rotation, extendF
+│   └── Connectedness.lean        # BHW theorem: extended tube, properties 1-5
 └── Reconstruction.lean           # Top-level reconstruction theorems
 ```
 

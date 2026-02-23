@@ -1451,7 +1451,7 @@ theorem extendF_eq_on_forwardTube (n : ℕ) (F : (Fin n → Fin (d + 1) → ℂ)
 
 /-- Any two forward-tube preimages of the same extended-tube point give the same F-value.
     This is the key well-definedness lemma for `extendF`. -/
-private theorem extendF_preimage_eq (n : ℕ) (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+theorem extendF_preimage_eq (n : ℕ) (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
     (hF_real_inv : ∀ (Λ : RestrictedLorentzGroup d)
       (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
