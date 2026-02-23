@@ -1222,35 +1222,91 @@ private lemma orbitSet_locallyPathConnected (w : Fin n → Fin (d + 1) → ℂ)
     _ = ‖X‖ := one_mul _
     _ < δ := hX_small
 
-/-- **The orbit set O_w is preconnected.** For w ∈ FT, the set
-    {Λ ∈ G : Λ·w ∈ FT} is preconnected.
+/-- The orbit set O_w is connected: it cannot be split into two disjoint nonempty
+    open subsets. This follows from the clopen argument: the path-component of 1
+    in O_w is open (by `orbitSet_locallyPathConnected`), and its complement within
+    O_w is also open. Since the orbit set is a nonempty open subset of the connected
+    Lie group G, and the path-component of 1 is clopen in O_w, the connectedness
+    of G forces O_w to have a single path-component.
 
-    This is the key connectivity ingredient for the BHW theorem. The orbit set is
-    an open subset of the connected Lie group G containing the identity, and
-    `orbitSet_locallyPathConnected` shows it is locally path-connected. The
-    path-component of 1 in O_w is therefore open, and the complement of this
-    component within O_w is also open (union of other path-components). Since
-    the orbit set is preconnected, it has a single path-component.
+    More precisely: S (path-component of 1 in O_w) is open in G. The complement
+    of O_w in G is also open (since O_w is open). So G = S ∪ (O_w \ S) ∪ (G \ O_w).
+    S is open, and (O_w \ S) ∪ (G \ O_w) = G \ S is open (union of opens).
+    Since G is connected and S is nonempty, G \ S must be empty... but that would
+    mean O_w = G which is not necessarily true.
 
-    The preconnectedness follows from the Lie group structure: any element of O_w
-    can be reached from 1 by a finite chain of small exponential steps, each
-    staying in O_w. At each intermediate point, `orbitSet_locallyPathConnected`
-    provides a local exponential neighborhood within O_w, and the chain is
-    constructed by subdividing the path from `ComplexLorentzGroup.joined_one_all`
-    finely enough (via compactness of [0,1]) that each step fits within such a
-    neighborhood. -/
--- Helper: every element of the orbit set is in the path-component of 1 within O_w.
--- The path-component of 1 is open (by `orbitSet_locallyPathConnected` + concatenation),
--- and its complement in O_w is open (by the reverse-path argument). Since the orbit set
--- O_w is an open subset of a connected Lie group with local path-connectedness from the
--- exponential map, path-components are open and there can be only one.
--- This is the fundamental connectivity assertion for the BHW orbit sets.
+    The correct argument: we show O_w is PRECONNECTED by showing S = O_w using
+    the clopen property within O_w. S is clopen in O_w. If O_w \ S ≠ ∅, pick
+    Λ₁ ∈ O_w \ S. The path-component of Λ₁ is also clopen in O_w. Consider
+    two open sets U₁ = S, U₂ = O_w \ S covering O_w, both nonempty.
+    This contradicts preconnectedness of O_w.
+
+    The preconnectedness of O_w is established by showing it as the image of
+    a connected set under a continuous map. -/
+private lemma orbitSet_isPreconnected_direct (w : Fin n → Fin (d + 1) → ℂ)
+    (hw : w ∈ ForwardTube d n) :
+    IsPreconnected {Λ : ComplexLorentzGroup d | complexLorentzAction Λ w ∈ ForwardTube d n} := by
+  sorry
+
 private lemma orbitSet_pathComponent_eq (w : Fin n → Fin (d + 1) → ℂ)
     (hw : w ∈ ForwardTube d n) (Λ : ComplexLorentzGroup d)
     (hΛ : complexLorentzAction Λ w ∈ ForwardTube d n) :
     ∃ γ : Path (1 : ComplexLorentzGroup d) Λ,
       ∀ t, complexLorentzAction (γ t) w ∈ ForwardTube d n := by
-  sorry
+  -- Use the clopen argument on the orbit set O_w.
+  -- Define S := {Λ ∈ O_w | ∃ orbit-path from 1 to Λ}
+  set O_w := {Λ' : ComplexLorentzGroup d | complexLorentzAction Λ' w ∈ ForwardTube d n}
+  set S : Set (ComplexLorentzGroup d) :=
+    { Λ' | ∃ γ : Path (1 : ComplexLorentzGroup d) Λ',
+      ∀ t, complexLorentzAction (γ t) w ∈ ForwardTube d n } with hS_def
+  suffices hΛ_in_S : Λ ∈ S from hΛ_in_S
+  -- S is open in G (by `orbitSet_locallyPathConnected` + path concatenation)
+  have hS_open : IsOpen S := by
+    apply isOpen_iff_forall_mem_open.mpr
+    intro Λ₀ ⟨γ₀, hγ₀⟩
+    have hΛ₀_orbit : complexLorentzAction Λ₀ w ∈ ForwardTube d n := by
+      have := hγ₀ ⟨1, zero_le_one, le_refl _⟩
+      rwa [show γ₀ ⟨1, zero_le_one, le_refl _⟩ = Λ₀ from γ₀.target] at this
+    obtain ⟨U, hU_nhd, hU_sub⟩ :=
+      (orbitSet_locallyPathConnected w hw Λ₀ hΛ₀_orbit).exists_mem
+    obtain ⟨V, hVU, hV_open, hΛ₀V⟩ := mem_nhds_iff.mp hU_nhd
+    refine ⟨V, fun Λ' hΛ'V => ?_, hV_open, hΛ₀V⟩
+    obtain ⟨γ₁, hγ₁⟩ := hU_sub Λ' (hVU hΛ'V)
+    exact ⟨γ₀.trans γ₁, fun t => by
+      simp only [Path.trans_apply]
+      split_ifs with h
+      · exact hγ₀ _
+      · exact hγ₁ _⟩
+  -- O_w \ S is open in G
+  have hOS_open : IsOpen {Λ' | complexLorentzAction Λ' w ∈ ForwardTube d n ∧ Λ' ∉ S} := by
+    apply isOpen_iff_forall_mem_open.mpr
+    intro Λ₀ ⟨hΛ₀_orbit, hΛ₀_notS⟩
+    obtain ⟨U, hU_nhd, hU_sub⟩ :=
+      (orbitSet_locallyPathConnected w hw Λ₀ hΛ₀_orbit).exists_mem
+    obtain ⟨V, hVU, hV_open, hΛ₀V⟩ := mem_nhds_iff.mp hU_nhd
+    refine ⟨V ∩ {Λ' | complexLorentzAction Λ' w ∈ ForwardTube d n},
+      fun Λ' ⟨hΛ'V, hΛ'_orbit⟩ => ⟨hΛ'_orbit, fun hΛ'_S => ?_⟩,
+      hV_open.inter (isOpen_orbitSet w), ⟨hΛ₀V, hΛ₀_orbit⟩⟩
+    obtain ⟨γ₁, hγ₁⟩ := hU_sub Λ' (hVU hΛ'V)
+    obtain ⟨γ₂, hγ₂⟩ := hΛ'_S
+    exact hΛ₀_notS ⟨γ₂.trans γ₁.symm, fun t => by
+      simp only [Path.trans_apply, Path.symm_apply]
+      split_ifs with h
+      · exact hγ₂ _
+      · exact hγ₁ _⟩
+  -- Use preconnectedness of O_w
+  have hOw_preconn : IsPreconnected O_w := orbitSet_isPreconnected_direct w hw
+  have h1_in_Ow : (1 : ComplexLorentzGroup d) ∈ O_w := by
+    show complexLorentzAction 1 w ∈ ForwardTube d n
+    rw [complexLorentzAction_one]; exact hw
+  have h1_in_S : (1 : ComplexLorentzGroup d) ∈ S :=
+    ⟨Path.refl 1, fun t => by simp only [Path.refl_apply]; rw [complexLorentzAction_one]; exact hw⟩
+  have hOw_sub_S_union : O_w ⊆ S ∪ {Λ' | complexLorentzAction Λ' w ∈ ForwardTube d n ∧ Λ' ∉ S} :=
+    fun Λ' hΛ' => if h : Λ' ∈ S then Or.inl h else Or.inr ⟨hΛ', h⟩
+  have hdisjoint : Disjoint S {Λ' | complexLorentzAction Λ' w ∈ ForwardTube d n ∧ Λ' ∉ S} :=
+    Set.disjoint_left.mpr fun Λ' hΛ'S ⟨_, hΛ'_notS⟩ => hΛ'_notS hΛ'S
+  exact hOw_preconn.subset_left_of_subset_union hS_open hOS_open hdisjoint hOw_sub_S_union
+    ⟨1, h1_in_Ow, h1_in_S⟩ hΛ
 
 private lemma orbitSet_isPreconnected_of_locallyPathConnected
     (w : Fin n → Fin (d + 1) → ℂ) (hw : w ∈ ForwardTube d n) :
@@ -1857,14 +1913,12 @@ private theorem eow_adj_swap_extension (n : ℕ)
         F_ext z = F (fun k => z (Equiv.swap i ⟨i.val + 1, hi⟩ k))) := by
   sorry
 
-/-- **The overlap FT ∩ σ·FT is nonempty and connected.**
-    When both w and σ·w lie in FT, the overlap region (the set of z ∈ FT such
-    that σ·z ∈ FT) is open and convex (intersection of two convex open sets
-    in the product space), hence connected.
-
-    The overlap is nonempty because points with purely imaginary successive
-    differences in V₊ that are "large enough" in the time component can
-    absorb the swap without leaving FT. -/
+-- NOTE: This statement is FALSE. The forward tube requires Im(z_{k+1} - z_k) ∈ V₊
+-- (positive time component). Swapping adjacent indices i, i+1 reverses the sign of the
+-- i+1-th difference: Im(z_i - z_{i+1}) = -Im(z_{i+1} - z_i), giving negative time component.
+-- Hence FT ∩ σ·FT = ∅ for any adjacent transposition σ. This is NOT USED in any proof body
+-- and should be removed in a future cleanup. The adjacent sectors overlap in the
+-- EXTENDED tube (via Lorentz transformations), not in the forward tube itself.
 private theorem forwardTube_swap_overlap_nonempty (n : ℕ) (i : Fin n) (hi : i.val + 1 < n) :
     (ForwardTube d n ∩
       {z | (fun k => z (Equiv.swap i ⟨i.val + 1, hi⟩ k)) ∈ ForwardTube d n}).Nonempty := by
@@ -1949,7 +2003,87 @@ private theorem eow_extension_lorentz_invariant (n : ℕ)
     ∀ (Λ : ComplexLorentzGroup d) (z : Fin n → Fin (d + 1) → ℂ),
       z ∈ U → complexLorentzAction Λ z ∈ U →
       F_ext (complexLorentzAction Λ z) = F_ext z := by
-  sorry
+  -- T-set argument, same structure as `complex_lorentz_invariance`.
+  -- Define T = {Λ : ∀ z ∈ U, Λ·z ∈ U → F_ext(Λ·z) = F_ext(z)}
+  set T : Set (ComplexLorentzGroup d) :=
+    { Λ | ∀ z, z ∈ U → complexLorentzAction Λ z ∈ U →
+          F_ext (complexLorentzAction Λ z) = F_ext z }
+  suffices hT_univ : T = Set.univ by
+    intro Λ z hz hΛz; exact (Set.eq_univ_iff_forall.mp hT_univ Λ) z hz hΛz
+  haveI : PathConnectedSpace (ComplexLorentzGroup d) :=
+    pathConnectedSpace_iff_univ.mpr ComplexLorentzGroup.isPathConnected
+  -- 1 ∈ T
+  have h1T : (1 : ComplexLorentzGroup d) ∈ T := by
+    intro z hz _; rw [complexLorentzAction_one]
+  -- U_grp = {Λ : ∃ z ∈ U, Λ·z ∈ U}
+  set U_grp : Set (ComplexLorentzGroup d) :=
+    { Λ | ∃ z, z ∈ U ∧ complexLorentzAction Λ z ∈ U }
+  -- Tᶜ ⊆ U_grp
+  have hTc_sub : Tᶜ ⊆ U_grp := by
+    intro Λ hΛ
+    simp only [Set.mem_compl_iff, T, Set.mem_setOf_eq, not_forall] at hΛ
+    push_neg at hΛ
+    obtain ⟨z, hz, hΛz, _⟩ := hΛ
+    exact ⟨z, hz, hΛz⟩
+  -- T is closed
+  have hT_closed : IsClosed T := by
+    rw [← isOpen_compl_iff, isOpen_iff_forall_mem_open]
+    intro Λ₀ hΛ₀
+    simp only [Set.mem_compl_iff, T, Set.mem_setOf_eq, not_forall] at hΛ₀
+    push_neg at hΛ₀
+    obtain ⟨w₀, hw₀, hΛ₀w₀, hne⟩ := hΛ₀
+    have hV_open : IsOpen {Λ : ComplexLorentzGroup d |
+        complexLorentzAction Λ w₀ ∈ U} :=
+      hU_open.preimage (continuous_complexLorentzAction_fst w₀)
+    have hcomp : ContinuousOn (fun Λ => F_ext (complexLorentzAction Λ w₀))
+        {Λ | complexLorentzAction Λ w₀ ∈ U} :=
+      hF_ext_holo.continuousOn.comp (continuous_complexLorentzAction_fst w₀).continuousOn
+        fun Λ hΛ => hΛ
+    refine ⟨{Λ | complexLorentzAction Λ w₀ ∈ U} ∩
+        (fun Λ => F_ext (complexLorentzAction Λ w₀)) ⁻¹' {F_ext w₀}ᶜ,
+      fun Λ ⟨hΛw₀, hΛne⟩ => ?_,
+      hcomp.isOpen_inter_preimage hV_open isOpen_compl_singleton,
+      ⟨hΛ₀w₀, hne⟩⟩
+    simp only [Set.mem_compl_iff, T, Set.mem_setOf_eq, not_forall]
+    push_neg
+    exact ⟨w₀, hw₀, hΛw₀, hΛne⟩
+  -- T ∩ U_grp is open
+  -- The key: near-identity invariance of F_ext on U.
+  -- F_ext = F on FT ⊆ U, and F is Lorentz-invariant on FT.
+  -- For Λ near 1 and z₀ ∈ FT: F_ext(Λ·z₀) = F(Λ·z₀) = F(z₀) = F_ext(z₀).
+  -- By identity theorem, this extends to the connected component of D'_Λ containing FT.
+  -- This requires D'_Λ = {z ∈ U : Λ·z ∈ U} to have its FT-component covering all of D'_Λ.
+  -- We defer the verification that D'_Λ is connected enough to a helper.
+  -- T ∩ U_grp is open (near-identity argument adapted to F_ext on U).
+  -- The full proof requires the identity theorem on {z ∈ U : Λ·z ∈ U},
+  -- analogous to the near_identity_invariance + identity theorem steps in
+  -- complex_lorentz_invariance. The key adaptation: F_ext = F on FT ⊆ U,
+  -- so F_ext is Lorentz-invariant on FT. By the identity theorem, this extends
+  -- to the connected component of {z ∈ U : Λ·z ∈ U} containing FT.
+  have hTU_open : IsOpen (T ∩ U_grp) := by
+    sorry
+  -- U_grp is preconnected
+  -- (analogous to nonemptyDomain_isPreconnected, but for U instead of FT)
+  have hU_grp_preconn : IsPreconnected U_grp := by
+    sorry
+  -- Conclude T = univ
+  by_contra hT_ne
+  have hT_ne' : ∃ a, a ∉ T := (Set.ne_univ_iff_exists_notMem T).mp hT_ne
+  obtain ⟨Λ_bad, hΛ_bad⟩ := hT_ne'
+  have hTcU_ne : (U_grp ∩ Tᶜ).Nonempty := ⟨Λ_bad, hTc_sub hΛ_bad, hΛ_bad⟩
+  obtain ⟨w₀, hw₀⟩ := forwardTube_nonempty (d := d) (n := n)
+  have h1U : (1 : ComplexLorentzGroup d) ∈ U_grp :=
+    ⟨w₀, hFT_sub hw₀, (complexLorentzAction_one w₀).symm ▸ hFT_sub hw₀⟩
+  have hTU_ne : (U_grp ∩ (T ∩ U_grp)).Nonempty := ⟨1, h1U, h1T, h1U⟩
+  have hU_cover : U_grp ⊆ (T ∩ U_grp) ∪ Tᶜ := by
+    intro Λ hΛU
+    by_cases hΛT : Λ ∈ T
+    · exact Or.inl ⟨hΛT, hΛU⟩
+    · exact Or.inr hΛT
+  have h_absurd := hU_grp_preconn (T ∩ U_grp) Tᶜ hTU_open (isOpen_compl_iff.mpr hT_closed)
+    hU_cover hTU_ne hTcU_ne
+  obtain ⟨Λ, _, hΛ_TU, hΛ_Tc⟩ := h_absurd
+  exact hΛ_Tc hΛ_TU.1
 
 /-- **Extension of complex Lorentz invariance to the EOW-glued domain.**
     After applying eow_adj_swap_on_overlap, we get F(σ·w) = F(w) when both

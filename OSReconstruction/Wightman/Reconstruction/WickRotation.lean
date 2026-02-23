@@ -847,6 +847,157 @@ The proof is decomposed into three helpers:
 
 Each helper captures a specific gap in the current formalization infrastructure. -/
 
+/-- The open forward light cone absorbs arbitrary perturbations when scaled large enough.
+    For any η ∈ V₊ and any δ : Fin (d+1) → ℝ, there exists t > 0 such that t • η + δ ∈ V₊.
+
+    This follows from V₊ being an open cone: t • η ∈ V₊ for all t > 0, and for large t
+    the perturbation δ becomes negligible relative to t • η.
+
+    Blocked by: detailed bound on MinkowskiSpace.minkowskiNormSq of a sum in terms of
+    the individual norms and cross terms. The key estimate is that the quadratic form
+    grows like t² while the perturbation is O(t). -/
+private theorem inOpenForwardCone_absorb_perturbation {d : ℕ} [NeZero d]
+    (η : Fin (d + 1) → ℝ) (hη : InOpenForwardCone d η)
+    (δ : Fin (d + 1) → ℝ) :
+    ∃ t : ℝ, t > 0 ∧ InOpenForwardCone d (fun μ => t * η μ + δ μ) := by
+  obtain ⟨hη0, hηneg⟩ := hη
+  -- The Minkowski norm of (tη + δ) is a downward-opening quadratic in t:
+  --   Q(t) = minkowskiNormSq(η) · t² + 2·minkowskiInner(η,δ) · t + minkowskiNormSq(δ)
+  -- with leading coefficient minkowskiNormSq(η) < 0. So Q(t) < 0 for large t.
+  -- The time component t·η₀ + δ₀ > 0 for large t since η₀ > 0.
+  -- Choose t = max(1, t₁, t₂) where t₁ handles positivity and t₂ handles the norm.
+  set a := MinkowskiSpace.minkowskiNormSq d η with ha_def
+  set b := MinkowskiSpace.minkowskiInner d η δ
+  set c_norm := MinkowskiSpace.minkowskiNormSq d δ
+  -- t₁: ensures time component positive
+  set t₁ := 1 + |δ 0| / η 0 with ht₁_def
+  have ht₁_pos : t₁ > 0 := by positivity
+  have ht₁_time : t₁ * η 0 + δ 0 > 0 := by
+    have := neg_abs_le (δ 0)
+    have : |δ 0| / η 0 * η 0 = |δ 0| := by field_simp
+    nlinarith
+  -- t₂: ensures norm condition. Since a < 0, Q(t) < 0 for t > (-2|b| - |c_norm|) / a.
+  -- We pick t₂ large enough.
+  set t₂ := 1 + (|2 * b| + |c_norm| + 1) / |a| with ht₂_def
+  have ha_neg : a < 0 := hηneg
+  have ha_ne : a ≠ 0 := ne_of_lt ha_neg
+  have ha_abs_pos : |a| > 0 := abs_pos.mpr ha_ne
+  -- Use t = max(t₁, t₂)
+  set t := max t₁ t₂
+  refine ⟨t, lt_of_lt_of_le ht₁_pos (le_max_left _ _), ?_, ?_⟩
+  · -- Time component positive: t * η 0 + δ 0 > 0
+    calc t * η 0 + δ 0 ≥ t₁ * η 0 + δ 0 := by
+          have : t ≥ t₁ := le_max_left _ _
+          nlinarith
+      _ > 0 := ht₁_time
+  · -- Minkowski norm negative: Q(t) = a·t² + 2bt + c_norm < 0
+    -- Since a < 0 and t is large enough, a·t² dominates.
+    -- Q(t) = a·t² + 2bt + c_norm
+    -- ≤ a·t₂² + |2b|·t₂ + |c_norm|  (since a < 0, t ≥ t₂ gives a·t² ≤ a·t₂²)
+    -- Actually let's use the direct estimate.
+    -- Q(t) := minkowskiNormSq(tη + δ) = t²·a + 2t·b + c_norm
+    -- We show (fun μ => t * η μ + δ μ) = t • η + δ in the Pi-function sense
+    have hfun : (fun μ => t * η μ + δ μ) = t • η + δ := by
+      ext μ; simp [Pi.add_apply, Pi.smul_apply, smul_eq_mul]
+    -- Use bilinearity: ‖tη + δ‖² = t²‖η‖² + 2t⟨η,δ⟩ + ‖δ‖²
+    have hexpand : MinkowskiSpace.minkowskiNormSq d (fun μ => t * η μ + δ μ) =
+        t ^ 2 * a + 2 * t * b + c_norm := by
+      simp only [MinkowskiSpace.minkowskiNormSq, MinkowskiSpace.minkowskiInner, a, b, c_norm]
+      conv_lhs => rw [show (∑ i, MinkowskiSpace.metricSignature d i * (t * η i + δ i) *
+        (t * η i + δ i)) =
+        t ^ 2 * (∑ i, MinkowskiSpace.metricSignature d i * η i * η i) +
+        2 * t * (∑ i, MinkowskiSpace.metricSignature d i * η i * δ i) +
+        (∑ i, MinkowskiSpace.metricSignature d i * δ i * δ i) from by
+          trans (∑ i, (t ^ 2 * (MinkowskiSpace.metricSignature d i * η i * η i) +
+            2 * t * (MinkowskiSpace.metricSignature d i * η i * δ i) +
+            MinkowskiSpace.metricSignature d i * δ i * δ i))
+          · congr 1; ext i; ring
+          · simp only [Finset.sum_add_distrib, ← Finset.mul_sum]]
+    rw [hexpand]
+    have ht_ge_t₂ : t ≥ t₂ := le_max_right _ _
+    have ht_pos : t > 0 := lt_of_lt_of_le ht₁_pos (le_max_left _ _)
+    have ht₂_ge_one : t₂ ≥ 1 := le_add_of_nonneg_right (div_nonneg (by positivity) (le_of_lt ha_abs_pos))
+    have ht_ge_one : t ≥ 1 := le_trans ht₂_ge_one ht_ge_t₂
+    -- Key estimate: a * t ≤ -(|2*b| + |c_norm| + 1)
+    have hkey : a * t ≤ -(|2 * b| + |c_norm| + 1) := by
+      have h1 : t ≥ (|2 * b| + |c_norm| + 1) / |a| :=
+        le_trans (le_add_of_nonneg_left (by linarith : (0 : ℝ) ≤ 1)) ht_ge_t₂
+      rw [abs_of_neg ha_neg] at h1
+      -- h1 : t ≥ (|2*b| + |c_norm| + 1) / (-a), and a < 0
+      -- Since t ≥ X/(-a) and a < 0, we get a*t ≤ a*(X/(-a)) = -X
+      have hna_pos : -a > 0 := by linarith
+      -- h1 : (|2*b| + |c_norm| + 1) / (-a) ≤ t
+      -- Multiply both sides by (-a) > 0: |2*b| + |c_norm| + 1 ≤ (-a) * t
+      have h2 : (|2 * b| + |c_norm| + 1) / (-a) ≤ t := h1
+      rw [div_le_iff₀ hna_pos] at h2
+      linarith
+    -- From hkey: a*t ≤ -(|2b| + |c_norm| + 1)
+    -- t²*a + 2t*b + c_norm = t*(a*t) + 2t*b + c_norm
+    --   ≤ t*(-(|2b| + |c_norm| + 1)) + 2t*b + c_norm
+    --   = -t*|2b| - t*|c_norm| - t + 2t*b + c_norm
+    --   ≤ -t*|2b| - t*|c_norm| - t + t*|2b| + |c_norm|   [since 2t*b ≤ t*|2b| and c_norm ≤ |c_norm|]
+    --   = -t*|c_norm| - t + |c_norm|
+    --   = (1 - t)*|c_norm| - t
+    --   ≤ -t  [since t ≥ 1]
+    --   < 0
+    -- t²*a + 2tb + c_norm = t*(a*t) + 2tb + c_norm
+    --   ≤ t*(-(|2b|+|c_norm|+1)) + 2tb + c_norm  [hkey]
+    --   = -t*|2b| - t*|c_norm| - t + 2tb + c_norm
+    --   ≤ -t*|c_norm| - t + |c_norm|  [since 2b ≤ |2b|, hence 2tb ≤ t|2b| for t>0]
+    --   = |c_norm|*(1-t) - t ≤ -t < 0
+    have h2b_le : 2 * t * b ≤ t * |2 * b| := by
+      have : 2 * b ≤ |2 * b| := le_abs_self _
+      nlinarith
+    have hcn_le : c_norm ≤ |c_norm| := le_abs_self _
+    -- t * (a * t) ≤ t * (-(|2*b| + |c_norm| + 1))
+    have hstep1 : t * (a * t) ≤ t * (-(|2 * b| + |c_norm| + 1)) :=
+      mul_le_mul_of_nonneg_left hkey (le_of_lt ht_pos)
+    have hsq : t ^ 2 * a = t * (a * t) := by ring
+    -- Chain: t²a + 2tb + c_norm = t(at) + 2tb + c_norm
+    --   ≤ t(-(|2b|+|c|+1)) + 2tb + c_norm  = -t|2b| - t|c| - t + 2tb + c_norm
+    --   ≤ -t|c| - t + c_norm  ≤ -t|c| - t + |c| ≤ -t < 0
+    have step2 : t ^ 2 * a + 2 * t * b + c_norm ≤
+        -t * |2 * b| - t * |c_norm| - t + 2 * t * b + c_norm := by linarith
+    have step3 : -t * |2 * b| - t * |c_norm| - t + 2 * t * b + c_norm ≤
+        -t * |c_norm| - t + |c_norm| := by linarith
+    have step4 : -t * |c_norm| - t + |c_norm| ≤ -t := by
+      have : |c_norm| * (1 - t) ≤ 0 := by
+        apply mul_nonpos_of_nonneg_of_nonpos (abs_nonneg _)
+        linarith
+      linarith
+    linarith
+
+/-- The forward tube is translation-invariant in the sense that adding a constant
+    to all points preserves membership, provided the k=0 imaginary part is adjusted.
+
+    Specifically, if w ∈ ForwardTube and δ is a constant with Im(δ) small enough
+    relative to Im(w 0), then w + δ ∈ ForwardTube.
+
+    The key fact: for k > 0, (w+δ)(k) - (w+δ)(k-1) = w(k) - w(k-1), so successive
+    differences are preserved. For k = 0, the imaginary part shifts by Im(δ). -/
+private theorem forwardTube_translate_of_deep_enough {d n : ℕ} [NeZero d]
+    (w : Fin n → Fin (d + 1) → ℂ)
+    (hw : w ∈ ForwardTube d n)
+    (δ : Fin (d + 1) → ℂ)
+    (hn : n ≥ 1)
+    (hδ : InOpenForwardCone d (fun μ => (w ⟨0, by omega⟩ μ + δ μ).im)) :
+    (fun k μ => w k μ + δ μ) ∈ ForwardTube d n := by
+  intro k
+  simp only [ForwardTube, Set.mem_setOf_eq] at hw ⊢
+  by_cases hk : k.val = 0
+  · -- k = 0: the condition is Im(w 0 + δ) ∈ V₊
+    simp only [hk, ↓reduceDIte]
+    have hk0 : k = ⟨0, by omega⟩ := Fin.eq_of_val_eq hk
+    rw [hk0]
+    convert hδ using 1
+    ext μ; simp
+  · -- k > 0: the successive difference (w+δ)(k) - (w+δ)(k-1) = w(k) - w(k-1)
+    simp only [hk, ↓reduceDIte]
+    have hk_orig := hw k
+    simp only [hk, ↓reduceDIte] at hk_orig
+    convert hk_orig using 1
+    ext μ; simp [Complex.sub_im]
+
 /-- Helper: translating all points in ForwardTube by a constant preserves the
     successive-difference conditions (k > 0) since the constant cancels in
     z_k - z_{k-1}. The k = 0 condition Im(z₀ + δ) ∈ V₊ is preserved when the
@@ -855,13 +1006,6 @@ Each helper captures a specific gap in the current formalization infrastructure.
     More precisely: given w ∈ PermutedForwardTube π and δ ∈ ℂ^{d+1}, there exist
     Λ' ∈ ComplexLorentzGroup and w' ∈ PermutedForwardTube π such that
     Λ'·w' = Λ·w + c (pointwise), where δ = Λ⁻¹·c.
-
-    This is the core geometric fact bridging absolute-coordinate and
-    difference-coordinate formulations of the forward tube. In difference coordinates
-    ξ_k = z_{k+1} - z_k, translation by c leaves all ξ_k unchanged, making the
-    forward tube trivially translation-invariant. In our absolute-coordinate
-    formulation, the union over complex Lorentz transforms in PET compensates for
-    the change in the k = 0 condition.
 
     Ref: Streater-Wightman, PCT Spin and Statistics, §2.5 -/
 private theorem forwardTube_lorentz_translate_aux {d n : ℕ} [NeZero d]
@@ -874,7 +1018,33 @@ private theorem forwardTube_lorentz_translate_aux {d n : ℕ} [NeZero d]
       w' ∈ PermutedForwardTube d n π ∧
       (fun k μ => ∑ ν, Λ'.val μ ν * w' k ν) =
         fun k μ => (∑ ν, Λ.val μ ν * w k ν) + c μ := by
-  sorry
+  -- Strategy: use Λ' = Λ and w' = w + Λ⁻¹·c.
+  -- Then Λ'·w' = Λ·(w + Λ⁻¹·c) = Λ·w + Λ·Λ⁻¹·c = Λ·w + c.
+  -- The hard part is showing w' ∈ PermutedForwardTube.
+  -- For n = 0, the statement is vacuous.
+  by_cases hn : n = 0
+  · subst hn
+    exact ⟨Λ, w, hw, by ext k; exact Fin.elim0 k⟩
+  · -- For n ≥ 1, we need to handle the k=0 imaginary part condition.
+    -- We use the freedom to scale w: replace w with t·w for large t,
+    -- which stays in PermutedForwardTube (cone property) and makes the
+    -- k=0 imaginary part deep enough to absorb the perturbation Im(Λ⁻¹·c).
+    -- However, this changes Λ·w. Instead, we directly construct w' and Λ'.
+    --
+    -- Alternative: use that PermutedForwardTube is the preimage under π of
+    -- ForwardTube, and the ForwardTube in difference coordinates is the product
+    -- cone V₊ × ... × V₊. Translation by a constant preserves all differences.
+    -- The k=0 condition is the only one that changes. We handle it by choosing
+    -- Λ' to absorb the shift.
+    --
+    -- Simplest correct approach: take w' with the same successive differences
+    -- as w (in the π-ordering) but with w'(π(0)) chosen deep enough in the
+    -- imaginary cone. Then find Λ' mapping w' to Λ·w + c.
+    -- This requires Λ' to be a valid complex Lorentz transform, which is
+    -- a non-trivial algebraic constraint.
+    --
+    -- Bootstrap: extract the core algebraic fact as a helper.
+    sorry
 
 /-- The permuted extended tube is closed under constant translation.
 
@@ -900,17 +1070,40 @@ theorem permutedExtendedTube_translation_closed {d n : ℕ} [NeZero d]
   obtain ⟨Λ', w', hw', heq⟩ := forwardTube_lorentz_translate_aux π Λ w hw c
   exact ⟨π, Λ', w', hw', heq.symm⟩
 
-/-- Helper: On the open connected set U = FT ∩ (FT − c), both z ↦ W_analytic(z) and
-    z ↦ W_analytic(z + c) are holomorphic. Their distributional boundary values both
-    recover W_n (by translation invariance of W_n). By the identity theorem for
-    holomorphic functions of several complex variables on connected domains, they agree
-    on U.
+/-- The translated W_analytic has the same distributional boundary values as W_analytic.
 
-    This encapsulates the analytic continuation argument: translation invariance of W_n
-    (a distributional identity) lifts to pointwise equality of the analytic continuation
-    via uniqueness of analytic continuation on tube domains.
+    Since W_n is translation-invariant (Wfn.translation_invariant), the distributional
+    boundary values of z ↦ W_analytic(z + c) are the same as those of W_analytic,
+    namely W_n. This is the distributional content needed for uniqueness.
 
-    Ref: Streater-Wightman §2.5; Vladimirov "Methods" §25 -/
+    Blocked by: connecting the BV of the translated function (which uses the spectrum
+    condition with shifted approach direction) to the original BV via translation
+    invariance of W_n. The argument requires showing that the change of variables
+    x ↦ x - Re(c) in the Schwartz integral preserves the BV limit. -/
+private theorem W_analytic_translate_same_bv {d n : ℕ} [NeZero d]
+    (Wfn : WightmanFunctions d)
+    (c : Fin (d + 1) → ℂ) :
+    ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      (∀ k, InOpenForwardCone d (η k)) →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          ((Wfn.spectrum_condition n).choose (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I + c μ) -
+           (Wfn.spectrum_condition n).choose (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I)) *
+          (f x))
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds 0) := by
+  sorry
+
+/-- The intersection FT ∩ (FT - c) is open.
+
+    FT is open in the product topology, and translation by -c is a homeomorphism,
+    so FT - c is open. The intersection of two open sets is open. -/
+private theorem forwardTube_inter_translate_isOpen {d n : ℕ} [NeZero d]
+    (c : Fin (d + 1) → ℂ) :
+    IsOpen {z : Fin n → Fin (d + 1) → ℂ |
+      z ∈ ForwardTube d n ∧ (fun k μ => z k μ + c μ) ∈ ForwardTube d n} := by
+  sorry
+
 private theorem W_analytic_translate_eq_on_forwardTube_inter {d n : ℕ} [NeZero d]
     (Wfn : WightmanFunctions d)
     (c : Fin (d + 1) → ℂ) :
@@ -919,6 +1112,24 @@ private theorem W_analytic_translate_eq_on_forwardTube_inter {d n : ℕ} [NeZero
       (fun k μ => z k μ + c μ) ∈ ForwardTube d n →
       (Wfn.spectrum_condition n).choose (fun k μ => z k μ + c μ) =
       (Wfn.spectrum_condition n).choose z := by
+  -- The proof uses distributional uniqueness: two holomorphic functions on the
+  -- forward tube with the same distributional BV must agree pointwise.
+  -- Both W_analytic(z) and W_analytic(z+c) have BV = W_n (the latter by
+  -- translation invariance of W_n), so they agree where both are defined.
+  --
+  -- We apply distributional_uniqueness_forwardTube with:
+  --   F₁(z) = W_analytic(z+c), F₂(z) = W_analytic(z)
+  -- Both are holomorphic on the intersection {z ∈ FT : z+c ∈ FT}.
+  -- Their difference has BV → 0 by W_analytic_translate_same_bv.
+  --
+  -- Technical issue: distributional_uniqueness_forwardTube requires holomorphicity
+  -- on all of FT, not just the intersection. We work around this by:
+  -- 1. Observing the intersection is open and connected (convex, nonempty)
+  -- 2. Using the identity theorem on the intersection
+  -- 3. This reduces to showing agreement near some point z₀ in the intersection
+  -- 4. Near z₀, the BV condition gives local agreement
+  --
+  -- This decomposition is captured by the helper W_analytic_translate_same_bv.
   sorry
 
 /-- The analytic continuation W_analytic (from spectrum_condition) is
@@ -1183,22 +1394,50 @@ private theorem bhw_smeared_eq_W_analytic_forwardTube_direction {d n : ℕ} [NeZ
   rw [him]
   exact inOpenForwardCone_smul d ε hε _ (hη_ft k)
 
-/-- The distributional boundary values of a holomorphic function on a tube domain
-    are independent of the approach direction within the cone.
+/-- Convex interpolation of approach directions: if η, η' ∈ V₊ componentwise, then
+    for any s ∈ [0,1], the convex combination (1-s)η + sη' also has components in V₊.
 
-    If F is holomorphic on the permuted extended tube and has distributional boundary
-    values (as ε → 0+) from one approach direction η (with each η_k ∈ V+) converging
-    to a limit L, then the BV from any other approach direction η' (with each η'_k ∈ V+)
-    also converges to the same limit L.
+    This is because V₊ is convex (inOpenForwardCone_convex). -/
+private theorem convex_approach_direction {d n : ℕ} [NeZero d]
+    (η η' : Fin n → Fin (d + 1) → ℝ)
+    (hη : ∀ k, InOpenForwardCone d (η k))
+    (hη' : ∀ k, InOpenForwardCone d (η' k))
+    (s : ℝ) (hs0 : 0 ≤ s) (hs1 : s ≤ 1) :
+    ∀ k, InOpenForwardCone d (fun μ => (1 - s) * η k μ + s * η' k μ) := by
+  intro k
+  -- Bridge InOpenForwardCone ↔ BHW.InOpenForwardCone (same definition modulo naming)
+  have norm_eq : ∀ v : Fin (d + 1) → ℝ,
+      MinkowskiSpace.minkowskiNormSq d v = ∑ μ, LorentzLieGroup.minkowskiSignature d μ * v μ ^ 2 := by
+    intro v
+    simp only [MinkowskiSpace.minkowskiNormSq, MinkowskiSpace.minkowskiInner,
+      MinkowskiSpace.metricSignature, LorentzLieGroup.minkowskiSignature]
+    congr 1; ext i; ring
+  have to_bhw : ∀ v, InOpenForwardCone d v → BHW.InOpenForwardCone d v := by
+    intro v ⟨hv0, hv_norm⟩
+    exact ⟨hv0, norm_eq v ▸ hv_norm⟩
+  have from_bhw : ∀ v, BHW.InOpenForwardCone d v → InOpenForwardCone d v := by
+    intro v ⟨hv0, hv_norm⟩
+    exact ⟨hv0, (norm_eq v).symm ▸ hv_norm⟩
+  have hη_bhw : η k ∈ {η : Fin (d + 1) → ℝ | BHW.InOpenForwardCone d η} := to_bhw _ (hη k)
+  have hη'_bhw : η' k ∈ {η : Fin (d + 1) → ℝ | BHW.InOpenForwardCone d η} := to_bhw _ (hη' k)
+  have hmem := BHW.inOpenForwardCone_convex hη_bhw hη'_bhw (by linarith : 0 ≤ 1 - s)
+    hs0 (by ring : (1 - s) + s = 1)
+  simp only [Set.mem_setOf_eq] at hmem
+  exact from_bhw _ hmem
 
-    This is a standard result in the theory of boundary values of holomorphic functions
-    in tube domains. The key fact is that all approach directions within the cone
-    V+ x ... x V+ give the same distributional boundary value, because the boundary
-    value depends only on the tube domain, not the specific approach direction.
+/-- The distributional BV of a holomorphic function on a tube domain is independent
+    of the approach direction within an open convex cone. This is a standard deep
+    result from SCV (Vladimirov Ch.12, Streater-Wightman Thm 2-11).
 
-    Ref: Vladimirov, "Methods of the Theory of Generalized Functions", Ch. 12;
-         Streater-Wightman, Theorem 2-11 (independence of approach direction);
-         Reed-Simon, Vol. II, Sec IX.3 -/
+    The proof idea: for η, η' ∈ V₊, the function
+      s ↦ lim_{ε→0+} ∫ F(x + iε((1-s)η + sη')) f(x) dx
+    is continuous on [0,1] and constant (by the Cauchy integral formula applied
+    to the holomorphic dependence on the approach parameter). Since the limit
+    at s=0 is L, the limit at s=1 is also L.
+
+    Blocked by: the Cauchy integral formula for the parameter dependence,
+    and the dominated convergence argument to interchange limit and integral.
+    These require the polynomial growth estimates from Vladimirov Thm 25.5. -/
 private theorem distributional_bv_direction_independence {d n : ℕ} [NeZero d]
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF : DifferentiableOn ℂ F (PermutedExtendedTube d n))
@@ -1993,14 +2232,35 @@ theorem constructedSchwinger_symmetric (Wfn : WightmanFunctions d)
         integral_perm_eq_self σ
           (fun x => K x * (f : NPointDomain d n → ℂ) x)
 
+/-- Pointwise cluster property of BHW extension at Euclidean points.
+
+    For Euclidean points z = (iτ₁, x⃗₁, ..., iτₙ, x⃗ₙ) with strictly increasing τ,
+    the BHW extension satisfies the cluster decomposition: as the spatial separation
+    between the first n and last m points grows, the (n+m)-point function factorizes.
+
+    This follows from the Wightman cluster property (axiom R4) via analytic continuation:
+    the cluster property holds as a distributional identity, and by uniqueness of analytic
+    continuation it lifts to the holomorphic extension.
+
+    Blocked by: the Wightman cluster property at the analytic level (requires BHW
+    multiplicativity for product configurations) and the dominated convergence argument
+    (requires polynomial growth bounds on the BHW extension). -/
+private theorem bhw_pointwise_cluster_euclidean (Wfn : WightmanFunctions d) (n m : ℕ)
+    (z_n : Fin n → Fin (d + 1) → ℂ) (z_m : Fin m → Fin (d + 1) → ℂ)
+    (hz_n : IsEuclidean z_n) (hz_m : IsEuclidean z_m)
+    (ε : ℝ) (hε : ε > 0) :
+    ∃ R : ℝ, R > 0 ∧
+      ∀ a : SpacetimeDim d, a 0 = 0 → (∑ i : Fin d, (a (Fin.succ i))^2) > R^2 →
+        ‖(W_analytic_BHW Wfn (n + m)).val
+            (Fin.append z_n (fun k μ => z_m k μ + ↑(a μ) * Complex.I)) -
+          (W_analytic_BHW Wfn n).val z_n *
+          (W_analytic_BHW Wfn m).val z_m‖ < ε := by
+  sorry
+
 /-- Cluster property of W_analytic at the integral level: when the (n+m)-point
     analytic Wightman function is integrated against a tensor product f ⊗ g_a
     where g_a is g translated by a large purely spatial vector a (a 0 = 0),
-    the result approaches the product S_n(f) · S_m(g).
-
-    The translation must be purely spatial: a Euclidean time shift would
-    correspond to imaginary Minkowski time, leaving the domain where the
-    Wightman cluster property applies.
+    the result approaches the product S_n(f) * S_m(g).
 
     This is the analytic continuation of the Wightman cluster decomposition
     property, which follows from uniqueness of the vacuum (the mass gap
@@ -2027,6 +2287,10 @@ theorem W_analytic_cluster_integral (Wfn : WightmanFunctions d) (n m : ℕ)
             (∫ x : NPointDomain d m,
               (W_analytic_BHW Wfn m).val
                 (fun k => wickRotatePoint (x k)) * g x)‖ < ε := by
+  -- The proof combines the pointwise cluster property with dominated convergence.
+  -- Step 1: Use bhw_pointwise_cluster_euclidean for the pointwise estimate
+  -- Step 2: Use Schwartz decay of f, g to dominate the integrand
+  -- Step 3: Apply dominated convergence
   sorry
 
 /-- The Schwinger functions satisfy clustering (E4).

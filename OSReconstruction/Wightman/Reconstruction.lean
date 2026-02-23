@@ -1375,52 +1375,9 @@ def IsWickRotationPair {d : ℕ} [NeZero d] (S : SchwingerFunctions d) (W : (n :
       S n f = ∫ x : NPointDomain d n,
         F_analytic (fun k => wickRotatePoint (x k)) * (f x))
 
-/-- Theorem R→E (Wightman → OS): A Wightman QFT yields Schwinger functions
-    satisfying OS axioms E0-E4.
-
-    The Schwinger functions are related to the Wightman functions by Wick rotation
-    (analytic continuation): the Schwinger functions are Euclidean restrictions of the
-    analytic continuation whose boundary values are the Wightman functions.
-
-    The construction (OS I, Section 5) uses the Bargmann-Hall-Wightman theorem:
-    - The spectrum condition R3 implies W_n is analytic in the forward tube T_n
-    - BHW extends W_n to the permuted extended tube (invariant under complex Lorentz)
-    - Define S_n by restricting W_n to Euclidean points: S_n(x) = W_n(ix⁰₁, x⃗₁, ...)
-    - Euclidean points lie inside the permuted extended tube, so S_n is real-analytic
-
-    Key subtlety: In the forward tube, Im(z_k - z_{k-1}) ∈ V₊ forces time ordering.
-    But the permuted extended tube covers all orderings, yielding full permutation
-    symmetry (E3). Euclidean invariance (E1) follows from complex Lorentz invariance
-    of W_n: SO(d+1) ⊂ L₊(ℂ) is the subgroup preserving Euclidean points.
-
-    Temperedness (E0) requires Proposition 5.1 of OS I (a geometric lemma on Ω_n).
-    Reflection positivity (E2) follows from Wightman positivity (R2).
-    Cluster (E4) follows from R4. -/
-theorem wightman_to_os (Wfn : WightmanFunctions d) :
-    ∃ (OS : OsterwalderSchraderAxioms d),
-      IsWickRotationPair OS.S Wfn.W := by
-  -- See Reconstruction/WickRotation.lean for the detailed proof (wightman_to_os_full).
-  sorry
-
-/-- Theorem E'→R' (OS II): Schwinger functions satisfying the linear growth
-    condition E0' together with E1-E4 can be analytically continued to
-    Wightman distributions satisfying R0-R5.
-
-    The Wightman functions are the boundary values of the analytic continuation
-    of the Schwinger functions to the forward tube.
-
-    **Critical**: Without the linear growth condition, this theorem may be FALSE.
-    The issue is that analytic continuation involves infinitely many Sₖ, and
-    without growth control, the boundary values may fail to be tempered.
-
-    The reconstructed Wightman distributions also satisfy a linear growth
-    condition R0'. -/
-theorem os_to_wightman (OS : OsterwalderSchraderAxioms d)
-    (linear_growth : OSLinearGrowthCondition d OS) :
-    ∃ (Wfn : WightmanFunctions d),
-      IsWickRotationPair OS.S Wfn.W := by
-  -- See Reconstruction/WickRotation.lean for the detailed proof (os_to_wightman_full).
-  sorry
+-- The bridge theorems `wightman_to_os` and `os_to_wightman` are proved in
+-- `OSReconstruction.Wightman.ReconstructionBridge`, which wires them to
+-- `wightman_to_os_full` and `os_to_wightman_full` from WickRotation.lean.
 
 end
 

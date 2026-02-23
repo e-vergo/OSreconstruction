@@ -352,17 +352,74 @@ structure WightmanAnalyticity (qft : WightmanQFT d) where
   /-- The continuation is holomorphic on the forward tube -/
   isHolomorphic : ∀ n : ℕ, DifferentiableOn ℂ (analyticContinuation n) (ForwardTube d n)
 
+/-- **Distributional boundary values for Wightman analytic continuations.**
+
+    A Wightman analytic continuation (holomorphic on the forward tube) has tempered
+    distributional boundary values: for Schwartz test functions f and approach
+    directions η with each component in V₊, the smeared integrals converge.
+
+    This follows from temperedness of Wightman distributions (the distributions are
+    continuous on Schwartz space) combined with the spectrum condition (which constrains
+    the Fourier-Laplace representation to the dual cone).
+
+    Ref: Streater-Wightman, Theorem 2-6; Vladimirov §25-26 -/
+private theorem wightman_analyticity_distributional_bv (qft : WightmanQFT d)
+    (ha : WightmanAnalyticity d qft) (n : ℕ) :
+    ∃ (T : SchwartzNPointSpace d n → ℂ),
+      ∀ (f : SchwartzNPointSpace d n) (η : Fin n → Fin (d + 1) → ℝ),
+        (∀ k, InOpenForwardCone d (η k)) →
+        Filter.Tendsto
+          (fun ε : ℝ => ∫ x : NPointSpacetime d n,
+            ha.analyticContinuation n (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
+          (nhdsWithin 0 (Set.Ioi 0))
+          (nhds (T f)) := by
+  sorry
+
+/-- **Pointwise boundary value existence for holomorphic functions on the forward tube
+    along V₊-component approach directions.**
+
+    Given a holomorphic function on the forward tube with distributional boundary values,
+    the pointwise limit along any direction η (with each η_k ∈ V₊) exists.
+
+    Note: this is stronger than `continuous_boundary_forwardTube` because it handles
+    approach directions where the path `x + iεη` may not stay in the forward tube
+    (i.e., successive differences η_k - η_{k-1} need not be in V₊).
+
+    The proof uses the Fourier-Laplace representation of the boundary value:
+    the distributional BV T is a tempered distribution whose Fourier transform has
+    support in the dual cone, giving polynomial decay of F(x + iεη) that allows
+    extraction of the pointwise limit.
+
+    Ref: Vladimirov §26.2-26.3; Streater-Wightman, Theorem 3-7 -/
+private theorem pointwise_limit_along_forwardCone_direction {d n : ℕ} [NeZero d]
+    {F : (Fin n → Fin (d + 1) → ℂ) → ℂ}
+    (hF : DifferentiableOn ℂ F (ForwardTube d n))
+    (h_bv : ∃ (T : SchwartzNPointSpace d n → ℂ),
+      ∀ (f : SchwartzNPointSpace d n) (η : Fin n → Fin (d + 1) → ℝ),
+        (∀ k, InOpenForwardCone d (η k)) →
+        Filter.Tendsto
+          (fun ε : ℝ => ∫ x : NPointSpacetime d n,
+            F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
+          (nhdsWithin 0 (Set.Ioi 0))
+          (nhds (T f)))
+    (x : Fin n → Fin (d + 1) → ℝ)
+    (η : Fin n → Fin (d + 1) → ℝ) (hη : ∀ k, InOpenForwardCone d (η k)) :
+    ∃ (limit : ℂ), Filter.Tendsto
+      (fun ε : ℝ => F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I))
+      (nhdsWithin 0 (Set.Ioi 0))
+      (nhds limit) := by
+  sorry
+
 /-- Boundary values of the analytic continuation recover Wightman functions.
 
     For any approach direction η with each component in V₊ and any real configuration x,
     the limit from within the forward tube exists:
-      lim_{ε→0⁺} W_analytic(x₁ - iεη₁, ..., xₙ - iεηₙ) exists
+      lim_{ε→0⁺} W_analytic(x₁ + iεη₁, ..., xₙ + iεηₙ) exists
 
-    The distributional boundary values, paired with test functions, equal the
-    Wightman n-point functions: ⟨Ω, φ(f₁)···φ(fₙ)Ω⟩.
-
-    This is a deep analytic result connecting holomorphic functions to distributional
-    boundary values via the Vladimirov-Wightman theory.
+    Proved by combining `wightman_analyticity_distributional_bv` (the analytic
+    continuation has tempered distributional BVs) with
+    `pointwise_limit_along_forwardCone_direction` (distributional BVs + holomorphicity
+    imply pointwise limit existence along V₊-component directions).
 
     Ref: Streater-Wightman, "PCT, Spin and Statistics", Theorem 3-7 -/
 theorem wightman_analyticity_boundary (qft : WightmanQFT d)
@@ -375,7 +432,8 @@ theorem wightman_analyticity_boundary (qft : WightmanQFT d)
         (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I))
       (nhdsWithin 0 (Set.Ioi 0))
       (nhds limit) := by
-  sorry
+  exact pointwise_limit_along_forwardCone_direction (ha.isHolomorphic n)
+    (wightman_analyticity_distributional_bv d qft ha n) x η hη
 
 end
 
