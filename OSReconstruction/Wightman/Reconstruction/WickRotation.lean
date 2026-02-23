@@ -375,7 +375,7 @@ of Schwartz test functions, the product is integrable.
 General form: For any holomorphic F : T_B → ℂ on a tube domain T_B = ℝⁿ + iB,
 any Schwartz f ∈ S(ℝⁿ), and any y ∈ B, the function x ↦ F(x + iy) · f(x)
 is integrable. We state it for the forward tube T_n specifically. -/
-axiom forward_tube_bv_integrable {d n : ℕ} [NeZero d]
+theorem forward_tube_bv_integrable {d n : ℕ} [NeZero d]
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF : DifferentiableOn ℂ F (ForwardTube d n))
     (f : SchwartzNPoint d n)
@@ -384,7 +384,8 @@ axiom forward_tube_bv_integrable {d n : ℕ} [NeZero d]
     MeasureTheory.Integrable
       (fun x : NPointDomain d n =>
         F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
-      MeasureTheory.volume
+      MeasureTheory.volume := by
+  sorry
 
 /-- Extract the matrix product identities for a restricted Lorentz transformation. -/
 private theorem lorentz_mul_inv_eq_one {d : ℕ} [NeZero d]
@@ -760,7 +761,7 @@ private theorem W_analytic_continuous_boundary (Wfn : WightmanFunctions d) (n : 
     not all pairs — this is local commutativity, not the Jost point condition.
 
     Ref: Streater-Wightman Thm 3-5; Jost §IV.3 -/
-axiom analytic_boundary_local_commutativity {d n : ℕ} [NeZero d]
+theorem analytic_boundary_local_commutativity {d n : ℕ} [NeZero d]
     (W_analytic : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hW_hol : DifferentiableOn ℂ W_analytic (ForwardTube d n))
     (W : (n' : ℕ) → SchwartzNPoint d n' → ℂ)
@@ -776,7 +777,8 @@ axiom analytic_boundary_local_commutativity {d n : ℕ} [NeZero d]
     (hx : MinkowskiSpace.minkowskiNormSq d
       (fun μ => x ⟨i.val + 1, hi⟩ μ - x i μ) > 0) :
     W_analytic (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-    W_analytic (fun k μ => (x k μ : ℂ))
+    W_analytic (fun k μ => (x k μ : ℂ)) := by
+  sorry
 
 /-- Local commutativity of W_analytic at spacelike-separated boundary points.
 
@@ -2145,7 +2147,7 @@ def AnalyticContinuationRegion (d k r : ℕ) [NeZero d] :
 
     Ref: OS II, Theorem 4.1; Reed-Simon II, Theorem IX.16 (Paley-Wiener);
     Vladimirov §26 (Fourier-Laplace representation) -/
-axiom inductive_analytic_continuation {d : ℕ} [NeZero d]
+theorem inductive_analytic_continuation {d : ℕ} [NeZero d]
     (OS : OsterwalderSchraderAxioms d)
     (lgc : OSLinearGrowthCondition d OS)
     (k : ℕ) (r : ℕ) (hr : r < d + 1)
@@ -2153,7 +2155,8 @@ axiom inductive_analytic_continuation {d : ℕ} [NeZero d]
     (hS_prev : DifferentiableOn ℂ S_prev (AnalyticContinuationRegion d k r)) :
     ∃ (S_ext : (Fin k → Fin (d + 1) → ℂ) → ℂ),
       DifferentiableOn ℂ S_ext (AnalyticContinuationRegion d k (r + 1)) ∧
-      ∀ z ∈ AnalyticContinuationRegion d k r, S_ext z = S_prev z
+      ∀ z ∈ AnalyticContinuationRegion d k r, S_ext z = S_prev z := by
+  sorry
 
 /-- **Full analytic continuation from Euclidean to forward tube.**
 

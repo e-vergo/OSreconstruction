@@ -93,7 +93,7 @@ namespace SCV
     Ref: Vladimirov, "Methods of the Theory of Generalized Functions" §26.2;
     Epstein, J. Math. Phys. 1 (1960) 524-531;
     Streater-Wightman, Theorem 2-9 -/
-axiom continuous_boundary_tube {m : ℕ}
+theorem continuous_boundary_tube {m : ℕ}
     {C : Set (Fin m → ℝ)} (hC : IsOpen C) (hconv : Convex ℝ C) (hne : C.Nonempty)
     {F : (Fin m → ℂ) → ℂ} (hF : DifferentiableOn ℂ F (TubeDomain C))
     (h_bv : ∃ (T : SchwartzMap (Fin m → ℝ) ℂ → ℂ),
@@ -103,7 +103,8 @@ axiom continuous_boundary_tube {m : ℕ}
         (nhdsWithin 0 (Set.Ioi 0))
         (nhds (T f)))
     (x : Fin m → ℝ) :
-    ContinuousWithinAt F (TubeDomain C) (realEmbed x)
+    ContinuousWithinAt F (TubeDomain C) (realEmbed x) := by
+  sorry
 
 /-- **Boundary value recovery for tube-domain holomorphic functions.**
 
@@ -117,7 +118,7 @@ axiom continuous_boundary_tube {m : ℕ}
     and the pointwise BV (continuous extension) are the same object.
 
     Ref: Vladimirov §26.2; Streater-Wightman, Theorem 2-9 -/
-axiom boundary_value_recovery {m : ℕ}
+theorem boundary_value_recovery {m : ℕ}
     {C : Set (Fin m → ℝ)} (hC : IsOpen C) (hconv : Convex ℝ C) (hne : C.Nonempty)
     {F : (Fin m → ℂ) → ℂ} (hF : DifferentiableOn ℂ F (TubeDomain C))
     {T : SchwartzMap (Fin m → ℝ) ℂ → ℂ}
@@ -127,7 +128,8 @@ axiom boundary_value_recovery {m : ℕ}
       (nhdsWithin 0 (Set.Ioi 0))
       (nhds (T f)))
     (f : SchwartzMap (Fin m → ℝ) ℂ) :
-    T f = ∫ x : Fin m → ℝ, F (realEmbed x) * f x
+    T f = ∫ x : Fin m → ℝ, F (realEmbed x) * f x := by
+  sorry
 
 /-- **Zero distributional boundary value implies zero boundary function.**
 
@@ -141,7 +143,7 @@ axiom boundary_value_recovery {m : ℕ}
     to 0 against all Schwartz test functions is identically 0).
 
     Ref: Vladimirov §26.2-26.3 -/
-axiom boundary_value_zero {m : ℕ}
+theorem boundary_value_zero {m : ℕ}
     {C : Set (Fin m → ℝ)} (hC : IsOpen C) (hconv : Convex ℝ C) (hne : C.Nonempty)
     {F : (Fin m → ℂ) → ℂ} (hF : DifferentiableOn ℂ F (TubeDomain C))
     (h_bv : ∀ (f : SchwartzMap (Fin m → ℝ) ℂ) (η : Fin m → ℝ), η ∈ C →
@@ -149,7 +151,8 @@ axiom boundary_value_zero {m : ℕ}
         ∫ x : Fin m → ℝ, F (fun i => ↑(x i) + ↑ε * ↑(η i) * I) * f x)
       (nhdsWithin 0 (Set.Ioi 0))
       (nhds 0))
-    (x : Fin m → ℝ) : F (realEmbed x) = 0
+    (x : Fin m → ℝ) : F (realEmbed x) = 0 := by
+  sorry
 
 /-- **Distributional uniqueness for tube-domain holomorphic functions.**
 
@@ -337,7 +340,7 @@ theorem distributional_uniqueness_tube {m : ℕ}
     Ref: Streater-Wightman, Theorem 2-6;
     Jost, "The General Theory of Quantized Fields" §III.1;
     Vladimirov §25.3 -/
-axiom polynomial_growth_tube {m : ℕ}
+theorem polynomial_growth_tube {m : ℕ}
     {C : Set (Fin m → ℝ)} (hC : IsOpen C) (hconv : Convex ℝ C) (hne : C.Nonempty)
     {F : (Fin m → ℂ) → ℂ} (hF : DifferentiableOn ℂ F (TubeDomain C))
     (h_bv : ∀ (η : Fin m → ℝ), η ∈ C →
@@ -350,7 +353,8 @@ axiom polynomial_growth_tube {m : ℕ}
     (K : Set (Fin m → ℝ)) (hK : IsCompact K) (hK_sub : K ⊆ C) :
     ∃ (C_bd : ℝ) (N : ℕ), C_bd > 0 ∧
       ∀ (x : Fin m → ℝ) (y : Fin m → ℝ), y ∈ K →
-        ‖F (fun i => ↑(x i) + ↑(y i) * I)‖ ≤ C_bd * (1 + ‖x‖) ^ N
+        ‖F (fun i => ↑(x i) + ↑(y i) * I)‖ ≤ C_bd * (1 + ‖x‖) ^ N := by
+  sorry
 
 /-! ### Axiom 3: Bochner Tube Theorem -/
 
@@ -372,12 +376,13 @@ axiom polynomial_growth_tube {m : ℕ}
     Ref: Bochner, "A theorem on analytic continuation of functions in several
     variables" (1938); Vladimirov §20.2; Hörmander, "An Introduction to Complex
     Analysis in Several Variables", Theorem 2.5.10 -/
-axiom bochner_tube_theorem {m : ℕ}
+theorem bochner_tube_theorem {m : ℕ}
     {C : Set (Fin m → ℝ)} (hC : IsOpen C) (hne : C.Nonempty)
     {F : (Fin m → ℂ) → ℂ} (hF : DifferentiableOn ℂ F (TubeDomain C)) :
     ∃ (F_ext : (Fin m → ℂ) → ℂ),
       DifferentiableOn ℂ F_ext (TubeDomain (convexHull ℝ C)) ∧
-      ∀ z ∈ TubeDomain C, F_ext z = F z
+      ∀ z ∈ TubeDomain C, F_ext z = F z := by
+  sorry
 
 end SCV
 
