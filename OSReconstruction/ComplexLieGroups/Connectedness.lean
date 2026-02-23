@@ -2336,7 +2336,45 @@ private theorem lorentzPermSector_isPreconnected (π : Equiv.Perm (Fin n)) :
       ({z | ∃ (Λ : ComplexLorentzGroup d) (w : Fin n → Fin (d + 1) → ℂ),
         w ∈ PermutedForwardTube d n π ∧ z = complexLorentzAction Λ w} :
         Set (Fin n → Fin (d + 1) → ℂ)) := by
-  sorry
+  haveI : PathConnectedSpace (ComplexLorentzGroup d) :=
+    pathConnectedSpace_iff_univ.mpr ComplexLorentzGroup.isPathConnected
+  -- PermutedForwardTube is preconnected (image of convex ForwardTube)
+  have hPFT_pre : IsPreconnected (PermutedForwardTube d n π) := by
+    have hPFT : PermutedForwardTube d n π =
+        (fun w k => w (π⁻¹ k)) '' ForwardTube d n := by
+      ext z; simp [PermutedForwardTube, Set.mem_image]
+      constructor
+      · intro hz; exact ⟨fun k => z (π k), hz, by ext k; simp⟩
+      · rintro ⟨w, hw, rfl⟩; simpa using hw
+    rw [hPFT]
+    exact forwardTube_convex.isPreconnected.image _
+      ((continuous_pi (fun k => continuous_apply (π⁻¹ k))).continuousOn)
+  -- Uncurried action is continuous
+  have hcont : Continuous (fun p : ComplexLorentzGroup d × (Fin n → Fin (d+1) → ℂ) =>
+      complexLorentzAction p.1 p.2) := by
+    apply continuous_pi; intro k; apply continuous_pi; intro μ
+    simp only [complexLorentzAction]
+    apply continuous_finset_sum; intro ν _
+    apply Continuous.mul
+    · -- p.1.val μ ν : extract matrix entry from Lorentz group element
+      have hval : Continuous (fun (p : ComplexLorentzGroup d × (Fin n → Fin (d+1) → ℂ)) =>
+          p.1.val) := ComplexLorentzGroup.continuous_val.comp continuous_fst
+      have hrow : Continuous (fun (M : Matrix (Fin (d+1)) (Fin (d+1)) ℂ) => M μ) :=
+        continuous_apply μ
+      have hentry : Continuous (fun (r : Fin (d+1) → ℂ) => r ν) :=
+        continuous_apply ν
+      exact hentry.comp (hrow.comp hval)
+    · -- p.2 k ν : extract coordinate from second component
+      exact (continuous_apply ν).comp
+        ((continuous_apply k).comp continuous_snd)
+  -- Rewrite as image of product under uncurried action
+  suffices h : IsPreconnected ((fun p : ComplexLorentzGroup d × (Fin n → Fin (d+1) → ℂ) =>
+      complexLorentzAction p.1 p.2) '' (Set.univ ×ˢ PermutedForwardTube d n π)) from by
+    convert h using 1
+    ext z; constructor
+    · rintro ⟨Λ, w, hw, rfl⟩; exact ⟨⟨Λ, w⟩, ⟨trivial, hw⟩, rfl⟩
+    · rintro ⟨p, ⟨-, hw⟩, rfl⟩; exact ⟨p.1, p.2, hw, rfl⟩
+  exact (isPreconnected_univ.prod hPFT_pre).image _ hcont.continuousOn
 
 /-- **Adjacent permutation sectors overlap in PET.**
     For any adjacent transposition σ = swap(i, i+1), the sectors for
