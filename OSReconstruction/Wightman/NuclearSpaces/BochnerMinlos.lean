@@ -357,13 +357,39 @@ private theorem minlos_finite_dim_projection {E : Type*} [AddCommGroup E] [Modul
     simp only [φ, Pi.zero_apply, zero_smul, Finset.sum_const_zero, C.eval_zero]
   exact bochner_existence φ hcont hpd hφ0
 
-/-- **Helper (nuclearity gives tightness of projective family)**: The family of
-    finite-dimensional measures `{μ_F}` is consistent (forms a projective family)
-    and tight. The tightness follows from nuclearity of E.
+-- **Helper (nuclearity gives tightness of projective family)**: The family of
+-- finite-dimensional measures `{μ_F}` is consistent (forms a projective family)
+-- and tight. The tightness follows from nuclearity of E.
+--
+-- By Kolmogorov's extension theorem (with tightness for σ-additivity),
+-- there exists a probability measure on `E →L[ℝ] ℝ`.
 
-    By Kolmogorov's extension theorem (with tightness for σ-additivity),
-    there exists a probability measure on `E →L[ℝ] ℝ`. -/
-private theorem minlos_kolmogorov_extension {E : Type*} [AddCommGroup E] [Module ℝ E]
+/-- Helper: The finite-dimensional measures from `minlos_finite_dim_projection` form a
+    consistent projective family. For F ⊆ G (as finite sets of test functions), the
+    marginal of μ_G on the F-coordinates equals μ_F.
+
+    Consistency follows from the fact that φ_F is the restriction of φ_G:
+    if G = F ∪ {extra} and we set t_extra = 0, then φ_G(t_F, 0) = φ_F(t_F).
+    Bochner uniqueness then gives μ_F = (proj_F)_* μ_G. -/
+private theorem minlos_projective_consistency {E : Type*} [AddCommGroup E] [Module ℝ E]
+    [TopologicalSpace E] [ContinuousAdd E] [ContinuousSMul ℝ E]
+    (C : CharacteristicFunctional E)
+    {m n : ℕ} (f : Fin n → E) (g : Fin m → E) (π : Fin m → Fin n)
+    (hπ : ∀ i, g i = f (π i))
+    (μ_f : Measure (Fin n → ℝ)) [IsProbabilityMeasure μ_f]
+    (hμ_f : ∀ (t : Fin n → ℝ), C.toFun (∑ i, t i • f i) = ∫ x, exp (↑(∑ i, t i * x i) * I) ∂μ_f)
+    (μ_g : Measure (Fin m → ℝ)) [IsProbabilityMeasure μ_g]
+    (hμ_g : ∀ (t : Fin m → ℝ), C.toFun (∑ i, t i • g i) = ∫ x, exp (↑(∑ i, t i * x i) * I) ∂μ_g) :
+    μ_g = Measure.map (fun x : Fin n → ℝ => fun i => x (π i)) μ_f := by
+  sorry
+
+/-- Helper: Nuclearity of E implies the projective family {μ_F} is tight.
+
+    The key insight: for a nuclear space, each continuous seminorm p is nuclearly dominated
+    by some q, meaning p(x) ≤ Σ |φ_k(x)| c_k with Σ c_k < ∞. This controls how spread
+    the finite-dimensional measures are. Specifically, for any ε > 0, there exists a compact
+    K_ε ⊆ E* such that μ_F(π_F(K_ε)) ≥ 1-ε for all F. -/
+private theorem minlos_nuclearity_tightness {E : Type*} [AddCommGroup E] [Module ℝ E]
     [TopologicalSpace E] [NuclearSpace E]
     [MeasurableSpace (E →L[ℝ] ℝ)]
     (C : CharacteristicFunctional E) :
@@ -371,6 +397,15 @@ private theorem minlos_kolmogorov_extension {E : Type*} [AddCommGroup E] [Module
       IsProbabilityMeasure μ ∧
       ∀ f : E, C.toFun f = ∫ ω : E →L[ℝ] ℝ, exp (↑(ω f) * I) ∂μ := by
   sorry
+
+private theorem minlos_kolmogorov_extension {E : Type*} [AddCommGroup E] [Module ℝ E]
+    [TopologicalSpace E] [NuclearSpace E]
+    [MeasurableSpace (E →L[ℝ] ℝ)]
+    (C : CharacteristicFunctional E) :
+    ∃ (μ : Measure (E →L[ℝ] ℝ)),
+      IsProbabilityMeasure μ ∧
+      ∀ f : E, C.toFun f = ∫ ω : E →L[ℝ] ℝ, exp (↑(ω f) * I) ∂μ :=
+  minlos_nuclearity_tightness C
 
 /-- **Minlos' theorem**: Let E be a nuclear space and C : E → ℂ a characteristic
     functional (continuous, positive-definite, C(0) = 1). Then there exists a unique
@@ -399,15 +434,56 @@ theorem minlos_theorem {E : Type*} [AddCommGroup E] [Module ℝ E]
       ∀ f : E, C.toFun f = ∫ ω : E →L[ℝ] ℝ, exp (↑(ω f) * I) ∂μ :=
   minlos_kolmogorov_extension C
 
-/-- **Helper (evaluation maps separate measures on dual)**: Two probability measures
-    on `E →L[ℝ] ℝ` that agree on all "evaluation characteristic functions"
-    `∫ exp(i ω(f)) dμ₁ = ∫ exp(i ω(f)) dμ₂` for all `f ∈ E` must be equal.
+-- **Helper (evaluation maps separate measures on dual)**: Two probability measures
+-- on `E →L[ℝ] ℝ` that agree on all "evaluation characteristic functions"
+-- `∫ exp(i ω(f)) dμ₁ = ∫ exp(i ω(f)) dμ₂` for all `f ∈ E` must be equal.
+--
+-- This is the infinite-dimensional analogue of uniqueness. It follows from the
+-- fact that evaluation maps `ω ↦ ω(f)` separate points in `E →L[ℝ] ℝ` and
+-- generate the σ-algebra, so the "evaluation characteristic functions" determine
+-- the finite-dimensional distributions, which in turn determine the measure
+-- (by the pi-lambda theorem).
 
-    This is the infinite-dimensional analogue of uniqueness. It follows from the
-    fact that evaluation maps `ω ↦ ω(f)` separate points in `E →L[ℝ] ℝ` and
-    generate the σ-algebra, so the "evaluation characteristic functions" determine
-    the finite-dimensional distributions, which in turn determine the measure
-    (by the π-λ theorem). -/
+/-- Helper: Evaluation maps ω ↦ ω(f) generate the σ-algebra on E →L[ℝ] ℝ.
+
+    The measurable space on E →L[ℝ] ℝ (with weak-* topology) is generated by the
+    evaluation maps ev_f : ω ↦ ω(f) for f ∈ E. This means that two measures agreeing
+    on all sets of the form {ω : ω(f) ∈ B} for Borel B ⊆ ℝ must agree on all
+    measurable sets (by π-λ theorem).
+
+    Blocked by: needs the σ-algebra on E →L[ℝ] ℝ to be generated by evaluation maps,
+    which depends on the weak-* topology definition and its Borel σ-algebra. -/
+private theorem eval_maps_generate_sigma_algebra {E : Type*} [AddCommGroup E] [Module ℝ E]
+    [TopologicalSpace E]
+    [MeasurableSpace (E →L[ℝ] ℝ)]
+    (μ₁ μ₂ : Measure (E →L[ℝ] ℝ))
+    (hμ₁ : IsProbabilityMeasure μ₁) (hμ₂ : IsProbabilityMeasure μ₂)
+    (h_fd : ∀ (n : ℕ) (f : Fin n → E),
+      Measure.map (fun ω : E →L[ℝ] ℝ => fun i => ω (f i)) μ₁ =
+      Measure.map (fun ω : E →L[ℝ] ℝ => fun i => ω (f i)) μ₂) :
+    μ₁ = μ₂ := by
+  sorry
+
+/-- Helper: Agreeing evaluation characteristic functions implies agreeing finite-dimensional
+    distributions.
+
+    If ∫ exp(i ω(f)) dμ₁ = ∫ exp(i ω(f)) dμ₂ for all f ∈ E, then for any f₁,...,fₙ ∈ E,
+    the pushforward measures on ℝⁿ via (ω(f₁),...,ω(fₙ)) agree. This follows from
+    bochner_uniqueness applied to the pushforward measures, since agreeing on all
+    linear combinations ∑ tᵢ fᵢ means the characteristic functions of the pushforwards agree. -/
+private theorem eval_charfun_implies_fd_distributions {E : Type*} [AddCommGroup E] [Module ℝ E]
+    [TopologicalSpace E]
+    [MeasurableSpace (E →L[ℝ] ℝ)]
+    (μ₁ μ₂ : Measure (E →L[ℝ] ℝ))
+    (hμ₁ : IsProbabilityMeasure μ₁) (hμ₂ : IsProbabilityMeasure μ₂)
+    (h : ∀ f : E,
+      ∫ ω : E →L[ℝ] ℝ, exp (↑(ω f) * I) ∂μ₁ =
+      ∫ ω : E →L[ℝ] ℝ, exp (↑(ω f) * I) ∂μ₂) :
+    ∀ (n : ℕ) (f : Fin n → E),
+      Measure.map (fun ω : E →L[ℝ] ℝ => fun i => ω (f i)) μ₁ =
+      Measure.map (fun ω : E →L[ℝ] ℝ => fun i => ω (f i)) μ₂ := by
+  sorry
+
 private theorem measures_eq_of_eval_charfun_eq {E : Type*} [AddCommGroup E] [Module ℝ E]
     [TopologicalSpace E]
     [MeasurableSpace (E →L[ℝ] ℝ)]
@@ -416,8 +492,9 @@ private theorem measures_eq_of_eval_charfun_eq {E : Type*} [AddCommGroup E] [Mod
     (h : ∀ f : E,
       ∫ ω : E →L[ℝ] ℝ, exp (↑(ω f) * I) ∂μ₁ =
       ∫ ω : E →L[ℝ] ℝ, exp (↑(ω f) * I) ∂μ₂) :
-    μ₁ = μ₂ := by
-  sorry
+    μ₁ = μ₂ :=
+  eval_maps_generate_sigma_algebra μ₁ μ₂ hμ₁ hμ₂
+    (eval_charfun_implies_fd_distributions μ₁ μ₂ hμ₁ hμ₂ h)
 
 /-- Uniqueness part of Minlos' theorem: the measure is unique.
 

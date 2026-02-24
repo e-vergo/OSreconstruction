@@ -304,6 +304,25 @@ private theorem schwartz_nuclear_extension (d n : ℕ) [NeZero d]
         W (SchwartzMap.productTensor fs) = Phi fs := by
   sorry
 
+/-- Helper: The Wightman n-point function (f₁,...,fₙ) ↦ ⟨Ω, φ(f₁)···φ(fₙ)Ω⟩ is
+    separately continuous in each test function argument.
+
+    Continuity in f_i follows from:
+    1. φ(f_i) : D → D is continuous from SchwartzSpacetime to operators (field is tempered)
+    2. The operators φ(f_j) for j ≠ i are fixed
+    3. The inner product ⟨·,·⟩ on the Hilbert space is continuous
+
+    More precisely: the map f_i ↦ φ(f₁)···φ(f_i)···φ(fₙ)Ω is a composition of
+    the continuous map f_i ↦ φ(f_i) (temperedness) with the fixed operators φ(f_j),
+    and ⟨Ω, ·⟩ is continuous.
+
+    Blocked by: need to express this composition formally using the WightmanQFT structure's
+    field operator domain/continuity properties. -/
+private theorem wightman_separately_continuous (qft : WightmanQFT d) (n : ℕ)
+    (i : Fin n) (fs : Fin n → SchwartzSpacetime d) :
+    Continuous (fun f => qft.wightmanFunction n (Function.update fs i f)) := by
+  sorry
+
 /-- **Wightman n-point functions extend to tempered distributions.**
 
     The multilinear Wightman functional (f_1,...,f_n) -> Omega, phi(f_1)...phi(f_n) Omega
@@ -324,7 +343,7 @@ theorem wightmanDistribution_extends (qft : WightmanQFT d) (n : ℕ) :
   -- f_i -> Omega, phi(f_1)...phi(f_i)...phi(f_n) Omega is continuous in f_i
   -- because phi is an operator-valued tempered distribution and inner product is continuous.
   intro i fs
-  sorry
+  exact wightman_separately_continuous (d := d) qft n i fs
 
 /-- Temperedness of Wightman functions: The multilinear Wightman n-point function
     (f₁,...,fₙ) ↦ ⟨Ω, φ(f₁)···φ(fₙ)Ω⟩ is separately continuous in each argument.

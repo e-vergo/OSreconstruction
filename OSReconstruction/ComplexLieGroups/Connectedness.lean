@@ -1222,31 +1222,59 @@ private lemma orbitSet_locallyPathConnected (w : Fin n → Fin (d + 1) → ℂ)
     _ = ‖X‖ := one_mul _
     _ < δ := hX_small
 
-/-- The orbit set O_w = {Λ | Λ·w ∈ FT} is preconnected.
+-- The orbit set O_w = {Λ | Λ·w ∈ FT} is preconnected.
+--
+-- The orbit set is the preimage of the forward tube under the continuous orbit
+-- map Λ ↦ Λ·w. Preconnectedness follows from:
+-- 1. The complex Lorentz group G is path-connected (hence connected)
+-- 2. O_w is open in G (preimage of open FT under continuous map)
+-- 3. O_w is locally path-connected (`orbitSet_locallyPathConnected`)
+--
+-- The proof uses the fact that connected components of a locally path-connected
+-- open subset of a connected topological group are open and closed, and the
+-- component containing 1 must be all of O_w since any element Λ ∈ O_w can be
+-- "reached" from 1 via the group structure.
+--
+-- Mathematical content: this is a consequence of the orbit map G → G·w being
+-- a submersion (open map from a connected group), combined with convexity of FT.
+-- Formally captures: O_w is connected as an open subset of a connected Lie group
+-- where the fiber structure (via the orbit map) prevents disconnection.
+--
+-- Blocker: the general statement that an open locally path-connected subset of
+-- a connected topological group containing the identity is connected. This would
+-- follow from showing the orbit map Λ ↦ Λ·w is an open map (submersion).
 
-    The orbit set is the preimage of the forward tube under the continuous orbit
-    map Λ ↦ Λ·w. Preconnectedness follows from:
-    1. The complex Lorentz group G is path-connected (hence connected)
-    2. O_w is open in G (preimage of open FT under continuous map)
-    3. O_w is locally path-connected (`orbitSet_locallyPathConnected`)
+/-- Helper: An open locally path-connected subset of a connected topological group
+    that contains the identity is preconnected.
 
-    The proof uses the fact that connected components of a locally path-connected
-    open subset of a connected topological group are open and closed, and the
-    component containing 1 must be all of O_w since any element Λ ∈ O_w can be
-    "reached" from 1 via the group structure.
+    Proof sketch: Let S be open, locally path-connected, and 1 ∈ S in a connected
+    group G. The path-component of 1 in S is open (by local path-connectedness)
+    and closed in S (path-components are always closed). Since S itself is open in G,
+    and path-components of locally path-connected spaces are open, every path-component
+    of S is open in G. If S had multiple path-components, they would form a nontrivial
+    clopen partition of the connected set S. But S being open + locally path-connected
+    means its path-components are open. The path-component of 1 is therefore clopen in S.
+    If S = O_w (orbit set), preconnectedness follows.
 
-    Mathematical content: this is a consequence of the orbit map G → G·w being
-    a submersion (open map from a connected group), combined with convexity of FT.
-    Formally captures: O_w is connected as an open subset of a connected Lie group
-    where the fiber structure (via the orbit map) prevents disconnection.
+    Blocked by: general topology argument for connected groups. This is a standard result
+    but not yet formalized in Mathlib for the general group-orbit setting. -/
+private lemma open_locally_path_connected_subset_preconnected
+    {G : Type*} [TopologicalSpace G] [Group G] [IsTopologicalGroup G]
+    [PathConnectedSpace G]
+    (S : Set G) (hS_open : IsOpen S) (h1S : (1 : G) ∈ S)
+    (hS_lpc : ∀ Λ ∈ S, ∀ U ∈ nhds Λ, ∃ V ∈ nhds Λ, V ⊆ S ∩ U ∧
+      ∀ x y : G, x ∈ V → y ∈ V → ∃ γ : Path x y, ∀ t, γ t ∈ S) :
+    IsPreconnected S := by
+  sorry
 
-    Blocker: the general statement that an open locally path-connected subset of
-    a connected topological group containing the identity is connected. This would
-    follow from showing the orbit map Λ ↦ Λ·w is an open map (submersion). -/
 private lemma orbitSet_preconnected_via_convexFiber
     (w : Fin n → Fin (d + 1) → ℂ) (hw : w ∈ ForwardTube d n) :
     IsPreconnected {Λ : ComplexLorentzGroup d |
       complexLorentzAction Λ w ∈ ForwardTube d n} := by
+  -- Apply the general topological lemma:
+  -- 1. O_w is open (preimage of open FT under continuous orbit map)
+  -- 2. 1 ∈ O_w (since 1·w = w ∈ FT)
+  -- 3. O_w is locally path-connected (orbitSet_locallyPathConnected)
   sorry
 
 /-- For any Λ in the orbit set O_w = {Λ | Λ·w ∈ FT}, there exists a path from 1
@@ -2091,6 +2119,53 @@ private theorem eow_adj_swap_on_overlap (n : ℕ)
   -- Combine: F(σ·w) = F_ext(w) = F(w)
   exact h2.symm.trans h1
 
+/-- The set T ∩ U_grp is open, where T = {Λ | ∀ z ∈ U, Λ·z ∈ U → F_ext(Λ·z) = F_ext(z)}
+    and U_grp = {Λ | ∃ z ∈ U, Λ·z ∈ U}.
+
+    The near-identity argument: for Λ₀ ∈ T ∩ U_grp, pick z₀ ∈ U with Λ₀·z₀ ∈ U.
+    For Λ near Λ₀, D_Λ = {z ∈ U | Λ·z ∈ U} is open and contains z₀.
+    On D_Λ₀ ∩ D_Λ, the function z ↦ F_ext(Λ·z) - F_ext(Λ₀·z) is holomorphic
+    and vanishes on the nonempty open set D_Λ₀ ∩ D_Λ ∩ FT (where F_ext = F and
+    both Λ, Λ₀ preserve F by Lorentz invariance on FT).
+    The identity theorem then gives F_ext(Λ·z) = F_ext(Λ₀·z) = F_ext(z) on D_Λ₀ ∩ D_Λ.
+
+    Blocked by: connectivity of D_Λ₀ ∩ D_Λ (needed for the identity theorem) and
+    the near-identity base case (Lorentz invariance of F on FT → near-identity for F_ext).
+    Both require the same Lie-group orbit connectivity machinery as orbitSet_isPreconnected. -/
+private theorem T_inter_U_grp_isOpen
+    (U : Set (Fin n → Fin (d + 1) → ℂ))
+    (F_ext : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hU_open : IsOpen U)
+    (hF_ext_holo : DifferentiableOn ℂ F_ext U)
+    (T : Set (ComplexLorentzGroup d))
+    (hT_def : T = { Λ | ∀ z, z ∈ U → complexLorentzAction Λ z ∈ U →
+          F_ext (complexLorentzAction Λ z) = F_ext z })
+    (U_grp : Set (ComplexLorentzGroup d))
+    (hU_grp_def : U_grp = { Λ | ∃ z, z ∈ U ∧ complexLorentzAction Λ z ∈ U }) :
+    IsOpen (T ∩ U_grp) := by
+  sorry
+
+/-- U_grp = {Λ | ∃ z ∈ U, Λ·z ∈ U} is preconnected when U is an open set
+    containing the forward tube.
+
+    Analogous to nonemptyDomain_isPreconnected (the FT version). The FT proof
+    decomposes U_grp as ⋃_{w ∈ U} {Λ : Λ·w ∈ U}, where each orbit set is
+    preconnected (since U ⊇ FT and orbit sets for FT are preconnected by
+    orbitSet_isPreconnected). The union is preconnected because all orbit sets
+    contain 1 (since 1·w = w ∈ U).
+
+    Blocked by: orbitSet_isPreconnected for the extended domain U ⊇ FT.
+    The orbit sets {Λ : Λ·w ∈ U} for w ∈ U \ FT are not covered by the
+    existing FT-specific preconnectedness result. -/
+private theorem U_grp_isPreconnected
+    (U : Set (Fin n → Fin (d + 1) → ℂ))
+    (hU_open : IsOpen U)
+    (hFT_sub : ForwardTube d n ⊆ U)
+    (U_grp : Set (ComplexLorentzGroup d))
+    (hU_grp_def : U_grp = { Λ | ∃ z, z ∈ U ∧ complexLorentzAction Λ z ∈ U }) :
+    IsPreconnected U_grp := by
+  sorry
+
 /-- **Complex Lorentz invariance of the EOW-extended function.**
     The holomorphic extension F_ext from eow_adj_swap_extension, which is defined
     on U ⊇ FT ∪ σ·FT, inherits complex Lorentz invariance from F by the same
@@ -2170,24 +2245,12 @@ private theorem eow_extension_lorentz_invariant (n : ℕ)
     simp only [Set.mem_compl_iff, T, Set.mem_setOf_eq, not_forall]
     push_neg
     exact ⟨w₀, hw₀, hΛw₀, hΛne⟩
-  -- T ∩ U_grp is open (near-identity + identity theorem argument).
-  -- Adapts `complex_lorentz_invariance` from FT to the extended domain U ⊇ FT.
-  -- The FT proof uses convexity of D_Λ = {z ∈ FT : Λ·z ∈ FT} for the identity theorem.
-  -- For U, D'_Λ = {z ∈ U : Λ·z ∈ U} is open but NOT convex.
-  -- Two issues remain:
-  -- (1) D'_Λ connected: needed for the identity theorem to propagate from FT ⊂ D'_Λ.
-  -- (2) Base point in FT ∩ D'_Λ: need Λ₀·z₀ ∈ U for z₀ ∈ FT (T only gives F_ext values).
-  -- Both reduce to the same Lie group connectivity as `orbitSet_isPreconnected`.
-  have hTU_open : IsOpen (T ∩ U_grp) := by
-    sorry
-  -- U_grp = {Λ | ∃ z ∈ U, Λ·z ∈ U} is preconnected.
-  -- Analogous to `nonemptyDomain_isPreconnected` (which proves the FT version).
-  -- The FT proof decomposes into orbit sets {Λ : Λ·w ∈ FT} and uses
-  -- `orbitSet_isPreconnected` + `isPreconnected_sUnion`.
-  -- For U ⊇ FT, the orbit sets {Λ : Λ·w ∈ U} are larger but their
-  -- preconnectedness requires the same Lie group connectivity machinery.
-  have hU_grp_preconn : IsPreconnected U_grp := by
-    sorry
+  -- T ∩ U_grp is open (delegated to T_inter_U_grp_isOpen helper)
+  have hTU_open : IsOpen (T ∩ U_grp) :=
+    T_inter_U_grp_isOpen U F_ext hU_open hF_ext_holo T rfl U_grp rfl
+  -- U_grp is preconnected (delegated to U_grp_isPreconnected helper)
+  have hU_grp_preconn : IsPreconnected U_grp :=
+    U_grp_isPreconnected U hU_open hFT_sub U_grp rfl
   -- Conclude T = univ
   by_contra hT_ne
   have hT_ne' : ∃ a, a ∉ T := (Set.ne_univ_iff_exists_notMem T).mp hT_ne
@@ -2640,34 +2703,10 @@ private theorem lorentzPermSector_isPreconnected (π : Equiv.Perm (Fin n)) :
     · rintro ⟨p, ⟨-, hw⟩, rfl⟩; exact ⟨p.1, p.2, hw, rfl⟩
   exact (isPreconnected_univ.prod hPFT_pre).image _ hcont.continuousOn
 
-/-- A point in the extended tube for a given permutation sector can be
-    repermuted via Lorentz-permutation commutation.
-
-    If z ∈ ExtendedTube (i.e., z = Λ·w with w ∈ FT), then for any π,
-    z = Λ·(w∘π⁻¹ ∘ π) is also writable as Λ·w' with w'∘π = w ∈ FT,
-    so z is in sector(π) with Lorentz element Λ and tube point w∘π⁻¹.
-
-    This shows ExtendedTube ⊆ sector(π) for all π, hence all sectors
-    contain the extended tube and therefore all pairwise intersect. -/
-private theorem extendedTube_subset_sector (π : Equiv.Perm (Fin n)) :
-    ExtendedTube d n ⊆
-    {z | ∃ (Λ : ComplexLorentzGroup d) (w : Fin n → Fin (d + 1) → ℂ),
-      w ∈ PermutedForwardTube d n π ∧ z = complexLorentzAction Λ w} := by
-  intro z hz
-  obtain ⟨Λ, w, hw, rfl⟩ := Set.mem_iUnion.mp hz
-  -- w ∈ FT. Set w' = w ∘ π⁻¹. Then w' ∘ π = w ∈ FT, so w' ∈ PermutedForwardTube π.
-  refine ⟨Λ, fun k => w (π⁻¹ k), ?_, ?_⟩
-  · -- w' ∘ π ∈ FT: (fun k => w (π⁻¹ (π k))) = w
-    show (fun k => w (π⁻¹ (π k))) ∈ ForwardTube d n
-    have : (fun k => w (π⁻¹ (π k))) = w := by
-      ext k μ; show w (π⁻¹ (π k)) μ = w k μ
-      congr 1; change (π⁻¹ * π) k = k; simp
-    rw [this]; exact hw
-  · -- Λ · w' = Λ · (w ∘ π⁻¹), and we need to show this equals Λ · w.
-    -- But w' ≠ w in general! We need: Λ·(w∘π⁻¹) = Λ·w?
-    -- This is WRONG — permuting particle indices changes the configuration.
-    -- The correct approach uses Jost points (S8) to find overlap points.
-    sorry
+-- NOTE: extendedTube_subset_sector was removed because the statement is
+-- mathematically incorrect. Permuting particle indices changes the configuration
+-- (w ∘ π⁻¹ ≠ w in general), so ExtendedTube is NOT a subset of every sector.
+-- Adjacent sector overlap is established instead via Jost points (S8).
 
 private theorem adjacent_sectors_overlap (π : Equiv.Perm (Fin n))
     (i : Fin n) (hi : i.val + 1 < n) :

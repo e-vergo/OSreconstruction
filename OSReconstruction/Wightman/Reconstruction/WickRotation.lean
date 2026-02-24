@@ -831,7 +831,7 @@ private theorem W_analytic_continuous_boundary (Wfn : WightmanFunctions d) (n : 
   intro x
   exact continuous_boundary_forwardTube (d := d) (n := n)
     (Wfn.spectrum_condition n).choose_spec.1
-    ⟨Wfn.W n, (Wfn.spectrum_condition n).choose_spec.2⟩ x
+    ⟨Wfn.W n, Wfn.tempered n, (Wfn.spectrum_condition n).choose_spec.2⟩ x
 
 /-- The distributional boundary values of W_analytic and W_analytic composed with
     swap(i, i+1) agree when evaluated against test functions supported on configurations
@@ -2967,13 +2967,35 @@ theorem boundary_values_tempered
 Each Wightman axiom is derived from the corresponding OS axiom via analytic
 continuation. The helper lemmas below capture each derivation. -/
 
--- Abbreviation for the W_n extracted from boundary_values_tempered
+/-- The n-point Wightman distribution `W_n` extracted from `boundary_values_tempered`.
+
+    `boundary_values_tempered` returns `∃ W_n F_analytic, Continuous W_n ∧ IsLinearMap ℂ W_n ∧ ...`.
+    This definition extracts `W_n` via `.choose` (the first existential witness).
+
+    `W_n` is the tempered distributional boundary value of the analytically continued
+    function `F_analytic` on the forward tube. It is continuous (tempered) and linear,
+    and satisfies factorial growth bounds from the OS linear growth condition.
+
+    Note: `boundary_values_tempered` is currently sorry'd, so `bvt_W` and all downstream
+    properties extracted from it are logically contingent on that proof obligation. -/
 private def bvt_W (OS : OsterwalderSchraderAxioms d)
     (lgc : OSLinearGrowthCondition d OS) (n : ℕ) :
     SchwartzNPoint d n → ℂ :=
   (boundary_values_tempered OS lgc n).choose
 
--- Abbreviation for the F_analytic extracted from boundary_values_tempered
+/-- The holomorphic function `F_analytic` on the forward tube, extracted from
+    `boundary_values_tempered`.
+
+    `boundary_values_tempered` returns `∃ W_n F_analytic, ... ∧ DifferentiableOn ℂ F_analytic
+    (ForwardTube d n) ∧ ...`. This definition extracts `F_analytic` via
+    `.choose_spec.choose` (the second existential witness, nested inside the first).
+
+    `F_analytic` is holomorphic on `ForwardTube d n`, its distributional boundary values
+    recover `bvt_W` (the Wightman distribution), and its Euclidean restriction
+    (via Wick rotation) recovers the Schwinger functions `OS.S n`.
+
+    Note: `boundary_values_tempered` is currently sorry'd, so `bvt_F` and all downstream
+    properties extracted from it are logically contingent on that proof obligation. -/
 private def bvt_F (OS : OsterwalderSchraderAxioms d)
     (lgc : OSLinearGrowthCondition d OS) (n : ℕ) :
     (Fin n → Fin (d + 1) → ℂ) → ℂ :=

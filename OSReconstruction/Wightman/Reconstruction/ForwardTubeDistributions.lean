@@ -505,7 +505,7 @@ private theorem differentiableOn_flatten {n : ℕ} {d : ℕ} [NeZero d]
 theorem continuous_boundary_forwardTube {d n : ℕ} [NeZero d]
     {F : (Fin n → Fin (d + 1) → ℂ) → ℂ}
     (hF : DifferentiableOn ℂ F (ForwardTube d n))
-    (h_bv : ∃ (T : SchwartzNPoint d n → ℂ),
+    (h_bv : ∃ (T : SchwartzNPoint d n → ℂ), Continuous T ∧
       ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
         (∀ k, InOpenForwardCone d (η k)) →
         Filter.Tendsto
@@ -522,7 +522,7 @@ theorem continuous_boundary_forwardTube {d n : ℕ} [NeZero d]
   -- The boundary value condition transfers through the flattening
   -- Use SchwartzMap.compCLMOfContinuousLinearEquiv to compose Schwartz functions
   -- with the flattening equivalence
-  have hG_bv : ∃ (T : SchwartzMap (Fin (n * (d + 1)) → ℝ) ℂ → ℂ),
+  have hG_bv : ∃ (T : SchwartzMap (Fin (n * (d + 1)) → ℝ) ℂ → ℂ), Continuous T ∧
       ∀ (f : SchwartzMap (Fin (n * (d + 1)) → ℝ) ℂ) (η : Fin (n * (d + 1)) → ℝ),
         η ∈ ForwardConeFlat d n →
         Filter.Tendsto (fun ε : ℝ =>
@@ -530,13 +530,13 @@ theorem continuous_boundary_forwardTube {d n : ℕ} [NeZero d]
             G (fun i => ↑(x i) + ↑ε * ↑(η i) * Complex.I) * f x)
         (nhdsWithin 0 (Set.Ioi 0))
         (nhds (T f)) := by
-    obtain ⟨T, hT⟩ := h_bv
+    obtain ⟨T, hT_cont, hT⟩ := h_bv
     -- Pull back Schwartz functions through the real flattening
     let eR := flattenCLEquivReal n (d + 1)
     let pullback : SchwartzMap (Fin (n * (d + 1)) → ℝ) ℂ →L[ℂ]
         SchwartzMap (Fin n → Fin (d + 1) → ℝ) ℂ :=
       SchwartzMap.compCLMOfContinuousLinearEquiv ℂ eR
-    refine ⟨fun f => T (pullback f), fun f η hη => ?_⟩
+    refine ⟨fun f => T (pullback f), hT_cont.comp pullback.continuous, fun f η hη => ?_⟩
     -- η ∈ ForwardConeFlat = eR '' ForwardConeAbs, so η = eR η' for some η' ∈ ForwardConeAbs
     obtain ⟨η', hη', rfl⟩ := hη
     -- η' ∈ ForwardConeAbs implies each η'_k ∈ V₊, so hT applies
@@ -773,7 +773,7 @@ private theorem boundary_function_continuous {m : ℕ}
     {C : Set (Fin m → ℝ)} (hC : IsOpen C) (hconv : Convex ℝ C) (hne : C.Nonempty)
     (hcone : ∀ (t : ℝ), 0 < t → ∀ y ∈ C, t • y ∈ C)
     {F : (Fin m → ℂ) → ℂ} (hF : DifferentiableOn ℂ F (SCV.TubeDomain C))
-    (h_bv : ∃ (T : SchwartzMap (Fin m → ℝ) ℂ → ℂ),
+    (h_bv : ∃ (T : SchwartzMap (Fin m → ℝ) ℂ → ℂ), Continuous T ∧
       ∀ (f : SchwartzMap (Fin m → ℝ) ℂ) (η : Fin m → ℝ), η ∈ C →
         Filter.Tendsto (fun ε : ℝ =>
           ∫ x : Fin m → ℝ, F (fun i => ↑(x i) + ↑ε * ↑(η i) * Complex.I) * f x)
@@ -781,9 +781,9 @@ private theorem boundary_function_continuous {m : ℕ}
         (nhds (T f))) :
     Continuous (fun x => F (SCV.realEmbed x)) := by
   -- The Fourier-Laplace representation gives full continuity of the boundary function.
-  obtain ⟨T, hT⟩ := h_bv
+  obtain ⟨T, hT_cont, hT⟩ := h_bv
   exact SCV.fourierLaplace_boundary_continuous hC hconv hne hF
-    (SCV.exists_fourierLaplaceRepr hC hconv hne hF hT)
+    (SCV.exists_fourierLaplaceRepr hC hconv hne hF hT_cont hT)
 
 /-- **Polynomial growth from Schwartz distributional boundary values.**
 
@@ -803,7 +803,7 @@ private theorem polynomial_growth_from_schwartz_bv {m : ℕ}
     {C : Set (Fin m → ℝ)} (hC : IsOpen C) (hconv : Convex ℝ C) (hne : C.Nonempty)
     (hcone : ∀ (t : ℝ), 0 < t → ∀ y ∈ C, t • y ∈ C)
     {F : (Fin m → ℂ) → ℂ} (hF : DifferentiableOn ℂ F (SCV.TubeDomain C))
-    (h_bv : ∃ (T : SchwartzMap (Fin m → ℝ) ℂ → ℂ),
+    (h_bv : ∃ (T : SchwartzMap (Fin m → ℝ) ℂ → ℂ), Continuous T ∧
       ∀ (f : SchwartzMap (Fin m → ℝ) ℂ) (η : Fin m → ℝ), η ∈ C →
         Filter.Tendsto (fun ε : ℝ =>
           ∫ x : Fin m → ℝ, F (fun i => ↑(x i) + ↑ε * ↑(η i) * Complex.I) * f x)
@@ -813,15 +813,15 @@ private theorem polynomial_growth_from_schwartz_bv {m : ℕ}
     ∃ (C_bd : ℝ) (N : ℕ), C_bd > 0 ∧
       ∀ (x : Fin m → ℝ) (y : Fin m → ℝ), y ∈ K →
         ‖F (fun i => ↑(x i) + ↑(y i) * Complex.I)‖ ≤ C_bd * (1 + ‖x‖) ^ N := by
-  obtain ⟨T, hT⟩ := h_bv
+  obtain ⟨T, hT_cont, hT⟩ := h_bv
   exact SCV.fourierLaplace_polynomial_growth hC hconv hne hF
-    (SCV.exists_fourierLaplaceRepr hC hconv hne hF hT) K hK hK_sub
+    (SCV.exists_fourierLaplaceRepr hC hconv hne hF hT_cont hT) K hK hK_sub
 
 private theorem boundary_integral_convergence {m : ℕ}
     {C : Set (Fin m → ℝ)} (hC : IsOpen C) (hconv : Convex ℝ C) (hne : C.Nonempty)
     (hcone : ∀ (t : ℝ), 0 < t → ∀ y ∈ C, t • y ∈ C)
     {F : (Fin m → ℂ) → ℂ} (hF : DifferentiableOn ℂ F (SCV.TubeDomain C))
-    (h_bv : ∃ (T : SchwartzMap (Fin m → ℝ) ℂ → ℂ),
+    (h_bv : ∃ (T : SchwartzMap (Fin m → ℝ) ℂ → ℂ), Continuous T ∧
       ∀ (f : SchwartzMap (Fin m → ℝ) ℂ) (η : Fin m → ℝ), η ∈ C →
         Filter.Tendsto (fun ε : ℝ =>
           ∫ x : Fin m → ℝ, F (fun i => ↑(x i) + ↑ε * ↑(η i) * Complex.I) * f x)
@@ -876,9 +876,9 @@ private theorem boundary_integral_convergence {m : ℕ}
   -- Step 2: Use the Fourier-Laplace representation for dominated convergence.
   -- The representation gives both the boundary continuity and the growth bounds
   -- needed for the dominated convergence argument.
-  obtain ⟨T, hT⟩ := h_bv
+  obtain ⟨T, hT_cont, hT⟩ := h_bv
   let hRepr : SCV.HasFourierLaplaceRepr C F :=
-    SCV.exists_fourierLaplaceRepr hC hconv hne hF hT
+    SCV.exists_fourierLaplaceRepr hC hconv hne hF hT_cont hT
   -- The polynomial growth from the representation gives a dominating function.
   -- For ε ∈ (0, 1], εη ∈ C (by cone), and {εη : ε ∈ [1/2, 1]} is compact ⊆ C.
   -- Polynomial growth: |F(x+iy)| ≤ C_bd(1+‖x‖)^N for y in this compact set.
@@ -907,7 +907,7 @@ private theorem boundary_integral_convergence {m : ℕ}
 theorem schwartz_bv_to_flat_bv {d n : ℕ} [NeZero d]
     {F : (Fin n → Fin (d + 1) → ℂ) → ℂ}
     (hF : DifferentiableOn ℂ F (ForwardTube d n))
-    (h_bv : ∃ (T : SchwartzNPoint d n → ℂ),
+    (h_bv : ∃ (T : SchwartzNPoint d n → ℂ), Continuous T ∧
       ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
         (∀ k, InOpenForwardCone d (η k)) →
         Filter.Tendsto
@@ -932,7 +932,7 @@ theorem schwartz_bv_to_flat_bv {d n : ℕ} [NeZero d]
   have hG_diff : DifferentiableOn ℂ G (SCV.TubeDomain (ForwardConeFlat d n)) :=
     differentiableOn_flatten hF
   -- Step 2: Convert Schwartz BV from product to flat coordinates
-  have hG_bv : ∃ (T : SchwartzMap (Fin (n * (d + 1)) → ℝ) ℂ → ℂ),
+  have hG_bv : ∃ (T : SchwartzMap (Fin (n * (d + 1)) → ℝ) ℂ → ℂ), Continuous T ∧
       ∀ (f : SchwartzMap (Fin (n * (d + 1)) → ℝ) ℂ) (η : Fin (n * (d + 1)) → ℝ),
         η ∈ ForwardConeFlat d n →
         Filter.Tendsto (fun ε : ℝ =>
@@ -940,11 +940,11 @@ theorem schwartz_bv_to_flat_bv {d n : ℕ} [NeZero d]
             G (fun i => ↑(x i) + ↑ε * ↑(η i) * Complex.I) * f x)
         (nhdsWithin 0 (Set.Ioi 0))
         (nhds (T f)) := by
-    obtain ⟨T, hT⟩ := h_bv
+    obtain ⟨T, hT_cont, hT⟩ := h_bv
     let pullback : SchwartzMap (Fin (n * (d + 1)) → ℝ) ℂ →L[ℂ]
         SchwartzMap (Fin n → Fin (d + 1) → ℝ) ℂ :=
       SchwartzMap.compCLMOfContinuousLinearEquiv ℂ eR
-    refine ⟨fun f => T (pullback f), fun f η' hη' => ?_⟩
+    refine ⟨fun f => T (pullback f), hT_cont.comp pullback.continuous, fun f η' hη' => ?_⟩
     obtain ⟨η'', hη'', rfl⟩ := hη'
     have hη''_all := forwardConeAbs_implies_allForwardCone η'' hη''
     have hconv := hT (pullback f) η'' hη''_all
@@ -964,7 +964,7 @@ theorem schwartz_bv_to_flat_bv {d n : ℕ} [NeZero d]
         Equiv.symm_apply_apply]
     exact Filter.Tendsto.congr (fun ε => (heq ε).symm) hconv
   -- Step 3: Use boundary_value_recovery and continuous_boundary_tube
-  obtain ⟨T_schwartz, hT_schwartz⟩ := hG_bv
+  obtain ⟨T_schwartz, hT_schwartz_cont, hT_schwartz⟩ := hG_bv
   -- Define the boundary value function T(x) = G(realEmbed x)
   refine ⟨fun x => G (SCV.realEmbed x), ?_, ?_⟩
   · -- ContinuousOn T univ: the boundary function is continuous.
@@ -979,7 +979,7 @@ theorem schwartz_bv_to_flat_bv {d n : ℕ} [NeZero d]
     rw [continuousOn_univ]
     exact boundary_function_continuous (forwardConeFlat_isOpen d n)
       (forwardConeFlat_convex d n) (forwardConeFlat_nonempty d n)
-      (forwardConeFlat_isCone d n) hG_diff ⟨T_schwartz, hT_schwartz⟩
+      (forwardConeFlat_isCone d n) hG_diff ⟨T_schwartz, hT_schwartz_cont, hT_schwartz⟩
   · -- Convergence against integrable f:
     -- ∫ G(x+iεη)f(x)dx → ∫ G(realEmbed x)f(x)dx as ε → 0⁺
     -- Proof sketch:
@@ -988,6 +988,6 @@ theorem schwartz_bv_to_flat_bv {d n : ℕ} [NeZero d]
     -- 3. Dominated convergence theorem gives integral convergence
     exact boundary_integral_convergence (forwardConeFlat_isOpen d n)
       (forwardConeFlat_convex d n) (forwardConeFlat_nonempty d n)
-      (forwardConeFlat_isCone d n) hG_diff ⟨T_schwartz, hT_schwartz⟩ η hη
+      (forwardConeFlat_isCone d n) hG_diff ⟨T_schwartz, hT_schwartz_cont, hT_schwartz⟩ η hη
 
 end

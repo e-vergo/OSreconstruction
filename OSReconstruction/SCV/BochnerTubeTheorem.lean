@@ -170,8 +170,61 @@ theorem holomorphic_extension_from_local {m : ℕ}
   -- along chains of overlapping neighborhoods, consistency propagates.
   --
   -- This is the standard monodromy theorem / sheaf gluing for connected domains.
-  -- The formal proof requires careful handling of the chain argument.
-  sorry
+  -- Step 1: Choose local extensions at every point using Classical.choice
+  have hchoice : ∀ z ∈ D, ∃ (G : (Fin m → ℂ) → ℂ) (V : Set (Fin m → ℂ)),
+      IsOpen V ∧ z ∈ V ∧ V ⊆ D ∧ DifferentiableOn ℂ G V ∧ ∀ w ∈ U ∩ V, G w = f w :=
+    hlocal
+  -- Pick a specific local extension at each point of D
+  choose G V hV_open hV_mem hV_sub hG_diff hG_agree using hchoice
+  -- Step 2: Define f_ext(z) = G_z(z) for z ∈ D, 0 otherwise
+  classical
+  let f_ext : (Fin m → ℂ) → ℂ := fun z =>
+    if hz : z ∈ D then G z hz z else 0
+  -- Key consistency lemma: for z₁, z₂ ∈ D with w ∈ V z₁ ∩ V z₂,
+  -- G z₁ w = G z₂ w (by identity theorem: both agree with f on U)
+  --
+  -- Proof sketch (monodromy theorem): Since D is connected and open, any two
+  -- points z₁, z₂ ∈ D can be connected by a path in D. The path passes through
+  -- a chain of overlapping neighborhoods V_{p₁}, V_{p₂}, ..., V_{p_k} where
+  -- p₁ near z₁, p_k near z₂. At each overlap V_{pᵢ} ∩ V_{p_{i+1}}:
+  -- - G_{pᵢ} and G_{p_{i+1}} both agree with f on U ∩ V_{pᵢ} ∩ V_{p_{i+1}}
+  -- - If this triple intersection meets U, the identity theorem gives G_{pᵢ} = G_{p_{i+1}}
+  --   on the connected component of V_{pᵢ} ∩ V_{p_{i+1}} meeting U.
+  -- - The chain starting from U (where all G agree with f) propagates consistency
+  --   to every point of D.
+  --
+  -- The formal proof requires: path-connectedness of D (from connectedness + openness
+  -- in a locally path-connected space), compactness of the path image, finite subcover
+  -- by the V's, and iterated application of the identity theorem.
+  have h_consistency : ∀ (z₁ : Fin m → ℂ) (hz₁ : z₁ ∈ D) (z₂ : Fin m → ℂ) (hz₂ : z₂ ∈ D)
+      (w : Fin m → ℂ), w ∈ V z₁ hz₁ → w ∈ V z₂ hz₂ → G z₁ hz₁ w = G z₂ hz₂ w := by
+    -- The monodromy argument: chain consistency along paths in D.
+    -- Both G z₁ and G z₂ agree with f on U. Since D is connected and open,
+    -- path-connect z₁ to a point u ∈ U through D. Cover the path by finitely many V's.
+    -- At each step, two overlapping G's agree on U ∩ overlap (nonempty by path from U),
+    -- so the identity theorem forces agreement on each overlap.
+    sorry
+  refine ⟨f_ext, ?_, ?_⟩
+  · -- DifferentiableOn ℂ f_ext D
+    intro z hz
+    -- f_ext agrees with G z hz on V z hz (an open neighborhood of z)
+    have h_local_eq : ∀ w ∈ V z hz, f_ext w = G z hz w := by
+      intro w hw
+      simp only [f_ext, dif_pos (hV_sub z hz hw)]
+      exact h_consistency w (hV_sub z hz hw) z hz w (hV_mem w (hV_sub z hz hw)) hw
+    -- G z hz is differentiable on V z hz, and f_ext = G z hz on V z hz
+    -- So f_ext is differentiable on V z hz
+    have h_diff_V : DifferentiableWithinAt ℂ f_ext (V z hz) z :=
+      (hG_diff z hz z (hV_mem z hz)).congr (fun w hw => h_local_eq w hw)
+        (h_local_eq z (hV_mem z hz))
+    -- V z hz is open and z ∈ V z hz, so V z hz ∈ nhdsWithin z D
+    have hV_mem_nhds : V z hz ∈ nhdsWithin z D :=
+      nhdsWithin_le_nhds ((hV_open z hz).mem_nhds (hV_mem z hz))
+    exact h_diff_V.mono_of_mem_nhdsWithin hV_mem_nhds
+  · -- f_ext = f on U
+    intro z hz
+    simp only [f_ext, dif_pos (hU_sub hz)]
+    exact hG_agree z (hU_sub hz) z ⟨hz, hV_mem z (hU_sub hz)⟩
 
 /-- **Bochner's tube theorem**: If F is holomorphic on T(C) where C is an open
     nonempty set in R^m, then F extends to a holomorphic function on T(conv C). -/

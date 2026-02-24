@@ -5,7 +5,9 @@ Authors: ModularPhysics Contributors
 -/
 import Mathlib.Analysis.LocallyConvex.WithSeminorms
 import Mathlib.Analysis.Seminorm
+import Mathlib.Analysis.Convex.Gauge
 import Mathlib.Topology.Algebra.Module.LocallyConvex
+import Mathlib.Analysis.LocallyConvex.AbsConvex
 import OSReconstruction.Wightman.NuclearSpaces.NuclearOperator
 
 /-!
@@ -205,25 +207,67 @@ theorem finiteDimensional (V : Type*) [AddCommGroup V] [Module ℝ V]
               Finset.sum_congr rfl (fun i _ => hterm i)
           _ ≥ p x := hbound
 
-/-- Every continuous seminorm on a subspace is dominated by the restriction
-    of a continuous seminorm on the ambient space. This follows from the
-    subspace topology being the initial topology with respect to the inclusion.
+-- Every continuous seminorm on a subspace is dominated by the restriction
+-- of a continuous seminorm on the ambient space. This follows from the
+-- subspace topology being the initial topology with respect to the inclusion.
+--
+-- Mathematically: if E is a TVS and S ≤ E carries the subspace topology, then
+-- for any continuous seminorm p on S, there exists a continuous seminorm r on E
+-- such that p(s) ≤ r(ι(s)) for all s ∈ S. This is because the open ball
+-- {s | p(s) < 1} is open in S, hence contains a set of the form S ∩ U where
+-- U is open in E, and from U one extracts a continuous seminorm on E.
 
-    Mathematically: if E is a TVS and S ≤ E carries the subspace topology, then
-    for any continuous seminorm p on S, there exists a continuous seminorm r on E
-    such that p(s) ≤ r(ι(s)) for all s ∈ S. This is because the open ball
-    {s | p(s) < 1} is open in S, hence contains a set of the form S ∩ U where
-    U is open in E, and from U one extracts a continuous seminorm on E. -/
-theorem subspace_seminorm_dominated (E : Type*) [AddCommGroup E] [Module ℝ E]
+/-- Helper: Given a convex neighborhood W of 0 in E such that ι(S) ∩ W ⊆ {p < 1},
+    construct a continuous seminorm on E dominating p on S.
+
+    The proof requires finding a balanced convex subset of W (via nhds_basis_balanced),
+    constructing gaugeSeminorm from it, and proving the domination via a scaling argument.
+    Blocked by: gaugeSeminorm requires Balanced, and the scaling argument needs
+    gauge_lt_one_of_mem_interior + absorbent_nhds_zero. -/
+private lemma gauge_dominates_on_subspace_of_convex_nhd
+    {E : Type*} [AddCommGroup E] [Module ℝ E]
     [TopologicalSpace E] [IsTopologicalAddGroup E] [ContinuousSMul ℝ E]
-    (S : Submodule ℝ E) (p : Seminorm ℝ S) (hp : Continuous p) :
+    {S : Submodule ℝ E} (p : Seminorm ℝ S)
+    (W : Set E) (hW_conv : Convex ℝ W) (hW_nhd : W ∈ nhds (0 : E))
+    (hSW : ∀ s : S, S.subtype s ∈ W → p s < 1) :
     ∃ (r : Seminorm ℝ E), Continuous r ∧ ∀ s : S, p s ≤ r (S.subtype s) := by
   sorry
+
+theorem subspace_seminorm_dominated (E : Type*) [AddCommGroup E] [Module ℝ E]
+    [TopologicalSpace E] [IsTopologicalAddGroup E] [ContinuousSMul ℝ E]
+    [LocallyConvexSpace ℝ E]
+    (S : Submodule ℝ E) (p : Seminorm ℝ S) (hp : Continuous p) :
+    ∃ (r : Seminorm ℝ E), Continuous r ∧ ∀ s : S, p s ≤ r (S.subtype s) := by
+  -- Step 1: {s | p(s) < 1} is open in S (subspace topology)
+  have h1 : IsOpen { s : S | p s < 1 } := isOpen_lt hp continuous_const
+  -- Step 2: In the subspace topology, this open set is the preimage of an open set in E
+  rw [isOpen_induced_iff] at h1
+  obtain ⟨V, hV_open, hV_eq⟩ := h1
+  -- Step 3: 0 ∈ V (since p(0) = 0 < 1)
+  have h0V : (0 : E) ∈ V := by
+    have h0S : (0 : S) ∈ { s : S | p s < 1 } := by simp [map_zero]
+    have : (0 : S) ∈ Subtype.val ⁻¹' V := hV_eq ▸ h0S
+    simpa using this
+  -- Step 4: For s ∈ S with ι(s) ∈ V, p(s) < 1
+  have hVp : ∀ s : S, (s : E) ∈ V → p s < 1 := by
+    intro s hs
+    have : s ∈ Subtype.val ⁻¹' V := hs
+    rw [hV_eq] at this; exact this
+  -- Step 5: V is a neighborhood of 0 in E. Use the convex basis of LocallyConvexSpace
+  -- to find W convex with W ∈ nhds 0 and W ⊆ V.
+  have hV_nhd : V ∈ nhds (0 : E) := hV_open.mem_nhds h0V
+  -- The convex basis at 0 gives a convex set W ∈ nhds 0 with W ⊆ V
+  have hbasis := (@LocallyConvexSpace.convex_basis ℝ E _ _ _ _ _ ‹_› (0 : E)).mem_iff.mp hV_nhd
+  obtain ⟨W, ⟨hW_nhd, hW_conv⟩, hWV⟩ := hbasis
+  -- Step 6: Apply gauge construction helper
+  exact gauge_dominates_on_subspace_of_convex_nhd p W hW_conv hW_nhd
+    (fun s hs => hVp s (hWV hs))
 
 /-- A closed subspace of a nuclear space is nuclear. -/
 theorem subspace_nuclear (E : Type*) [AddCommGroup E] [Module ℝ E]
     [TopologicalSpace E] [IsTopologicalAddGroup E] [ContinuousSMul ℝ E]
-    [NuclearSpace E] (S : Submodule ℝ E) (_hclosed : IsClosed (S : Set E)) :
+    [NuclearSpace E] [LocallyConvexSpace ℝ E]
+    (S : Submodule ℝ E) (_hclosed : IsClosed (S : Set E)) :
     NuclearSpace S where
   nuclear_dominance p hp := by
     -- Step 1: p is dominated by a continuous seminorm on E restricted to S
