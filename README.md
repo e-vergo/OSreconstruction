@@ -32,9 +32,9 @@ This will fetch Mathlib and all dependencies automatically. The first build may 
 
 ## Project Status
 
-The project builds cleanly. The formalization uses 15 named axioms encoding textbook results from Vladimirov, Jost, Bochner, Osterwalder-Schrader, and Streater-Wightman; see [`PROGRESS_REPORT.md`](PROGRESS_REPORT.md) for the full list.
+The project builds without errors. The formalization uses 15 named axioms encoding textbook results from Vladimirov, Jost, Bochner, Osterwalder-Schrader, and Streater-Wightman; see [`PROGRESS_REPORT.md`](PROGRESS_REPORT.md) for the full list.
 
-Remaining work is tracked via `sorry` placeholders (~86 total across 27 files):
+Remaining work is tracked via `sorry` placeholders (~86 total across 27 files). The table below covers the major areas; the remaining ~37 sorries are distributed across smaller helper lemmas and infrastructure files not individually listed:
 
 | Area | Sorry-free highlights | Remaining `sorry`s |
 |------|----------------------|---------------------|
@@ -102,6 +102,15 @@ OSReconstruction/
 │   └── Connectedness.lean        # BHW theorem: extended tube, properties 1-5
 └── Reconstruction.lean           # Top-level reconstruction theorems
 ```
+
+### Getting Started
+
+Suggested entry points for new contributors:
+
+- **Core definitions**: Start with `Wightman/Basic.lean` for the foundational QFT types (Schwinger functions, Wightman distributions, spacetime structures).
+- **Self-contained module**: `SCV/` is entirely sorry-free and demonstrates the project's proof style in a well-bounded domain (several complex variables).
+- **Active proof work**: `vNA/ModularTheory.lean` and `vNA/KMS.lean` have the highest density of remaining sorries and are good targets for contribution.
+- **Top-level architecture**: `Reconstruction.lean` shows how all the pieces fit together.
 
 ## References
 
