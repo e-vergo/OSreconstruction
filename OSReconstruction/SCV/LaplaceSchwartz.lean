@@ -74,6 +74,8 @@ structure HasFourierLaplaceRepr {m : ℕ} (C : Set (Fin m → ℝ))
   dist : SchwartzMap (Fin m → ℝ) ℂ → ℂ
   /-- The distribution is continuous (tempered). -/
   dist_continuous : Continuous dist
+  /-- The distribution is linear. -/
+  dist_linear : IsLinearMap ℂ dist
   /-- The distributional boundary value: integrals of F against Schwartz functions
       converge to the distribution as we approach the real boundary. -/
   boundary_value : ∀ (f : SchwartzMap (Fin m → ℝ) ℂ) (η : Fin m → ℝ), η ∈ C →
@@ -405,6 +407,7 @@ def exists_fourierLaplaceRepr {m : ℕ}
     {F : (Fin m → ℂ) → ℂ} (_hF : DifferentiableOn ℂ F (TubeDomain C))
     {T : SchwartzMap (Fin m → ℝ) ℂ → ℂ}
     (hT_cont : Continuous T)
+    (hT_linear : IsLinearMap ℂ T)
     (h_bv : ∀ (f : SchwartzMap (Fin m → ℝ) ℂ) (η : Fin m → ℝ), η ∈ C →
       Filter.Tendsto (fun ε : ℝ =>
         ∫ x : Fin m → ℝ, F (fun i => ↑(x i) + ↑ε * ↑(η i) * I) * f x)
@@ -414,6 +417,7 @@ def exists_fourierLaplaceRepr {m : ℕ}
   exact {
     dist := T
     dist_continuous := hT_cont
+    dist_linear := hT_linear
     boundary_value := h_bv
   }
 

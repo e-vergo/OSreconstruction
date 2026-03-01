@@ -11,7 +11,7 @@ import Mathlib.Analysis.Distribution.SchwartzSpace.Deriv
 # Paley-Wiener-Schwartz Theorem
 
 This file develops the Paley-Wiener-Schwartz theorem and its consequences for
-holomorphic extension of distributions with one-sided Fourier support.
+holomorphic extension of distributions with one-sided support.
 
 ## Main results
 
@@ -27,7 +27,7 @@ holomorphic extension of distributions with one-sided Fourier support.
 
 * `paley_wiener_one_step` -- Technical lemma for inductive analytic continuation:
   given a function on a tube whose distributional boundary value has one-sided
-  Fourier support in one variable, extend holomorphicity by one variable.
+  support in one variable, extend holomorphicity by one variable.
 
 ## Mathematical Background
 
@@ -46,7 +46,7 @@ is holomorphic on the tube domain T(C) = R^m + iC, with at most polynomial growt
 as Im(z) approaches the boundary of C.
 
 The converse also holds: any holomorphic function on T(C) with polynomial growth
-is the Fourier-Laplace transform of a tempered distribution with Fourier support in C*.
+is the Fourier-Laplace transform of a tempered distribution with support in C*.
 
 ## Application
 
@@ -71,45 +71,46 @@ open Complex MeasureTheory Topology Metric Set Filter
 
 namespace SCV
 
-/-! ### Fourier support for tempered distributions
+/-! ### Support conditions for tempered distributions
 
-We formalize the notion of Fourier support for tempered distributions (continuous
-linear functionals on Schwartz space). The Fourier transform of T in S'(R^m) is
-defined by duality: (FT)(phi) = T(F(phi)) for phi in S(R^m).
+We formalize support conditions for tempered distributions (continuous linear
+functionals on Schwartz space).
 
-We say supp(FT) subset S if T(F(phi)) = 0 whenever supp(phi) is disjoint from S.
+`HasOneSidedSupport T` means T(phi) = 0 whenever supp(phi) subset (-inf, 0).
+This is a condition on the support of the distribution T itself: supp(T) subset [0, inf).
 
-Note: The Fourier transform on Schwartz space `SchwartzMap.fourierTransformCLM`
-is available in Mathlib for inner product spaces. For `Fin m -> R` with the
-standard Euclidean structure, this gives the m-dimensional Fourier transform.
-However, to avoid type-class issues with `Fin m -> R` vs `EuclideanSpace R (Fin m)`,
-we express Fourier support purely in terms of the distribution T and avoid
-explicit use of the Fourier transform operator in the definitions.
+`HasSupportIn T S` means T(phi) = 0 whenever supp(phi) is disjoint from S.
+This is the condition supp(T) subset S.
+
+These support conditions are the hypotheses for the Paley-Wiener theorem:
+distributions with support in a cone C* have holomorphic Fourier-Laplace
+transforms on the tube domain T(C).
 -/
 
 /-- A tempered distribution T (a continuous linear functional on Schwartz space)
-    has **one-sided Fourier support** (in the half-line [0, infinity)) if
-    T annihilates all Schwartz functions whose Fourier transform is supported
-    in (-infinity, 0).
+    has **one-sided support** (in the half-line [0, infinity)) if T annihilates
+    all Schwartz functions supported in (-infinity, 0).
 
-    Equivalently (by Fourier duality): for any test function phi whose support
-    is contained in (-infinity, 0), the distributional pairing <FT, phi> = 0.
+    Concretely: for any test function phi with supp(phi) subset (-infinity, 0),
+    T(phi) = 0. This is a condition on the support of the distribution T itself,
+    not on its Fourier transform.
 
-    We express this operationally: for any Schwartz function phi supported on
-    the negative reals, the integral int F(x) * phi(x) dx = 0 (where F is
-    the continuous function representing T near the boundary).
-
-    This is the key hypothesis for the Paley-Wiener theorem. -/
-def HasOneSidedFourierSupport (T : SchwartzMap ℝ ℂ → ℂ)  : Prop :=
+    This is the key hypothesis for the Paley-Wiener theorem: distributions
+    supported on the positive half-line have holomorphic Fourier-Laplace
+    transforms in the upper half-plane. -/
+def HasOneSidedSupport (T : SchwartzMap ℝ ℂ → ℂ)  : Prop :=
   ∀ (φ : SchwartzMap ℝ ℂ),
     (∀ x ∈ Function.support (φ : ℝ → ℂ), x < 0) →
     T φ = 0
 
-/-- A tempered distribution T on R^m has **Fourier support in a closed set S**
-    if T annihilates all Schwartz functions whose support is disjoint from S.
+/-- A tempered distribution T on R^m has **support in a closed set S** if T
+    annihilates all Schwartz functions whose support is disjoint from S.
+
+    Concretely: T(phi) = 0 whenever supp(phi) ∩ S = emptyset. This is a
+    condition on the support of the distribution T, not on its Fourier transform.
 
     For the Paley-Wiener theorem, S will be the dual cone C*. -/
-def HasFourierSupportIn {m : ℕ} (T : SchwartzMap (Fin m → ℝ) ℂ → ℂ)
+def HasSupportIn {m : ℕ} (T : SchwartzMap (Fin m → ℝ) ℂ → ℂ)
     (S : Set (Fin m → ℝ)) : Prop :=
   ∀ (φ : SchwartzMap (Fin m → ℝ) ℂ),
     (∀ x ∈ Function.support (φ : (Fin m → ℝ) → ℂ), x ∉ S) →
@@ -120,7 +121,7 @@ def HasFourierSupportIn {m : ℕ} (T : SchwartzMap (Fin m → ℝ) ℂ → ℂ)
 
     For an open convex cone C, the dual cone C* is a closed convex cone
     containing 0. The Paley-Wiener theorem states that tempered distributions
-    with Fourier support in C* correspond to holomorphic functions on the
+    with support in C* correspond to holomorphic functions on the
     tube domain T(C) with polynomial growth. -/
 def dualCone {m : ℕ} (C : Set (Fin m → ℝ)) : Set (Fin m → ℝ) :=
   { ξ | ∀ y ∈ C, ∑ i : Fin m, ξ i * y i ≥ 0 }
@@ -178,7 +179,7 @@ theorem upperHalfPlane_isOpen : IsOpen upperHalfPlane :=
 /-- **Paley-Wiener theorem for the half-line (1D).**
 
     If T in S'(R) is a continuous linear functional on Schwartz space with
-    Fourier support in [0, infinity) (meaning: T(phi) = 0 whenever
+    support in [0, infinity) (meaning: T(phi) = 0 whenever
     supp(phi) subset (-infinity, 0)), then the Fourier-Laplace transform
     z -> T(e^{-iz .}) extends holomorphically to the upper half-plane Im(z) > 0.
 
@@ -195,13 +196,13 @@ theorem upperHalfPlane_isOpen : IsOpen upperHalfPlane :=
 
     Sorry blocked by: Fourier-Laplace representation for tempered distributions,
     differentiation under the distribution pairing, and the connection between
-    Fourier support and exponential decay.
+    support and exponential decay.
 
     Ref: Reed-Simon II, Theorem IX.16; Hormander, Theorem 7.4.3 -/
 theorem paley_wiener_half_line
     (T : SchwartzMap ℝ ℂ → ℂ)
     (hT_lin : IsLinearMap ℝ T) (hT_cont : Continuous T)
-    (hT_supp : HasOneSidedFourierSupport T) :
+    (hT_supp : HasOneSidedSupport T) :
     ∃ (F : ℂ → ℂ),
       DifferentiableOn ℂ F upperHalfPlane ∧
       -- F has polynomial growth on approach to the real axis
@@ -218,7 +219,7 @@ theorem paley_wiener_half_line
 
 /-- **Paley-Wiener theorem for cones (multi-dimensional).**
 
-    If T in S'(R^m) has Fourier support in the dual cone C* of an open convex
+    If T in S'(R^m) has support in the dual cone C* of an open convex
     cone C subset R^m, then the Fourier-Laplace transform extends holomorphically
     to the tube domain T(C) = R^m + iC.
 
@@ -238,7 +239,7 @@ theorem paley_wiener_cone {m : ℕ}
     (hcone : ∀ (t : ℝ), 0 < t → ∀ y ∈ C, t • y ∈ C)
     (T : SchwartzMap (Fin m → ℝ) ℂ → ℂ)
     (hT_lin : IsLinearMap ℝ T) (hT_cont : Continuous T)
-    (hT_supp : HasFourierSupportIn T (dualCone C)) :
+    (hT_supp : HasSupportIn T (dualCone C)) :
     ∃ (F : (Fin m → ℂ) → ℂ),
       DifferentiableOn ℂ F (TubeDomain C) ∧
       HasPolynomialGrowthOnTube C F ∧
@@ -286,7 +287,7 @@ theorem paley_wiener_converse {m : ℕ}
         ∫ x : Fin m → ℝ, F (fun i => ↑(x i) + ↑ε * ↑(η i) * I) * φ x)
       (nhdsWithin 0 (Ioi 0))
       (nhds (T φ))) :
-    HasFourierSupportIn T (dualCone C) := by
+    HasSupportIn T (dualCone C) := by
   sorry
 
 /-! ### One-step extension: the key technical lemma for inductive continuation -/
@@ -310,7 +311,7 @@ theorem paley_wiener_converse {m : ℕ}
     Joint holomorphicity then follows from Osgood's lemma (separate holomorphicity
     in each variable implies joint holomorphicity for locally bounded functions).
 
-    Physical interpretation: The one-sided Fourier support comes from the
+    Physical interpretation: The one-sided support comes from the
     positivity of the Hamiltonian (spectral condition). The polynomial growth
     comes from the E0' linear growth condition. Together they allow extending
     analyticity from Euclidean to Minkowski one variable at a time.
@@ -324,7 +325,7 @@ theorem paley_wiener_one_step {m : ℕ}
     -- F is holomorphic on T(C) (m complex variables)
     (F : (Fin m → ℂ) → ℂ)
     (hF : DifferentiableOn ℂ F (TubeDomain C))
-    -- The r-th variable has one-sided Fourier support
+    -- The r-th variable has one-sided support
     (r : Fin m)
     -- For each fixed z' (the other m-1 variables in T(C)), the function
     -- x_r -> F(z'_1, ..., x_r, ..., z'_m) has distributional BV in x_r
@@ -368,7 +369,7 @@ theorem paley_wiener_one_step_simple
     (f : ℝ → ℂ) (hf_cont : Continuous f)
     -- Polynomial growth
     (hf_growth : HasPolynomialGrowthOnLine f)
-    -- One-sided Fourier support: for test functions supported on (-inf, 0),
+    -- One-sided support: for test functions supported on (-inf, 0),
     -- the distributional pairing vanishes
     (h_spectral : ∀ (φ : SchwartzMap ℝ ℂ),
       (∀ x ∈ Function.support (φ : ℝ → ℂ), x < 0) →

@@ -831,7 +831,7 @@ private theorem W_analytic_continuous_boundary (Wfn : WightmanFunctions d) (n : 
   intro x
   exact continuous_boundary_forwardTube (d := d) (n := n)
     (Wfn.spectrum_condition n).choose_spec.1
-    ⟨Wfn.W n, Wfn.tempered n, (Wfn.spectrum_condition n).choose_spec.2⟩ x
+    ⟨Wfn.W n, Wfn.tempered n, Wfn.linear n, (Wfn.spectrum_condition n).choose_spec.2⟩ x
 
 /-- The distributional boundary values of W_analytic and W_analytic composed with
     swap(i, i+1) agree when evaluated against test functions supported on configurations

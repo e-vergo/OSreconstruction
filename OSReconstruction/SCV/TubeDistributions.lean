@@ -98,7 +98,7 @@ namespace SCV
 theorem continuous_boundary_tube {m : ℕ}
     {C : Set (Fin m → ℝ)} (hC : IsOpen C) (hconv : Convex ℝ C) (hne : C.Nonempty)
     {F : (Fin m → ℂ) → ℂ} (hF : DifferentiableOn ℂ F (TubeDomain C))
-    (h_bv : ∃ (T : SchwartzMap (Fin m → ℝ) ℂ → ℂ), Continuous T ∧
+    (h_bv : ∃ (T : SchwartzMap (Fin m → ℝ) ℂ → ℂ), Continuous T ∧ IsLinearMap ℂ T ∧
       ∀ (f : SchwartzMap (Fin m → ℝ) ℂ) (η : Fin m → ℝ), η ∈ C →
         Filter.Tendsto (fun ε : ℝ =>
           ∫ x : Fin m → ℝ, F (fun i => ↑(x i) + ↑ε * ↑(η i) * I) * f x)
@@ -107,10 +107,10 @@ theorem continuous_boundary_tube {m : ℕ}
     (x : Fin m → ℝ) :
     ContinuousWithinAt F (TubeDomain C) (realEmbed x) := by
   -- Extract the tempered distribution from the BV hypothesis
-  obtain ⟨T, hT_cont, hT⟩ := h_bv
+  obtain ⟨T, hT_cont, hT_linear, hT⟩ := h_bv
   -- Build the Fourier-Laplace representation
   have hRepr : HasFourierLaplaceRepr C F :=
-    exists_fourierLaplaceRepr hC hconv hne hF hT_cont hT
+    exists_fourierLaplaceRepr hC hconv hne hF hT_cont hT_linear hT
   -- Apply the core Fourier-Laplace continuous boundary result
   exact fourierLaplace_continuousWithinAt hC hconv hne hF hRepr x
 
@@ -132,6 +132,7 @@ theorem boundary_value_recovery {m : ℕ}
     {F : (Fin m → ℂ) → ℂ} (hF : DifferentiableOn ℂ F (TubeDomain C))
     {T : SchwartzMap (Fin m → ℝ) ℂ → ℂ}
     (hT_cont : Continuous T)
+    (hT_linear : IsLinearMap ℂ T)
     (h_bv : ∀ (f : SchwartzMap (Fin m → ℝ) ℂ) (η : Fin m → ℝ), η ∈ C →
       Filter.Tendsto (fun ε : ℝ =>
         ∫ x : Fin m → ℝ, F (fun i => ↑(x i) + ↑ε * ↑(η i) * I) * f x)
@@ -141,7 +142,7 @@ theorem boundary_value_recovery {m : ℕ}
     T f = ∫ x : Fin m → ℝ, F (realEmbed x) * f x := by
   -- Build the Fourier-Laplace representation from the BV data
   let hRepr : HasFourierLaplaceRepr C F :=
-    exists_fourierLaplaceRepr hC hconv hne hF hT_cont h_bv
+    exists_fourierLaplaceRepr hC hconv hne hF hT_cont hT_linear h_bv
   -- hRepr.dist = T by construction, so the result follows directly
   exact fourierLaplace_boundary_recovery hC hconv hne hcone hF hRepr f
 
@@ -175,12 +176,18 @@ theorem boundary_value_zero {m : ℕ}
   have hint : ∀ f : SchwartzMap (Fin m → ℝ) ℂ,
       ∫ x : Fin m → ℝ, F (realEmbed x) * f x = 0 := by
     intro f
-    have h := boundary_value_recovery hC hconv hne hcone hF continuous_const h_bv f
+    have hzero_linear : IsLinearMap ℂ (fun _ : SchwartzMap (Fin m → ℝ) ℂ => (0 : ℂ)) :=
+      { map_add := fun _ _ => by simp
+        map_smul := fun _ _ => by simp }
+    have h := boundary_value_recovery hC hconv hne hcone hF continuous_const hzero_linear h_bv f
     simp at h
     exact h.symm
   -- Step 3: Build Fourier-Laplace representation to get continuity
+  have hzero_linear : IsLinearMap ℂ (fun _ : SchwartzMap (Fin m → ℝ) ℂ => (0 : ℂ)) :=
+    { map_add := fun _ _ => by simp
+      map_smul := fun _ _ => by simp }
   let hRepr : HasFourierLaplaceRepr C F :=
-    exists_fourierLaplaceRepr hC hconv hne hF continuous_const h_bv
+    exists_fourierLaplaceRepr hC hconv hne hF continuous_const hzero_linear h_bv
   have hcont : Continuous (fun x : Fin m → ℝ => F (realEmbed x)) :=
     fourierLaplace_boundary_continuous hC hconv hne hF hRepr
   -- Step 4: Apply fundamental lemma: continuous + integrates to 0 against all Schwartz => 0
@@ -220,13 +227,15 @@ theorem distributional_uniqueness_tube {m : ℕ}
   set G := fun z => F₁ z - F₂ z with hG_def
   have hG_diff : DifferentiableOn ℂ G (TubeDomain C) := hF₁.sub hF₂
   -- Package the distributional BV = 0 for continuous_boundary_tube
-  have hG_bv : ∃ (T : SchwartzMap (Fin m → ℝ) ℂ → ℂ), Continuous T ∧
+  have hG_bv : ∃ (T : SchwartzMap (Fin m → ℝ) ℂ → ℂ), Continuous T ∧ IsLinearMap ℂ T ∧
       ∀ (f : SchwartzMap (Fin m → ℝ) ℂ) (η : Fin m → ℝ), η ∈ C →
         Filter.Tendsto (fun ε : ℝ =>
           ∫ x : Fin m → ℝ, G (fun i => ↑(x i) + ↑ε * ↑(η i) * I) * f x)
         (nhdsWithin 0 (Set.Ioi 0))
         (nhds (T f)) := by
-    refine ⟨0, continuous_const, fun f η hη => ?_⟩
+    refine ⟨0, continuous_const,
+      { map_add := fun _ _ => by simp, map_smul := fun _ _ => by simp },
+      fun f η hη => ?_⟩
     simp only [Pi.zero_apply]
     -- The integrand G(x+iεη) * f(x) = (F₁ - F₂)(x+iεη) * f(x)
     exact h_agree f η hη
